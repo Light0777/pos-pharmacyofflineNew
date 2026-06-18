@@ -5,6 +5,7 @@ export interface Staff {
   name: string;
   email: string;
   role: string;
+  security_question?: string;
   created_at: string;
 }
 
@@ -18,6 +19,8 @@ export async function createStaff(data: {
   email: string;
   password: string;
   role: string;
+  security_question?: string;
+  security_answer?: string;
 }): Promise<Staff> {
   return await apiPost("/staff", data);
 }
@@ -25,7 +28,7 @@ export async function createStaff(data: {
 // ✏️ UPDATE
 export async function updateStaff(
   uuid: string,
-  data: Partial<Staff> & { password?: string }
+  data: Partial<Staff> & { password?: string; security_answer?: string }
 ): Promise<Staff> {
   return await apiPut(`/staff/${uuid}`, data);
 }

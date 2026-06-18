@@ -5,7 +5,7 @@ const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 const MONTHS_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
-export default function SimpleDatePicker({ date, onSelect, disableFuture = true }: { date: Date; onSelect: (d: Date) => void; disableFuture?: boolean }) {
+export default function SimpleDatePicker({ date, onSelect, disableFuture = true }: { date?: Date; onSelect: (d: Date) => void; disableFuture?: boolean }) {
   const [viewMonth, setViewMonth] = useState(new Date());
   const [showMonthOverlay, setShowMonthOverlay] = useState(false);
   const [showYearOverlay, setShowYearOverlay] = useState(false);

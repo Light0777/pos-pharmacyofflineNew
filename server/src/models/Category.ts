@@ -7,12 +7,20 @@ export interface Category {
   category_uuid: string;
   name: string;
   parent_uuid?: string;
+  description?: string;
   created_at: string;
 }
 
 export interface CategoryCreateInput {
   name: string;
   parent_uuid?: string;
+  description?: string;
+}
+
+export interface CategoryUpdateInput {
+  name?: string;
+  parent_uuid?: string;
+  description?: string;
 }
 
 export class CategoryModel {
@@ -28,14 +36,16 @@ export class CategoryModel {
       INSERT INTO categories (
         category_uuid,
         name,
-        parent_uuid
-      ) VALUES (?, ?, ?)
+        parent_uuid,
+        description
+      ) VALUES (?, ?, ?, ?)
     `);
 
     stmt.run(
       uuid,
       input.name,
-      input.parent_uuid || null
+      input.parent_uuid || null,
+      input.description || null
     );
 
     return this.findById(uuid)!;
@@ -70,6 +80,22 @@ export class CategoryModel {
   // DELETE
   static delete(uuid: string): boolean {
 
+    const children = db.prepare(`
+      SELECT COUNT(*) as count FROM categories WHERE parent_uuid = ?
+    `).get(uuid) as { count: number };
+
+    if (children.count > 0) {
+      throw new Error('Cannot delete category: it has sub-categories. Remove or re-parent them first.');
+    }
+
+    db.prepare(`
+      DELETE FROM category_attributes WHERE category_uuid = ?
+    `).run(uuid);
+
+    db.prepare(`
+      UPDATE product_templates SET category_uuid = NULL WHERE category_uuid = ?
+    `).run(uuid);
+
     const stmt = db.prepare(`
       DELETE FROM categories
       WHERE category_uuid = ?
@@ -78,6 +104,32 @@ export class CategoryModel {
     const result = stmt.run(uuid);
 
     return result.changes > 0;
+  }
+
+  // UPDATE
+  static update(
+    uuid: string,
+    input: CategoryUpdateInput
+  ): Category | undefined {
+
+    const existing = this.findById(uuid);
+    if (!existing) return undefined;
+
+    const name = input.name ?? existing.name;
+    const parent_uuid = input.parent_uuid !== undefined ? input.parent_uuid : existing.parent_uuid;
+    const description = input.description !== undefined ? input.description : existing.description;
+
+    const stmt = db.prepare(`
+      UPDATE categories
+      SET name = ?,
+          parent_uuid = ?,
+          description = ?
+      WHERE category_uuid = ?
+    `);
+
+    stmt.run(name, parent_uuid || null, description || null, uuid);
+
+    return this.findById(uuid);
   }
 
   static findByName(

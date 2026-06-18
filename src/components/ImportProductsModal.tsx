@@ -1,7 +1,13 @@
 import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { IonIcon } from "@ionic/react";
-import { cloudUploadOutline, closeOutline, checkmarkCircleOutline, warningOutline, documentOutline } from "ionicons/icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  CloudUploadIcon,
+  Cancel01Icon,
+  CheckmarkCircle01Icon,
+  Alert01Icon,
+  File01Icon,
+} from "@hugeicons/core-free-icons";
 import { previewMigration, confirmMigration } from "../renderer/services/productApi";
 
 // For XLSX parsing — install: npm install xlsx
@@ -82,7 +88,7 @@ export default function ImportProductsModal({ onClose, onImported }: { onClose: 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[calc(100vw-2rem)] sm:max-w-xl lg:max-w-3xl max-h-[90vh] flex flex-col">
 
         {/* Header */}
         <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-6 text-white rounded-t-2xl flex justify-between items-center flex-shrink-0">
@@ -95,7 +101,7 @@ export default function ImportProductsModal({ onClose, onImported }: { onClose: 
             </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition">
-            <IonIcon icon={closeOutline} className="text-2xl" />
+            <HugeiconsIcon icon={Cancel01Icon} className="text-2xl"  />
           </button>
         </div>
 
@@ -135,7 +141,7 @@ export default function ImportProductsModal({ onClose, onImported }: { onClose: 
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
               >
-                <IonIcon icon={cloudUploadOutline} className="text-5xl text-gray-400 mb-3" />
+                <HugeiconsIcon icon={CloudUploadIcon} className="text-5xl text-gray-400 mb-3"  />
                 <p className="font-semibold text-gray-600">{t('importProducts.dropZoneText')}</p>
                 <p className="text-sm text-gray-400 mt-1">{t('importProducts.supportedFormats')}</p>
                 <input ref={fileRef} type="file" accept=".xml,.csv,.xlsx,.xls" className="hidden"
@@ -171,8 +177,8 @@ export default function ImportProductsModal({ onClose, onImported }: { onClose: 
               </div>
 
               {/* Preview table */}
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="border border-gray-200 rounded-xl overflow-x-auto overflow-y-hidden">
+                <table className="w-full text-sm" style={{ minWidth: 600 }}>
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="text-left p-3 font-semibold text-gray-600">{t('importProducts.tableName')}</th>
@@ -209,7 +215,7 @@ export default function ImportProductsModal({ onClose, onImported }: { onClose: 
           {/* Step 3: Done */}
           {step === 'done' && result && (
             <div className="text-center py-8 space-y-4">
-              <IonIcon icon={checkmarkCircleOutline} className="text-6xl text-green-500" />
+              <HugeiconsIcon icon={CheckmarkCircle01Icon} className="text-6xl text-green-500"  />
               <h3 className="text-2xl font-bold text-gray-800">{t('importProducts.successTitle')}</h3>
               <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
                 <div className="bg-green-50 rounded-xl p-4">

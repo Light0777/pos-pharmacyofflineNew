@@ -12,6 +12,11 @@ export class CategoryAttributeModel {
     is_required: boolean = false,
     sort_order: number = 0
   ) {
+    const remove = db.prepare(`
+      DELETE FROM category_attributes
+      WHERE category_uuid = ? AND attribute_uuid = ?
+    `);
+    remove.run(category_uuid, attribute_uuid);
 
     const stmt = db.prepare(`
       INSERT INTO category_attributes (

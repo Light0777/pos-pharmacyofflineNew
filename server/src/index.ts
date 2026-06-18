@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { runMigrations } from './database/migrations/001_initial';
+import { runMigration as runSecurityQuestionsMigration } from './database/migrations/002_security_questions';
 import printingRoutes from './routes/printing';
 
 // Import routes
@@ -21,9 +22,6 @@ import productUnitRoutes from './routes/productUnits';
 import productBatchRoutes from './routes/productBatches';
 
 import { LicenseService } from './services/licenseService';
-
-import productTemplateRoutes
-  from './routes/productTemplateRoutes';
 
 import { scheduleAutoBackup, checkDbIntegrity } from './database/backup';
 
@@ -60,6 +58,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Run database migrations
 runMigrations();
+runSecurityQuestionsMigration();
 
 const licensed = LicenseService.isLicensed();
 if (!licensed) {
@@ -71,15 +70,6 @@ if (!licensed) {
 }
 
 // After startServer():
-startServer().then(() => {
-  // Check DB integrity on startup
-  const isHealthy = checkDbIntegrity();
-  if (!isHealthy) {
-    console.error('⚠️ DB integrity check failed on startup!');
-  }
-  // Start auto backup schedule
-  scheduleAutoBackup();
-});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -139,11 +129,6 @@ app.use(
   auditLogRoutes
 );
 
-app.use(
-  '/api/product-templates',
-  productTemplateRoutes
-);
-
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -192,10 +177,18 @@ const isElectron = process.env.ELECTRON_RUNNING === 'true';
 // 1. Not in Electron (Electron will call startServer manually)
 // 2. It's the main module
 // if (isMainModule) {
-startServer().catch((error) => {
-  console.error('Failed to start server:', error);
-  process.exit(1);
-});
+startServer()
+  .then(() => {
+    const isHealthy = checkDbIntegrity();
+    if (!isHealthy) {
+      console.error('⚠️ DB integrity check failed on startup!');
+    }
+    scheduleAutoBackup();
+  })
+  .catch((error) => {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  });
 // }
 
 export default app;

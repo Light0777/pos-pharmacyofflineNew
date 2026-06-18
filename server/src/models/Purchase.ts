@@ -24,10 +24,12 @@ export class PurchaseModel {
 
   static create(data: {
     supplier_uuid?: string;
+    invoice_number?: string;
+    invoice_date?: string;
     items: Array<{
       product_uuid: string;
       batch_number: string;
-      unit_uuid: string;
+      unit_uuid?: string;
       expiry_date: string;
       manufacture_date?: string;
       quantity: number;
@@ -38,6 +40,7 @@ export class PurchaseModel {
       cost_price: number;
       selling_price?: number;
       gst_percent?: number;
+      discount?: number;
     }>;
   }): PurchaseWithRelations {
 
@@ -57,15 +60,21 @@ export class PurchaseModel {
 
           purchase_uuid,
           total,
-          supplier_uuid
+          supplier_uuid,
+          invoice_number,
+          invoice_date
 
-        ) VALUES (?, 0, ?)
+        ) VALUES (?, 0, ?, ?, ?)
 
       `).run(
 
         purchaseUuid,
 
-        data.supplier_uuid || null
+        data.supplier_uuid || null,
+
+        data.invoice_number || null,
+
+        data.invoice_date || null
       );
 
       // =========================
@@ -104,11 +113,12 @@ export class PurchaseModel {
 
           selling_price,
 
-          gst_percent
+          gst_percent,
+          discount
 
         ) VALUES (
 
-          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 
         )
 
@@ -170,60 +180,36 @@ export class PurchaseModel {
         }
 
         // =========================
-        // VALIDATE UNIT
+        // RESOLVE UNIT
         // =========================
 
-        console.log('ITEM:', item);
+        let conversionFactor = 1;
+        let unitUuid: string | null = null;
 
-        const allUnits = db.prepare(`
+        if (item.unit_uuid) {
+          const unit = db.prepare(`
 
-          SELECT *
-          FROM product_units
+            SELECT
+              unit_uuid,
+              conversion_factor
+            FROM product_units
+            WHERE unit_uuid = ?
+              AND product_uuid = ?
 
-        `).all();
+          `).get(
+            item.unit_uuid,
+            item.product_uuid
+          ) as any;
 
-        console.log('ALL UNITS:', allUnits);
-
-        const unit = db.prepare(`
-
-          SELECT
-
-            unit_uuid,
-            product_uuid,
-            unit_name,
-            conversion_factor,
-            is_base_unit
-
-          FROM product_units
-
-          WHERE unit_uuid = ?
-            AND product_uuid = ?
-
-        `).get(
-
-          item.unit_uuid,
-          item.product_uuid
-
-        ) as any;
-
-        console.log('FOUND UNIT:', unit);
-
-        if (!unit) {
-
-          throw new Error(
-
-            `Invalid unit for ${item.product_uuid}`
-
-          );
+          if (unit) {
+            conversionFactor = Number(unit.conversion_factor || 1);
+            unitUuid = item.unit_uuid;
+          }
         }
 
         // =========================
         // CALCULATE QUANTITIES
         // =========================
-
-        const conversionFactor =
-
-          Number(unit.conversion_factor || 1);
 
         const normalizedQuantity =
 
@@ -257,6 +243,10 @@ export class PurchaseModel {
 
           Number(item.rate || 0);
 
+        const discount =
+
+          Number(item.discount || 0);
+
         // =========================
         // INSERT PURCHASE ITEM
         // =========================
@@ -275,7 +265,7 @@ export class PurchaseModel {
 
           Number(item.quantity),
 
-          item.unit_uuid,
+          unitUuid,
 
           normalizedQuantity,
 
@@ -291,7 +281,9 @@ export class PurchaseModel {
 
           sellingPrice,
 
-          gstPercent
+          gstPercent,
+
+          discount
         );
 
         // =========================
@@ -362,8 +354,8 @@ export class PurchaseModel {
 
         total +=
 
-          normalizedQuantity *
-          costPrice;
+          (normalizedQuantity * costPrice) -
+          discount;
       }
 
       // =========================
@@ -514,6 +506,12 @@ export class PurchaseModel {
         gst_percent:
           item.gst_percent,
 
+        unit_uuid:
+          item.unit_uuid,
+
+        discount:
+          item.discount ?? 0,
+
         created_at:
           item.created_at,
 
@@ -625,69 +623,47 @@ export class PurchaseModel {
   static update(
     uuid: string,
     data: {
-
       supplier_uuid?: string;
-
       total?: number;
+      invoice_number?: string;
+      invoice_date?: string;
+      discount?: number;
     }
-
   ): Purchase | undefined {
+    const purchase = this.findById(uuid);
+    if (!purchase) return undefined;
 
-    const purchase =
-      this.findById(uuid);
+    const updateFields: string[] = [];
+    const values: any[] = [];
 
-    if (!purchase) {
-      return undefined;
+    if (data.supplier_uuid !== undefined) {
+      updateFields.push('supplier_uuid = ?');
+      values.push(data.supplier_uuid);
     }
-
-    const updateFields:
-      string[] = [];
-
-    const values:
-      any[] = [];
-
-    if (
-      data.supplier_uuid !== undefined
-    ) {
-
-      updateFields.push(
-        'supplier_uuid = ?'
-      );
-
-      values.push(
-        data.supplier_uuid
-      );
+    if (data.total !== undefined) {
+      updateFields.push('total = ?');
+      values.push(data.total);
     }
-
-    if (
-      data.total !== undefined
-    ) {
-
-      updateFields.push(
-        'total = ?'
-      );
-
-      values.push(
-        data.total
-      );
+    if (data.invoice_number !== undefined) {
+      updateFields.push('invoice_number = ?');
+      values.push(data.invoice_number);
+    }
+    if (data.invoice_date !== undefined) {
+      updateFields.push('invoice_date = ?');
+      values.push(data.invoice_date);
+    }
+    if (data.discount !== undefined) {
+      updateFields.push('discount = ?');
+      values.push(data.discount);
     }
 
     if (updateFields.length > 0) {
-
-      updateFields.push(
-        'updated_at = CURRENT_TIMESTAMP'
-      );
-
+      updateFields.push('updated_at = CURRENT_TIMESTAMP');
       values.push(uuid);
-
       db.prepare(`
-
         UPDATE purchases
-
         SET ${updateFields.join(', ')}
-
         WHERE purchase_uuid = ?
-
       `).run(...values);
     }
 

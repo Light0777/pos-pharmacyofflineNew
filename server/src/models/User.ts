@@ -7,17 +7,24 @@ export class UserModel {
   // ==================== Basic CRUD Operations ====================
 
   // Create user
-  // Create user
   static create(user: Omit<User, 'created_at' | 'updated_at'>): User {
     const uuid = user.user_uuid || uuidv4();
 
     const stmt = db.prepare(`
-    INSERT INTO users (user_uuid, name, email, password, role)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO users (user_uuid, name, email, password, role, security_question, security_answer)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
-    // Use password directly without re-hashing
-    stmt.run(uuid, user.name, user.email, user.password, user.role);
+    stmt.run(
+      uuid,
+      user.name,
+      user.email,
+      user.password,
+      user.role,
+      user.security_question || null,
+      user.security_answer || null
+    );
+
 
     return this.findByEmail(user.email)!;
   }
@@ -34,12 +41,12 @@ export class UserModel {
     return stmt.get(uuid) as User | undefined;
   }
 
-  // Get all users (safe - without passwords)
-  static findAll(): Omit<User, 'password'>[] {
+  // Get all users (safe - without passwords or security_answer)
+  static findAll(): Omit<User, 'password' | 'security_answer'>[] {
     const stmt = db.prepare(
-      'SELECT user_uuid, name, email, role, created_at, updated_at FROM users ORDER BY created_at DESC'
+      'SELECT user_uuid, name, email, role, security_question, created_at, updated_at FROM users ORDER BY created_at DESC'
     );
-    return stmt.all() as Omit<User, 'password'>[];
+    return stmt.all() as Omit<User, 'password' | 'security_answer'>[];
   }
 
   // Update user
@@ -80,9 +87,9 @@ export class UserModel {
     return result.changes > 0;
   }
 
-  // Convert user to safe user (remove password)
-  static toSafeUser(user: User): Omit<User, 'password'> {
-    const { password, ...safeUser } = user;
+  // Convert user to safe user (remove password and security_answer)
+  static toSafeUser(user: User): Omit<User, 'password' | 'security_answer'> {
+    const { password, security_answer, ...safeUser } = user;
     return safeUser;
   }
 
@@ -94,6 +101,8 @@ export class UserModel {
     email: string;
     password: string;
     role: 'manager' | 'cashier';
+    security_question?: string;
+    security_answer?: string;
   }): User {
     // Validate role
     if (!['manager', 'cashier'].includes(data.role)) {
@@ -108,13 +117,16 @@ export class UserModel {
 
     const uuid = uuidv4();
     const hashedPassword = bcrypt.hashSync(data.password, 10);
+    const hashedAnswer = data.security_answer
+      ? bcrypt.hashSync(data.security_answer.toLowerCase().trim(), 10)
+      : null;
 
     const stmt = db.prepare(`
-      INSERT INTO users (user_uuid, name, email, password, role)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO users (user_uuid, name, email, password, role, security_question, security_answer)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(uuid, data.name, data.email, hashedPassword, data.role);
+    stmt.run(uuid, data.name, data.email, hashedPassword, data.role, data.security_question || null, hashedAnswer);
 
     return this.findById(uuid)!;
   }
@@ -134,6 +146,8 @@ export class UserModel {
     email?: string;
     password?: string;
     role?: 'manager' | 'cashier';
+    security_question?: string;
+    security_answer?: string;
   }): User | undefined {
     const user = this.findById(uuid);
     if (!user) return undefined;
@@ -175,6 +189,15 @@ export class UserModel {
     if (data.role !== undefined) {
       updateFields.push('role = ?');
       values.push(data.role);
+    }
+    if (data.security_question !== undefined) {
+      updateFields.push('security_question = ?');
+      values.push(data.security_question);
+    }
+    if (data.security_answer !== undefined && data.security_answer.length > 0) {
+      const hashedAnswer = bcrypt.hashSync(data.security_answer.toLowerCase().trim(), 10);
+      updateFields.push('security_answer = ?');
+      values.push(hashedAnswer);
     }
 
     if (updateFields.length > 0) {
@@ -281,5 +304,42 @@ export class UserModel {
       ORDER BY name ASC
       LIMIT 20
     `).all(`%${query}%`, `%${query}%`) as Omit<User, 'password'>[];
+  }
+
+  // ==================== Security Question Methods ====================
+
+  // Get security question for a user by email
+  static getSecurityQuestion(email: string): string | null {
+    const user = db.prepare(`
+      SELECT security_question FROM users WHERE email = ?
+    `).get(email) as { security_question: string } | undefined;
+    return user?.security_question || null;
+  }
+
+  // Verify security answer for a user
+  static verifySecurityAnswer(email: string, answer: string): boolean {
+    const user = db.prepare(`
+      SELECT security_answer FROM users WHERE email = ?
+    `).get(email) as { security_answer: string } | undefined;
+    if (!user?.security_answer) return false;
+    return bcrypt.compareSync(answer.toLowerCase().trim(), user.security_answer);
+  }
+
+  // Set security question for a user
+  static setSecurityQuestion(uuid: string, question: string, answer: string): boolean {
+    const hashedAnswer = bcrypt.hashSync(answer.toLowerCase().trim(), 10);
+    const result = db.prepare(`
+      UPDATE users SET security_question = ?, security_answer = ?, updated_at = CURRENT_TIMESTAMP WHERE user_uuid = ?
+    `).run(question, hashedAnswer, uuid);
+    return result.changes > 0;
+  }
+
+  // Reset password by email
+  static resetPassword(email: string, newPassword: string): boolean {
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    const result = db.prepare(`
+      UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?
+    `).run(hashedPassword, email);
+    return result.changes > 0;
   }
 }

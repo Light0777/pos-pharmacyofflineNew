@@ -1,6 +1,9 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import SimpleDatePicker from "../../components/SimpleDatePicker";
 import {
   getProducts,
   createProduct,
@@ -10,49 +13,18 @@ import {
   createProductUnit,
   deleteProductUnit,
   getProductBatches,
+  createProductBatch,
+  updateProductBatch,
+  deleteBatch,
   quarantineExpiredBatches,
-  getProductTemplates,
-  getProductTemplate,
-  createProductTemplate,
+  searchBatches,
 } from "../../renderer/services/productApi";
-import { IonIcon } from "@ionic/react";
-import {
-  addOutline,
-  trashOutline,
-  searchOutline,
-  closeOutline,
-  cubeOutline,
-  checkmarkCircleOutline,
-  warningOutline,
-  pricetagOutline,
-  addCircleOutline,
-  chevronDownOutline,
-  chevronForwardOutline,
-  medkitOutline,
-  flaskOutline,
-  businessOutline,
-  locationOutline,
-  shieldCheckmarkOutline,
-  layersOutline,
-  tabletPortraitOutline,
-  beakerOutline,
-  syncOutline,
-  cartOutline,
-  pulseOutline,
-  leafOutline,
-  calendarOutline,
-} from "ionicons/icons";
-import PrintLabelsModal from "../../components/PrintLabelsModal";
-import { createPortal } from "react-dom";
-import {
-  getCategories,
-  getCategoryAttributes,
-  createCategory,
-} from "../../renderer/services/categoryApi";
-import SimpleDatePicker from "../../components/SimpleDatePicker";
-import { CalendarIcon } from "lucide-react";
+import { getSuppliers, createSupplier } from "../../renderer/services/supplierApi";
+import type { Supplier } from "../../renderer/services/supplierApi";
+import { createPurchase, getPurchases, updatePurchase } from "../../renderer/services/purchaseApi";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { InformationCircleIcon } from "@hugeicons/core-free-icons";
 
-// shadcn/ui components
 import { Button } from "@/components/ui/button";
 import {
   Select as ShadSelect,
@@ -72,6 +44,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface Product {
+  medicine_type: React.ReactNode | Iterable<React.ReactNode>;
   product_uuid: string;
   name: string;
   price: number;
@@ -83,72 +56,54 @@ interface Product {
   hsn_code?: string;
   manufacturer?: string;
   composition?: string;
+  description?: string;
   schedule_type?: string;
   prescription_required?: number;
-  medicine_type?: string;
   rack_location?: string;
   category_uuid?: string;
   image?: string;
+  discount?: number;
 }
 
-interface PackageLevel {
-  name: string;
-  contains: number;
-  unit: string;
-  price?: number;
-  purchase_price?: number;
-  barcode?: string;
-}
-
-interface WizardData {
-  productType: string;
+interface BulkRow {
+  uuid: string;
   name: string;
   composition: string;
+  description: string;
   manufacturer: string;
-  barcode: string;
-  hsnCode: string;
-  gst: number;
-  rackLocation: string;
-  strength: string;
-  dosageForm: string;
-  prescriptionRequired: boolean;
-  storageCondition: string;
-  flavor: string;
-  bottleSize: string;
-  sugarFree: boolean;
-  baseUnit: string;
-  packages: PackageLevel[];
-  category_uuid: string;
+  price: string;
+  purchase_price: string;
+  discount: string;
+  gst_percent: string;
   schedule_type: string;
-  medicine_type: string;
-  image: string;
+  hsn_code: string;
+  barcode: string;
+  sku: string;
+  rack_location: string;
+  category_uuid: string;
+  prescription_required: boolean;
+  unit: string;
+  batch_number: string;
+  quantity: string;
+  manufacture_date: string;
+  expiry_date: string;
+  supplier_name: string;
+  invoice_number: string;
+  invoice_date: string;
+  purchase_discount: string;
+  manual_subtotal: string | null;
 }
 
-interface ProductType {
+interface BatchRow {
   id: string;
-  label: string;
-  icon: string;
-  description: string;
-  medicineDetails: string[];
-  defaultPackaging: {
-    baseUnit: string;
-    templates: { name: string; contains: number; unit: string }[];
-  };
-  defaults: {
-    gst: number;
-    storage?: string;
-    prescriptionRequired?: boolean;
-  };
+  batch_uuid?: string;
+  batch_number: string;
+  quantity: string;
+  manufacture_date: string;
+  expiry_date: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────
-const PHARMACY_UNITS = [
-  "Strip", "Tablet", "Capsule", "Box", "Bottle",
-  "Vial", "Sachet", "Tube", "Injection", "Syrup",
-  "Cream", "Ointment", "Drops", "Inhaler", "Patch",
-  "piece", "pack", "kg", "g", "litre", "ml",
-];
-
 const GST_OPTIONS = [
   { value: "0", label: "0% (Tax Exempt)" },
   { value: "5", label: "5% (Low Rate)" },
@@ -165,11 +120,29 @@ const SCHEDULE_TYPES = [
   { value: "G", label: "Schedule G" },
 ];
 
-const MEDICINE_TYPES = [
-  "Tablet", "Capsule", "Syrup", "Injection", "Drops",
-  "Cream", "Ointment", "Gel", "Inhaler", "Patch",
-  "Powder", "Granules", "Suppository", "Lozenge",
+const CATEGORY_OPTIONS = [
+  { uuid: "cat-drug",      name: "Drug" },
+  { uuid: "cat-generic",   name: "Generic" },
+  { uuid: "cat-otc",       name: "OTC" },
+  { uuid: "cat-nutra",     name: "Nutraceutical" },
+  { uuid: "cat-ayurvedic", name: "Ayurvedic" },
+  { uuid: "cat-surgical",  name: "Surgical" },
+  { uuid: "cat-fmcg",      name: "FMCG" },
+  { uuid: "cat-cosmetic",  name: "Cosmetic" },
 ];
+
+const CATEGORY_DEFAULTS: Record<string, { schedule: string; prescription: boolean }> = {
+  "cat-drug":      { schedule: "H",    prescription: true },
+  "cat-generic":   { schedule: "H",    prescription: true },
+  "cat-otc":       { schedule: "NONE", prescription: false },
+  "cat-nutra":     { schedule: "NONE", prescription: false },
+  "cat-ayurvedic": { schedule: "NONE", prescription: false },
+  "cat-surgical":  { schedule: "NONE", prescription: false },
+  "cat-fmcg":      { schedule: "NONE", prescription: false },
+  "cat-cosmetic":  { schedule: "NONE", prescription: false },
+};
+
+const UNIT_OPTIONS = ["Tablet", "Capsule", "Piece", "g", "ml"];
 
 const EMPTY_FORM = {
   name: "",
@@ -177,154 +150,26 @@ const EMPTY_FORM = {
   purchase_price: "",
   sku: "",
   barcode: "",
-  gst_percent: "0",
+  gst_percent: "12",
   hsn_code: "",
-  unit: "Strip",
+  unit: "Tablet",
   image: "",
   category_uuid: "",
   manufacturer: "",
   composition: "",
+  description: "",
   schedule_type: "NONE",
   prescription_required: false,
-  medicine_type: "Tablet",
   rack_location: "",
-  product_type: "medicine",
-};
-
-const PRODUCT_TYPES: ProductType[] = [
-  {
-    id: "tablet",
-    label: "Tablet",
-    icon: "tablet-portrait",
-    description: "Solid oral medicine",
-    medicineDetails: ["strength", "dosage_form", "prescription_required", "storage_condition"],
-    defaultPackaging: {
-      baseUnit: "Tablet",
-      templates: [
-        { name: "Strip", contains: 15, unit: "Tablet" },
-        { name: "Box", contains: 20, unit: "Strip" },
-      ],
-    },
-    defaults: { gst: 12, storage: "Room Temperature", prescriptionRequired: false },
-  },
-  {
-    id: "syrup",
-    label: "Syrup",
-    icon: "beaker",
-    description: "Liquid oral medicine",
-    medicineDetails: ["flavor", "bottle_size", "storage_condition", "sugar_free"],
-    defaultPackaging: { baseUnit: "Bottle", templates: [] },
-    defaults: { gst: 12, storage: "Room Temperature" },
-  },
-  {
-    id: "injection",
-    label: "Injection",
-    icon: "sync",
-    description: "Injectable medicine",
-    medicineDetails: ["strength", "storage_condition", "prescription_required"],
-    defaultPackaging: { baseUnit: "Vial", templates: [{ name: "Ampoule", contains: 1, unit: "Vial" }] },
-    defaults: { gst: 12, prescriptionRequired: true },
-  },
-  {
-    id: "fmcg",
-    label: "FMCG",
-    icon: "cart",
-    description: "Fast-moving consumer goods",
-    medicineDetails: [],
-    defaultPackaging: { baseUnit: "Piece", templates: [] },
-    defaults: { gst: 18 },
-  },
-  {
-    id: "device",
-    label: "Device",
-    icon: "pulse",
-    description: "Medical device",
-    medicineDetails: [],
-    defaultPackaging: { baseUnit: "Unit", templates: [] },
-    defaults: { gst: 12 },
-  },
-  {
-    id: "ayurvedic",
-    label: "Ayurvedic",
-    icon: "leaf",
-    description: "Herbal/Ayurvedic",
-    medicineDetails: ["dosage_form", "storage_condition"],
-    defaultPackaging: { baseUnit: "Bottle", templates: [] },
-    defaults: { gst: 12 },
-  },
-];
-
-const defaultWizardData: WizardData = {
-  productType: "tablet",
-  name: "",
-  composition: "",
-  manufacturer: "",
-  barcode: "",
-  hsnCode: "",
-  gst: 12,
-  rackLocation: "",
-  strength: "",
-  dosageForm: "Tablet",
-  prescriptionRequired: false,
-  storageCondition: "Room Temperature",
-  flavor: "",
-  bottleSize: "",
-  sugarFree: false,
-  baseUnit: "",
-  packages: [],
-  category_uuid: "",
-  schedule_type: "NONE",
-  medicine_type: "Tablet",
-  image: "",
-};
-
-// ─── Helper Functions ─────────────────────────────────────────────────────
-function buildTree(categories: any[]): any[] {
-  const map: Record<string, any> = {};
-  const roots: any[] = [];
-  for (const cat of categories) {
-    map[cat.category_uuid] = { ...cat, children: [] };
-  }
-  for (const cat of categories) {
-    if (cat.parent_uuid && map[cat.parent_uuid]) {
-      map[cat.parent_uuid].children.push(map[cat.category_uuid]);
-    } else {
-      roots.push(map[cat.category_uuid]);
-    }
-  }
-  return roots;
-}
-
-const getIconForType = (iconName: string): string => {
-  const icons: Record<string, string> = {
-    "tablet-portrait": tabletPortraitOutline,
-    beaker: beakerOutline,
-    sync: syncOutline,
-    cart: cartOutline,
-    pulse: pulseOutline,
-    leaf: leafOutline,
-  };
-  return icons[iconName] || cubeOutline;
-};
-
-const TEMPLATE_NAME_ICONS: Record<string, string> = {
-  tablet: tabletPortraitOutline,
-  capsule: medkitOutline,
-  syrup: beakerOutline,
-  injection: syncOutline,
-  fmcg: cartOutline,
-  device: pulseOutline,
-  ayurvedic: leafOutline,
-  cream: flaskOutline,
-  ointment: flaskOutline,
-  drops: flaskOutline,
-  inhaler: medkitOutline,
-  powder: flaskOutline,
-};
-
-const getIconForTemplateName = (name: string): string => {
-  const key = name.toLowerCase().trim();
-  return TEMPLATE_NAME_ICONS[key] || cubeOutline;
+  discount: "",
+  batch_number: "",
+  manufacture_date: "",
+  expiry_date: "",
+  quantity: "",
+  supplier_uuid: "",
+  invoice_number: "",
+  invoice_date: "",
+  purchase_discount: "",
 };
 
 // ─── Reusable UI Components ───────────────────────────────────────────────
@@ -407,7 +252,7 @@ const Select = ({ value, onChange, options, placeholder }: any) => {
 const Input = ({ label, required, prefix, ...props }: any) => (
   <div>
     {label && (
-      <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">
+      <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide text-left">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </label>
     )}
@@ -415,7 +260,8 @@ const Input = ({ label, required, prefix, ...props }: any) => (
       {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">{prefix}</span>}
       <input
         {...props}
-        className={`w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all hover:border-slate-300 ${prefix ? "pl-7" : ""} ${props.className || ""}`}
+        className={`w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all hover:border-slate-300 ${prefix ? "pl-7" : ""} ${props.className || ""} [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+        style={props.type === "number" ? { MozAppearance: "textfield" } : undefined}
       />
     </div>
   </div>
@@ -438,275 +284,59 @@ const Toggle = ({ checked, onChange, label }: any) => (
 );
 
 
-
-const WizardSteps = ({ current, steps }: { current: number; steps: string[] }) => (
-  <div className="flex items-center gap-0 mb-8">
-    {steps.map((s, i) => (
-      <div key={i} className="flex items-center flex-1 last:flex-none">
-        <div className="flex flex-col items-center gap-1">
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${i < current
-              ? "bg-emerald-500 text-white"
-              : i === current
-                ? "bg-emerald-600 text-white ring-4 ring-emerald-100"
-                : "bg-slate-100 text-slate-400"
-              }`}
-          >
-            {i < current ? (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            ) : i + 1}
-          </div>
-          <span className={`text-[10px] font-medium whitespace-nowrap ${i === current ? "text-emerald-600" : "text-slate-400"}`}>{s}</span>
-        </div>
-        {i < steps.length - 1 && (
-          <div className={`flex-1 h-px mx-2 mb-5 transition-colors ${i < current ? "bg-emerald-400" : "bg-slate-200"}`} />
-        )}
-      </div>
-    ))}
-  </div>
-);
-
-// ─── Enhanced Category Tree Picker ────────────────────────────────────────
-const CategoryTreePicker = ({ value, onChange, categories, onCreateNew, placeholder }: any) => {
+// ─── Reusable Dropdown ────────────────────────────────────────────────────
+const Dropdown = ({ label, options, value, onChange, placeholder }: { label: string; options: { value: string; label: string }[]; value: string; onChange: (v: string) => void; placeholder?: string }) => {
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [selectedName, setSelectedName] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const tree = buildTree(categories);
-  const filteredFlat = search.trim()
-    ? categories.filter((c: any) => c.name.toLowerCase().includes(search.toLowerCase()))
-    : null;
-
-  useEffect(() => {
-    const found = categories.find((c: any) => c.category_uuid === value);
-    setSelectedName(found?.name || "");
-  }, [value, categories]);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find((o) => o.value === value);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch("");
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSelect = (uuid: string, name: string) => {
-    onChange(uuid);
-    setSelectedName(name);
-    setOpen(false);
-    setSearch("");
-  };
-
-  const handleCreateNew = async () => {
-    const name = search.trim();
-    if (!name) return;
-    const created = await onCreateNew(name);
-    onChange(created.category_uuid);
-    setSelectedName(created.name);
-    setOpen(false);
-    setSearch("");
-  };
-
-  const showCreateOption = search.trim() && !categories.some((c: any) => c.name.toLowerCase() === search.trim().toLowerCase());
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 hover:border-slate-300 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-      >
-        <span className={selectedName ? "text-slate-800" : "text-slate-400"}>{selectedName || placeholder}</span>
-        <svg className={`w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {open && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-64 flex flex-col">
-          <div className="p-2 border-b border-slate-100">
-            <input
-              autoFocus
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search categories…"
-              className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400"
-            />
-          </div>
-          <div className="overflow-y-auto flex-1">
-            {filteredFlat ? (
-              filteredFlat.length > 0 ? (
-                filteredFlat.map((cat: any) => (
-                  <div
-                    key={cat.category_uuid}
-                    onClick={() => handleSelect(cat.category_uuid, cat.name)}
-                    className={`px-3 py-2 text-sm cursor-pointer transition-colors ${cat.category_uuid === value ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700 hover:bg-slate-50"
-                      }`}
-                  >
-                    {cat.name}
-                    {cat.parent_uuid && (
-                      <span className="text-xs text-slate-400 ml-2">
-                        ({categories.find((c: any) => c.category_uuid === cat.parent_uuid)?.name})
-                      </span>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p className="px-3 py-3 text-xs text-slate-400 text-center">No categories found</p>
-              )
-            ) : tree.length > 0 ? (
-              tree.map((node: any) => (
-                <CategoryTreeNode
-                  key={node.category_uuid}
-                  node={node}
-                  depth={0}
-                  selectedUuid={value}
-                  onSelect={handleSelect}
-                />
-              ))
-            ) : (
-              <p className="px-3 py-3 text-xs text-slate-400 text-center">No categories yet</p>
-            )}
-          </div>
-          {showCreateOption && (
-            <button
-              type="button"
-              onClick={handleCreateNew}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 border-t border-slate-100 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Create "{search.trim()}"
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const CategoryTreeNode = ({ node, depth, selectedUuid, onSelect }: any) => {
-  const [expanded, setExpanded] = useState(false);
-  const hasChildren = node.children?.length > 0;
-  const isSelected = node.category_uuid === selectedUuid;
   return (
     <div>
-      <div
-        className={`flex items-center gap-1 px-3 py-2 text-sm cursor-pointer transition-colors ${isSelected ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700 hover:bg-slate-50"
-          }`}
-        style={{ paddingLeft: `${12 + depth * 16}px` }}
-        onClick={() => onSelect(node.category_uuid, node.name)}
-      >
-        {hasChildren ? (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-            className="text-slate-400 hover:text-slate-600"
-          >
-            <svg className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        ) : (
-          <span className="w-3 inline-block" />
-        )}
-        <span>{node.name}</span>
-      </div>
-      {expanded && hasChildren && (
-        <div>
-          {node.children.map((child: any) => (
-            <CategoryTreeNode key={child.category_uuid} node={child} depth={depth + 1} selectedUuid={selectedUuid} onSelect={onSelect} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Packaging Manager ────────────────────────────────────────────────────
-const PackagingManager = ({ baseUnit, packages, onAddPackage, onUpdatePackage, onRemovePackage, onBaseUnitChange }: any) => (
-  <div className="space-y-4">
-    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-      <label className="block text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Base Unit</label>
-      <input
-        type="text"
-        className="w-full border border-blue-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-        value={baseUnit}
-        onChange={(e) => onBaseUnitChange(e.target.value)}
-        placeholder="e.g. Tablet, Capsule, ml"
-      />
-      <p className="text-xs text-blue-600/70 mt-1.5">Smallest sellable unit — all stock is tracked in this unit</p>
-    </div>
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-slate-700">Pack Sizes</span>
+      <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{label}</label>
+      <div className="relative" ref={ref}>
         <button
           type="button"
-          onClick={onAddPackage}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+          onClick={() => setOpen(!open)}
+          className="w-full flex h-10 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 hover:border-slate-300 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          <span className={selected ? "text-slate-800" : "text-slate-400"}>{selected?.label || placeholder || "Select\u2026"}</span>
+          <svg className={`w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
-          Add Pack
         </button>
+        {open && (
+          <ul className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-52 overflow-y-auto">
+            {options.map((opt) => (
+              <li
+                key={opt.value}
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+                className={`px-3 py-2.5 text-sm cursor-pointer transition-colors ${opt.value === value ? "bg-emerald-50 text-emerald-700 font-medium" : "text-slate-700 hover:bg-slate-50"}`}
+              >
+                {opt.label}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      {packages.length === 0 ? (
-        <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center">
-          <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-          </div>
-          <p className="text-sm text-slate-500 font-medium">No pack sizes defined</p>
-          <p className="text-xs text-slate-400 mt-0.5">Add packaging like Strip, Box, or Bottle</p>
-        </div>
-      ) : (
-        <div className="space-y-2.5">
-          {packages.map((pkg: PackageLevel, idx: number) => (
-            <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <Input label="Pack Name" value={pkg.name} onChange={(e: any) => onUpdatePackage(idx, "name", e.target.value)} placeholder="e.g. Strip, Box" />
-                <Input label={`Contains (${baseUnit}s)`} type="number" min={1} value={pkg.contains} onChange={(e: any) => onUpdatePackage(idx, "contains", Number(e.target.value))} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="MRP (₹)" type="number" prefix="₹" value={pkg.price || ""} onChange={(e: any) => onUpdatePackage(idx, "price", Number(e.target.value))} placeholder="0.00" />
-                <Input label="PTR (₹)" type="number" prefix="₹" value={pkg.purchase_price || ""} onChange={(e: any) => onUpdatePackage(idx, "purchase_price", Number(e.target.value))} placeholder="0.00" />
-              </div>
-              <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-200">
-                <span className="text-xs text-slate-400">1 {pkg.name || "pack"} = {pkg.contains} {baseUnit}{pkg.contains !== 1 ? "s" : ""}</span>
-                <button type="button" onClick={() => onRemovePackage(idx)} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 transition-colors">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Remove
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
-    <div className="flex gap-2.5 bg-amber-50 border border-amber-100 rounded-xl p-3.5">
-      <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      <p className="text-xs text-amber-700">Stock is always tracked in base units. Pack sizes define how items are purchased or sold in bulk.</p>
-    </div>
-  </div>
-);
+  );
+};
 
 // ─── Main Products Component ──────────────────────────────────────────────
 export default function Products() {
   const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
+  const [editingBatchUuid, setEditingBatchUuid] = useState<string | null>(null);
+  const [editingPurchaseUuid, setEditingPurchaseUuid] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [stockFilter, setStockFilter] = useState<"all" | "in" | "low" | "out">("all");
   const [showForm, setShowForm] = useState(false);
@@ -714,14 +344,24 @@ export default function Products() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [missClickToast, setMissClickToast] = useState(false);
   const [showPrintLabels, setShowPrintLabels] = useState(false);
+  const [mfgShowPicker, setMfgShowPicker] = useState(false);
+  const [expiryShowPicker, setExpiryShowPicker] = useState(false);
+  const [mfgPickPos, setMfgPickPos] = useState({ top: 0, right: 0 });
+  const [expiryPickPos, setExpiryPickPos] = useState({ top: 0, right: 0 });
+  const mfgBtnRef = useRef<HTMLButtonElement>(null);
+  const expiryBtnRef = useRef<HTMLButtonElement>(null);
+  const [invoiceShowPicker, setInvoiceShowPicker] = useState(false);
+  const invoiceBtnRef = useRef<HTMLButtonElement>(null);
+  const [invoicePickPos, setInvoicePickPos] = useState({ top: 0, right: 0 });
+  const [filterFromShowPicker, setFilterFromShowPicker] = useState(false);
+  const [filterToShowPicker, setFilterToShowPicker] = useState(false);
+  const [filterFromPickPos, setFilterFromPickPos] = useState({ top: 0, right: 0 });
+  const [filterToPickPos, setFilterToPickPos] = useState({ top: 0, right: 0 });
+  const filterFromBtnRef = useRef<HTMLButtonElement>(null);
+  const filterToBtnRef = useRef<HTMLButtonElement>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
-  const [showWizard, setShowWizard] = useState(false);
-  const [wizardStep, setWizardStep] = useState(0);
-  const [wizardData, setWizardData] = useState<WizardData>({ ...defaultWizardData });
-  const [categories, setCategories] = useState<any[]>([]);
-  const [categoryAttributes, setCategoryAttributes] = useState<any[]>([]);
-  const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
   const [units, setUnits] = useState<any[]>([]);
   const [unitForm, setUnitForm] = useState({
     unit_name: "",
@@ -732,30 +372,40 @@ export default function Products() {
     is_base_unit: false,
   });
   const [showUnitForm, setShowUnitForm] = useState(false);
-  const [unitsMasterList, setUnitsMasterList] = useState<string[]>(PHARMACY_UNITS);
   const [batchInfo, setBatchInfo] = useState<Record<string, any>>({});
   const [loadingBatchInfo, setLoadingBatchInfo] = useState<Record<string, boolean>>({});
+  const [batchModalProduct, setBatchModalProduct] = useState<{ product_uuid: string; batches: any[] } | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [sortField, setSortField] = useState<string>("name");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortField, setSortField] = useState<string>("created_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [showStats, setShowStats] = useState(true);
   const [quarantining, setQuarantining] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ uuid: string; name: string } | { count: number } | null>(null);
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [missClickHint, setMissClickHint] = useState(false);
-  const [wizardError, setWizardError] = useState<string | null>(null);
-  const [selectedTemplateUuid, setSelectedTemplateUuid] = useState<string | null>(null);
-  const [templateForm, setTemplateForm] = useState({
-    name: "",
-    description: "",
-    defaults_json: { gst_percent: 12, schedule_type: "NONE", medicine_type: "Tablet", prescription_required: false },
-    packaging_json: { baseUnit: "Tablet", templates: [] as { name: string; contains: number; unit: string }[] },
-  });
-
-  const wizardSteps = ["Type", "Basic Info", "Details", "Packaging", "Image", "Review"];
-  const selectedProductType = PRODUCT_TYPES.find((t) => t.id === wizardData.productType);
-  const selectedTemplateData = selectedTemplateUuid ? templates.find((t: any) => t.template_uuid === selectedTemplateUuid) : null;
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [recentSuppliers, setRecentSuppliers] = useState<Supplier[]>([]);
+  const [manualSubtotal, setManualSubtotal] = useState<string | null>(null);
+  const [batchRows, setBatchRows] = useState<BatchRow[]>([]);
+  const [originalBatchUuids, setOriginalBatchUuids] = useState<string[]>([]);
+  const [showNewPurchase, setShowNewPurchase] = useState(false);
+  const [newSupplierSearch, setNewSupplierSearch] = useState("");
+  const [newSupplierDropdownOpen, setNewSupplierDropdownOpen] = useState(false);
+  const [newInvoiceNumber, setNewInvoiceNumber] = useState("");
+  const [newInvoiceDate, setNewInvoiceDate] = useState("");
+  const [newPurchaseDiscount, setNewPurchaseDiscount] = useState("");
+  const [newInvoiceShowPicker, setNewInvoiceShowPicker] = useState(false);
+  const [newInvoicePickPos, setNewInvoicePickPos] = useState({ top: 0, right: 0 });
+  const newInvoiceBtnRef = useRef<HTMLButtonElement>(null);
+  const [newManualSubtotal, setNewManualSubtotal] = useState<string | null>(null);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>([]);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  const [copyBuffer, setCopyBuffer] = useState<Partial<BulkRow> | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ row: BulkRow; x: number; y: number } | null>(null);
+  const ctxMenuRef = useRef<HTMLDivElement>(null);
+  const bulkTableRef = useRef<HTMLDivElement>(null);
 
   // Advanced filter state
   const [showFilters, setShowFilters] = useState(false);
@@ -767,18 +417,31 @@ export default function Products() {
     gst: "",
     mrpMin: "",
     mrpMax: "",
+    batch: "",
   });
+  const [allBatchesMap, setAllBatchesMap] = useState<Record<string, string[]>>({});
   const hasActiveFilters = Object.values(filters).some(v => v !== "");
 
-  // Date picker state (matching H1Register style)
   const [filterFromDate, setFilterFromDate] = useState<Date | undefined>(undefined);
   const [filterToDate, setFilterToDate] = useState<Date | undefined>(undefined);
-  const [showFilterFromPicker, setShowFilterFromPicker] = useState(false);
-  const [showFilterToPicker, setShowFilterToPicker] = useState(false);
-  const [filterFromPickPos, setFilterFromPickPos] = useState({ top: 0, right: 0 });
-  const [filterToPickPos, setFilterToPickPos] = useState({ top: 0, right: 0 });
-  const filterFromBtnRef = useRef<HTMLButtonElement>(null);
-  const filterToBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Load batch data for batch filter (single query)
+  useEffect(() => {
+    if (!filters.batch) { setAllBatchesMap({}); return; }
+    let cancelled = false;
+    const loadMatchingBatches = async () => {
+      const results = await searchBatches(filters.batch);
+      if (cancelled) return;
+      const map: Record<string, string[]> = {};
+      for (const r of results) {
+        if (!map[r.product_uuid]) map[r.product_uuid] = [];
+        map[r.product_uuid].push(r.batch_number.toLowerCase());
+      }
+      setAllBatchesMap(map);
+    };
+    loadMatchingBatches();
+    return () => { cancelled = true; };
+  }, [filters.batch]);
 
   const filteredProducts = useMemo(() => {
     let list = products.filter(
@@ -809,6 +472,13 @@ export default function Products() {
     if (filters.mrpMax) {
       list = list.filter(p => (p.price || 0) <= Number(filters.mrpMax));
     }
+    if (filters.batch) {
+      const q = filters.batch.toLowerCase();
+      list = list.filter(p => {
+        const batches = allBatchesMap[p.product_uuid];
+        return batches && batches.some(b => b.includes(q));
+      });
+    }
     list = [...list].sort((a, b) => {
       let va: any = a[sortField as keyof Product] ?? "";
       let vb: any = b[sortField as keyof Product] ?? "";
@@ -816,7 +486,7 @@ export default function Products() {
       return sortDir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
     });
     return list;
-  }, [products, searchTerm, stockFilter, sortField, sortDir, filters]);
+  }, [products, searchTerm, stockFilter, sortField, sortDir, filters, allBatchesMap]);
 
   const [pageP, setPageP] = useState(1);
   const pageSize = 20;
@@ -844,31 +514,107 @@ export default function Products() {
     setFilters(prev => ({ ...prev, dateTo: filterToDate ? format(filterToDate, "yyyy-MM-dd") : "" }));
   }, [filterToDate]);
 
+  // Click outside handlers for date pickers
+  const pickerHeight = 300;
   useEffect(() => {
-    if (!showFilterFromPicker || !filterFromBtnRef.current) return;
-    const rect = filterFromBtnRef.current.getBoundingClientRect();
-    setFilterFromPickPos({ top: rect.bottom + 6, right: document.documentElement.clientWidth - rect.right });
-    const handleClick = (e: MouseEvent) => {
-      if (filterFromBtnRef.current && !filterFromBtnRef.current.contains(e.target as Node) && !(e.target as Element)?.closest?.(".cal-card")) {
-        setShowFilterFromPicker(false);
+    if (!mfgShowPicker || !mfgBtnRef.current) return;
+    const rect = mfgBtnRef.current.getBoundingClientRect();
+    const fitsBelow = rect.bottom + 4 + pickerHeight <= window.innerHeight;
+    setMfgPickPos({
+      top: fitsBelow ? rect.bottom + 4 : rect.top - pickerHeight,
+      right: document.documentElement.clientWidth - rect.right
+    });
+    const handler = (e: MouseEvent) => {
+      if (mfgBtnRef.current && !mfgBtnRef.current.contains(e.target as Node)) {
+        const cal = document.getElementById("mfg-cal-popup");
+        if (cal && !cal.contains(e.target as Node)) {
+          setMfgShowPicker(false);
+        }
       }
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showFilterFromPicker]);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [mfgShowPicker]);
 
   useEffect(() => {
-    if (!showFilterToPicker || !filterToBtnRef.current) return;
-    const rect = filterToBtnRef.current.getBoundingClientRect();
-    setFilterToPickPos({ top: rect.bottom + 6, right: document.documentElement.clientWidth - rect.right });
-    const handleClick = (e: MouseEvent) => {
-      if (filterToBtnRef.current && !filterToBtnRef.current.contains(e.target as Node) && !(e.target as Element)?.closest?.(".cal-card")) {
-        setShowFilterToPicker(false);
+    if (!expiryShowPicker || !expiryBtnRef.current) return;
+    const rect = expiryBtnRef.current.getBoundingClientRect();
+    const fitsBelow = rect.bottom + 4 + pickerHeight <= window.innerHeight;
+    setExpiryPickPos({
+      top: fitsBelow ? rect.bottom + 4 : rect.top - pickerHeight,
+      right: document.documentElement.clientWidth - rect.right
+    });
+    const handler = (e: MouseEvent) => {
+      if (expiryBtnRef.current && !expiryBtnRef.current.contains(e.target as Node)) {
+        const cal = document.getElementById("expiry-cal-popup");
+        if (cal && !cal.contains(e.target as Node)) {
+          setExpiryShowPicker(false);
+        }
       }
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showFilterToPicker]);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [expiryShowPicker]);
+
+  useEffect(() => {
+    if (!invoiceShowPicker || !invoiceBtnRef.current) return;
+    const rect = invoiceBtnRef.current.getBoundingClientRect();
+    const fitsBelow = rect.bottom + 4 + pickerHeight <= window.innerHeight;
+    setInvoicePickPos({
+      top: fitsBelow ? rect.bottom + 4 : rect.top - pickerHeight,
+      right: document.documentElement.clientWidth - rect.right
+    });
+    const handler = (e: MouseEvent) => {
+      if (invoiceBtnRef.current && !invoiceBtnRef.current.contains(e.target as Node)) {
+        const cal = document.getElementById("inv-cal-popup");
+        if (cal && !cal.contains(e.target as Node)) {
+          setInvoiceShowPicker(false);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [invoiceShowPicker]);
+
+  useEffect(() => {
+    if (!filterFromShowPicker || !filterFromBtnRef.current) return;
+    const rect = filterFromBtnRef.current.getBoundingClientRect();
+    const fitsBelow = rect.bottom + 4 + pickerHeight <= window.innerHeight;
+    setFilterFromPickPos({
+      top: fitsBelow ? rect.bottom + 4 : rect.top - pickerHeight,
+      right: document.documentElement.clientWidth - rect.right
+    });
+    const handler = (e: MouseEvent) => {
+      if (filterFromBtnRef.current && !filterFromBtnRef.current.contains(e.target as Node)) {
+        const cal = document.getElementById("filter-from-cal-popup");
+        if (cal && !cal.contains(e.target as Node)) {
+          setFilterFromShowPicker(false);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [filterFromShowPicker]);
+
+  useEffect(() => {
+    if (!filterToShowPicker || !filterToBtnRef.current) return;
+    const rect = filterToBtnRef.current.getBoundingClientRect();
+    const fitsBelow = rect.bottom + 4 + pickerHeight <= window.innerHeight;
+    setFilterToPickPos({
+      top: fitsBelow ? rect.bottom + 4 : rect.top - pickerHeight,
+      right: document.documentElement.clientWidth - rect.right
+    });
+    const handler = (e: MouseEvent) => {
+      if (filterToBtnRef.current && !filterToBtnRef.current.contains(e.target as Node)) {
+        const cal = document.getElementById("filter-to-cal-popup");
+        if (cal && !cal.contains(e.target as Node)) {
+          setFilterToShowPicker(false);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [filterToShowPicker]);
 
   const totalProducts = products.length;
   const lowStockProducts = products.filter((p) => p.stock <= 10 && p.stock > 0).length;
@@ -953,11 +699,6 @@ export default function Products() {
     setUnits(data);
   };
 
-  const loadCategories = async () => {
-    const data = await getCategories();
-    setCategories(data);
-  };
-
   const [showQuarantineConfirm, setShowQuarantineConfirm] = useState(false);
 
   const handleQuarantineExpired = async () => {
@@ -982,31 +723,20 @@ export default function Products() {
     }
   };
 
-  const loadCustomUnits = () => {
-    const stored = localStorage.getItem("custom_units");
-    if (stored) {
-      try {
-        const custom = JSON.parse(stored);
-        setUnitsMasterList((prev) => [...new Set([...prev, ...custom])]);
-      } catch (e) { }
-    }
-  };
-
   const loadBatchInfo = async (product_uuid: string) => {
     if (batchInfo[product_uuid] || loadingBatchInfo[product_uuid]) return;
     setLoadingBatchInfo((prev) => ({ ...prev, [product_uuid]: true }));
     try {
       const batches = await getProductBatches(product_uuid);
       const activeBatches = batches.filter((b: any) => {
-        const available = (b.quantity || 0) - (b.sold_quantity || 0);
-        return available > 0 && new Date(b.expiry_date) > new Date();
+        return (b.quantity || 0) > 0 && new Date(b.expiry_date) > new Date();
       });
-      const totalAvailable = activeBatches.reduce((sum: number, b: any) => sum + ((b.quantity || 0) - (b.sold_quantity || 0)), 0);
+      const totalAvailable = activeBatches.reduce((sum: number, b: any) => sum + (b.quantity || 0), 0);
       const nearestExpiry = activeBatches.length > 0
         ? activeBatches.sort((a: any, b: any) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime())[0]
         : null;
       const expiredBatches = batches.filter((b: any) => {
-        return new Date(b.expiry_date) <= new Date() && (b.quantity || 0) - (b.sold_quantity || 0) > 0;
+        return new Date(b.expiry_date) <= new Date() && (b.quantity || 0) > 0;
       });
       setBatchInfo((prev) => ({
         ...prev,
@@ -1031,38 +761,14 @@ export default function Products() {
 
   useEffect(() => {
     loadProducts();
-    loadCategories();
-    loadCustomUnits();
   }, []);
 
   useEffect(() => {
-    if (products.length > 0) {
-      const productsToCheck = products.filter((p) => p.stock <= 20 || p.stock === 0);
-      for (const product of productsToCheck.slice(0, 15)) {
-        loadBatchInfo(product.product_uuid);
-      }
+    const ids = new Set(paginatedProducts.map((p) => p.product_uuid));
+    for (const id of ids) {
+      if (!batchInfo[id] && !loadingBatchInfo[id]) loadBatchInfo(id);
     }
-  }, [products]);
-
-  useEffect(() => {
-    if (!form.category_uuid) {
-      setCategoryAttributes([]);
-      setAttributeValues({});
-      return;
-    }
-    getCategoryAttributes(form.category_uuid).then((attrs) => {
-      setCategoryAttributes(attrs);
-      if (editing?.attributes?.length) {
-        const prefilled: Record<string, string> = {};
-        for (const a of editing.attributes) {
-          prefilled[a.attribute_uuid] = a.value;
-        }
-        setAttributeValues(prefilled);
-      } else {
-        setAttributeValues({});
-      }
-    });
-  }, [form.category_uuid, editing]);
+  }, [paginatedProducts]);
 
   useEffect(() => {
     if (editing?.product_uuid) {
@@ -1073,58 +779,49 @@ export default function Products() {
   }, [editing]);
 
   useEffect(() => {
-    const type = PRODUCT_TYPES.find((t) => t.id === wizardData.productType);
-    if (type) {
-      setWizardData((prev) => ({
-        ...prev,
-        gst: type.defaults.gst,
-        storageCondition: type.defaults.storage || "Room Temperature",
-        prescriptionRequired: type.defaults.prescriptionRequired || false,
-        baseUnit: type.defaultPackaging.baseUnit,
-        packages: type.defaultPackaging.templates.map((p) => ({ ...p, price: undefined, purchase_price: undefined })),
-        strength: "",
-        dosageForm: "Tablet",
-        flavor: "",
-        bottleSize: "",
-        sugarFree: false,
-      }));
-    }
-  }, [wizardData.productType]);
+    if (!ctxMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (ctxMenuRef.current && !ctxMenuRef.current.contains(e.target as Node)) setCtxMenu(null);
+    };
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === "Escape") setCtxMenu(null); };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", keyHandler);
+    return () => { document.removeEventListener("mousedown", handler); document.removeEventListener("keydown", keyHandler); };
+  }, [ctxMenu]);
 
   useEffect(() => {
-    if (showWizard) {
-      getProductTemplates().then(setTemplates).catch(() => setTemplates([]));
-    }
-  }, [showWizard]);
+    if (!showBulkModal) return;
+    const el = bulkTableRef.current;
+    if (!el) return;
+    const handler = (e: MouseEvent) => {
+      e.preventDefault();
+      const tr = (e.target as HTMLElement).closest("tr");
+      if (!tr) return;
+      const idx = Array.from(tr.parentElement!.children).indexOf(tr);
+      const row = bulkRows[idx];
+      if (!row) return;
+      const mx = e.clientX, my = e.clientY;
+      setCtxMenu({ row, x: Math.min(mx, window.innerWidth - 168), y: Math.min(my, window.innerHeight - 208) });
+    };
+    el.addEventListener("contextmenu", handler);
+    return () => el.removeEventListener("contextmenu", handler);
+  }, [showBulkModal, bulkRows]);
 
   useEffect(() => {
-    if (!selectedTemplateUuid) return;
-    getProductTemplate(selectedTemplateUuid).then((template) => {
-      if (!template) return;
-      const def = template.defaults_json || {};
-      const pkg = template.packaging_json || {};
-      setWizardData((prev) => ({
-        ...prev,
-        gst: def.gst_percent ?? 12,
-        schedule_type: def.schedule_type || "NONE",
-        medicine_type: def.medicine_type || "Tablet",
-        prescriptionRequired: def.prescription_required ?? false,
-        baseUnit: pkg.baseUnit || "",
-        packages: (pkg.templates || []).map((p: any) => ({
-          name: p.name,
-          contains: p.contains,
-          unit: p.unit,
-          price: undefined,
-          purchase_price: undefined,
-        })),
-        strength: "",
-        dosageForm: "",
-        flavor: "",
-        bottleSize: "",
-        sugarFree: false,
-      }));
-    });
-  }, [selectedTemplateUuid]);
+    getSuppliers().then((data) => {
+      const list = Array.isArray(data) ? data : [];
+      setSuppliers(list);
+      // Load recent suppliers from localStorage
+      try {
+        const stored = localStorage.getItem("recent_suppliers");
+        if (stored) {
+          const uuids: string[] = JSON.parse(stored);
+          const recent = uuids.map((uuid) => list.find((s) => s.supplier_uuid === uuid)).filter(Boolean) as Supplier[];
+          setRecentSuppliers(recent);
+        }
+      } catch (e) {}
+    }).catch(() => {});
+  }, []);
 
   // Handlers
   const handleSort = (field: string) => {
@@ -1175,17 +872,73 @@ export default function Products() {
       barcode: p.barcode || "",
       gst_percent: String(p.gst_percent ?? "0"),
       hsn_code: p.hsn_code || "",
-      unit: p.unit || "Strip",
+      unit: p.unit || "Tablet",
       image: p.image || "",
       category_uuid: p.category_uuid || "",
       manufacturer: p.manufacturer || "",
       composition: p.composition || "",
+      description: p.description || "",
       schedule_type: p.schedule_type || "NONE",
       prescription_required: Boolean(p.prescription_required),
-      medicine_type: p.medicine_type || "Tablet",
       rack_location: p.rack_location || "",
-      product_type: p.product_type || "medicine",
+      discount: p.discount ? String(p.discount) : "",
+      batch_number: "", quantity: "", manufacture_date: "", expiry_date: "",
+      purchase_discount: "", supplier_uuid: "", invoice_number: "", invoice_date: "",
     });
+    // Load batch data into form & store active batch UUID
+    getProductBatches(p.product_uuid).then((batches) => {
+      const all = batches || [];
+      const active = all.filter((b: any) => (b.quantity || 0) > 0);
+      setEditingBatchUuid(active.length > 0 ? active[0].batch_uuid : null);
+      setEditingPurchaseUuid(all[0]?.purchase_uuid || null);
+      setOriginalBatchUuids(all.map((b: any) => b.batch_uuid).filter(Boolean));
+      if (active.length > 0) {
+        const b = active[0];
+        const updates: any = {
+          batch_number: b.batch_number || "",
+          quantity: String(b.quantity || 0),
+          manufacture_date: b.manufacture_date || "",
+          expiry_date: b.expiry_date || "",
+        };
+        if (b.supplier_uuid) updates.supplier_uuid = b.supplier_uuid;
+        setForm((prev) => ({ ...prev, ...updates }));
+      }
+      // Fill additional batch rows with remaining active batches
+      const extra = active.slice(1).map((b: any, i: number) => ({
+        id: `batch-edit-${i}`,
+        batch_uuid: b.batch_uuid,
+        batch_number: b.batch_number || "",
+        quantity: String(b.quantity || 0),
+        manufacture_date: b.manufacture_date || "",
+        expiry_date: b.expiry_date || "",
+      }));
+      if (extra.length > 0) setBatchRows(extra);
+      // Try to get purchase info — find the LATEST purchase across all batches
+      const purchaseUuids = [...new Set(all.map((b: any) => b.purchase_uuid).filter(Boolean))];
+      if (purchaseUuids.length > 0) {
+        getPurchases().then((purchases) => {
+          const list = Array.isArray(purchases) ? purchases : [];
+          const matched = list
+            .filter((pch: any) => purchaseUuids.includes(pch.purchase_uuid))
+            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          const latest = matched[0];
+          if (latest) {
+            setForm((prev) => ({
+              ...prev,
+              supplier_uuid: latest.supplier_uuid || prev.supplier_uuid,
+              invoice_number: latest.invoice_number || "",
+              invoice_date: latest.invoice_date || "",
+              purchase_discount: latest.discount ? String(latest.discount) : "",
+            }));
+            // Set supplierSearch for read-only display
+            if (latest.supplier_uuid) {
+              const supplier = suppliers.find((s) => s.supplier_uuid === latest.supplier_uuid);
+              if (supplier) setSupplierSearch(supplier.name);
+            }
+          }
+        }).catch(() => {});
+      }
+    }).catch(() => { setEditingBatchUuid(null); setEditingPurchaseUuid(null); });
     setShowForm(true);
   };
 
@@ -1220,22 +973,136 @@ export default function Products() {
     }
   };
 
+  const createEmptyBulkRow = (): BulkRow => ({
+    uuid: crypto.randomUUID(),
+    name: "", composition: "", description: "", manufacturer: "",
+    price: "", purchase_price: "", discount: "", gst_percent: "12",
+    schedule_type: "NONE", hsn_code: "", barcode: "", sku: "",
+    rack_location: "", category_uuid: "", prescription_required: false,
+    unit: "Strip", batch_number: "", quantity: "", manufacture_date: "",
+    expiry_date: "", supplier_name: "", invoice_number: "", invoice_date: "",
+    purchase_discount: "", manual_subtotal: null,
+  });
+
+  const updateBulkRow = (uuid: string, updates: Partial<BulkRow>) => {
+    setBulkRows((prev) => prev.map((r) => (r.uuid === uuid ? { ...r, ...updates } : r)));
+  };
+
+  const removeBulkRow = (uuid: string) => {
+    setBulkRows((prev) => prev.filter((r) => r.uuid !== uuid));
+  };
+
+  const addBulkRow = () => {
+    setBulkRows((prev) => [...prev, createEmptyBulkRow()]);
+  };
+
+  const addBatchRow = () => {
+    setBatchRows((prev) => [...prev, {
+      id: `batch-${Date.now()}`,
+      batch_number: "",
+      quantity: "",
+      manufacture_date: "",
+      expiry_date: "",
+    }]);
+  };
+
+  const removeBatchRow = (id: string) => {
+    setBatchRows((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const updateBatchRow = (id: string, field: string, value: string) => {
+    setBatchRows((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r));
+  };
+
+  const handleBulkSubmit = async () => {
+    const valid = bulkRows.filter((r) => r.name.trim());
+    if (valid.length === 0) { setError("At least one product needs a name."); return; }
+    setBulkSubmitting(true);
+    setBulkProgress({ current: 0, total: valid.length });
+    let successCount = 0;
+    for (let i = 0; i < valid.length; i++) {
+      const row = valid[i];
+      setBulkProgress({ current: i + 1, total: valid.length });
+      try {
+        const payload: any = {
+          name: row.name,
+          price: Number(row.price) || 0,
+          sku: row.sku || undefined,
+          barcode: row.barcode || undefined,
+          gst_percent: Number(row.gst_percent) || 0,
+          hsn_code: row.hsn_code || undefined,
+          unit: row.unit || "Tablet",
+          category_uuid: row.category_uuid || undefined,
+          manufacturer: row.manufacturer || undefined,
+          composition: row.composition || undefined,
+          description: row.description || undefined,
+          schedule_type: row.schedule_type || "NONE",
+          prescription_required: row.prescription_required ? 1 : 0,
+          rack_location: row.rack_location || undefined,
+        };
+        if (row.purchase_price) payload.purchase_price = Number(row.purchase_price);
+        if (row.discount) payload.discount = Number(row.discount);
+        const created = await createProduct(payload);
+        await createProductUnit({
+          product_uuid: created.product_uuid,
+          unit_name: row.unit || "Tablet",
+          conversion_factor: 1,
+          is_base_unit: true,
+        });
+        const matchedSupplier = row.supplier_name ? suppliers.find((s) => s.name.toLowerCase() === row.supplier_name.toLowerCase()) : null;
+        if (matchedSupplier) {
+          await createPurchase({
+            supplier_uuid: matchedSupplier.supplier_uuid,
+            invoice_number: row.invoice_number || undefined,
+            invoice_date: row.invoice_date || undefined,
+            discount: Number(row.purchase_discount) || 0,
+            items: [{
+              product_uuid: created.product_uuid,
+              batch_number: row.batch_number || "BATCH-001",
+              manufacture_date: row.manufacture_date || undefined,
+              expiry_date: row.expiry_date || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0],
+              quantity: Number(row.quantity) || 0,
+              mrp: Number(row.price) || 0,
+              cost_price: Number(row.purchase_price) || Number(row.price) || 0,
+            }],
+          });
+        } else if (row.batch_number) {
+          await createProductBatch({
+            product_uuid: created.product_uuid,
+            batch_number: row.batch_number,
+            manufacture_date: row.manufacture_date || undefined,
+            expiry_date: row.expiry_date,
+            quantity: Number(row.quantity) || 0,
+          });
+        }
+        successCount++;
+      } catch (err) {
+        console.error(`Bulk row ${i + 1} failed:`, err);
+      }
+    }
+    setBulkSubmitting(false);
+    setShowBulkModal(false);
+    await loadProducts();
+    window.dispatchEvent(new CustomEvent('stock-updated'));
+    setSuccess(`${successCount} of ${valid.length} products created successfully!`);
+    setTimeout(() => setSuccess(null), 5000);
+  };
+
   const resetForm = () => {
     setForm({ ...EMPTY_FORM });
     setEditing(null);
     setShowForm(false);
     setShowUnitForm(false);
-    setCategoryAttributes([]);
-    setAttributeValues({});
-  };
-
-  const resetWizard = () => {
-    setShowWizard(false);
-    setWizardStep(0);
-    setWizardData({ ...defaultWizardData });
-    setSelectedTemplateUuid(null);
-    setError(null);
-    setSuccess(null);
+    setManualSubtotal(null);
+    setBatchRows([]);
+    setOriginalBatchUuids([]);
+    setShowNewPurchase(false);
+    setNewSupplierSearch("");
+    setNewSupplierDropdownOpen(false);
+    setNewInvoiceNumber("");
+    setNewInvoiceDate("");
+    setNewPurchaseDiscount("");
+    setNewManualSubtotal(null);
   };
 
   const handleSubmit = async () => {
@@ -1257,29 +1124,127 @@ export default function Products() {
         barcode: form.barcode || undefined,
         gst_percent: Number(form.gst_percent) || 0,
         hsn_code: form.hsn_code || undefined,
-        unit: form.unit || "Strip",
+        unit: form.unit || "Tablet",
         image: form.image || undefined,
         category_uuid: form.category_uuid || undefined,
         manufacturer: form.manufacturer || undefined,
         composition: form.composition || undefined,
+        description: form.description || undefined,
         schedule_type: form.schedule_type || "NONE",
         prescription_required: form.prescription_required ? 1 : 0,
-        medicine_type: form.medicine_type || undefined,
         rack_location: form.rack_location || undefined,
-        product_type: "medicine",
       };
       if (form.purchase_price) payload.purchase_price = Number(form.purchase_price);
-      const filledAttributes = Object.entries(attributeValues)
-        .filter(([, v]) => v !== "")
-        .map(([attribute_uuid, value]) => ({ attribute_uuid, value }));
-      if (filledAttributes.length) payload.attributes = filledAttributes;
-      if (editing) {
-        await updateProduct(editing.product_uuid, payload);
-      } else {
-        await createProduct(payload);
-      }
+      if (form.discount) payload.discount = Number(form.discount);
+        const createSingleBatch = (puuid: string, bn: string, qty: number, mfg: string | undefined, exp: string | undefined) =>
+          createProductBatch({ product_uuid: puuid, batch_number: bn, manufacture_date: mfg, expiry_date: exp || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: qty, mrp: Number(form.price) || 0 });
+
+        if (editing) {
+          await updateProduct(editing.product_uuid, payload);
+          // Sync base product_unit name if unit changed
+          const existingUnits = await getProductUnits(editing.product_uuid);
+          const baseUnit = existingUnits.find((u: any) => u.is_base_unit === 1);
+          if (baseUnit && baseUnit.unit_name !== form.unit) {
+            await deleteProductUnit(baseUnit.unit_uuid);
+            await createProductUnit({ product_uuid: editing.product_uuid, unit_name: form.unit || "Tablet", conversion_factor: 1, is_base_unit: true });
+          }
+          // If new purchase details were added, create a purchase for new batches
+          if (showNewPurchase && form.supplier_uuid) {
+            const newBatches: Array<{ batch_number: string; quantity: number; manufacture_date: string | undefined; expiry_date: string | undefined }> = [];
+            if (!editingBatchUuid && (form.batch_number || form.quantity)) {
+              newBatches.push({ batch_number: form.batch_number || "BATCH-" + Date.now(), quantity: Number(form.quantity) || 0, manufacture_date: form.manufacture_date || undefined, expiry_date: form.expiry_date || undefined });
+            }
+            for (const row of batchRows) {
+              if (!row.batch_uuid && row.batch_number) {
+                newBatches.push({ batch_number: row.batch_number, quantity: Number(row.quantity) || 0, manufacture_date: row.manufacture_date || undefined, expiry_date: row.expiry_date || undefined });
+              }
+            }
+            if (newBatches.length > 0) {
+              await createPurchase({
+                supplier_uuid: form.supplier_uuid,
+                invoice_number: newInvoiceNumber || undefined,
+                invoice_date: newInvoiceDate || undefined,
+                discount: Number(newPurchaseDiscount) || 0,
+                items: newBatches.map(b => ({ product_uuid: editing.product_uuid, batch_number: b.batch_number, manufacture_date: b.manufacture_date, expiry_date: b.expiry_date || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: b.quantity, mrp: Number(form.price) || 0, cost_price: Number(form.purchase_price) || Number(form.price) || 0 })),
+              });
+            }
+          }
+          // Update/create first batch (skip standalone creation if handled by new purchase above)
+          if (form.batch_number || form.quantity || form.manufacture_date || form.expiry_date || form.supplier_uuid) {
+            if (editingBatchUuid) {
+              const batchUpdates: Record<string, any> = {};
+              if (form.batch_number) batchUpdates.batch_number = form.batch_number;
+              if (form.quantity) batchUpdates.quantity = Number(form.quantity);
+              if (form.manufacture_date) batchUpdates.manufacture_date = form.manufacture_date;
+              if (form.expiry_date) batchUpdates.expiry_date = form.expiry_date;
+              if (form.supplier_uuid) batchUpdates.supplier_uuid = form.supplier_uuid;
+              await updateProductBatch(editingBatchUuid, batchUpdates);
+            } else if ((form.batch_number || form.quantity) && !(showNewPurchase && form.supplier_uuid)) {
+              await createSingleBatch(editing.product_uuid, form.batch_number || "BATCH-" + Date.now(), Number(form.quantity) || 0, form.manufacture_date || undefined, form.expiry_date || undefined);
+            }
+          }
+          // Create/update additional batches (skip standalone creation if handled by new purchase above)
+          for (const row of batchRows) {
+            if (!row.batch_number) continue;
+            if (row.batch_uuid) {
+              await updateProductBatch(row.batch_uuid, {
+                batch_number: row.batch_number,
+                quantity: Number(row.quantity) || 0,
+                manufacture_date: row.manufacture_date || undefined,
+                expiry_date: row.expiry_date || undefined,
+                mrp: Number(form.price) || 0,
+              });
+            } else if (!(showNewPurchase && form.supplier_uuid)) {
+              await createSingleBatch(editing.product_uuid, row.batch_number, Number(row.quantity) || 0, row.manufacture_date || undefined, row.expiry_date || undefined);
+            }
+          }
+          // Delete batches removed from UI
+          const currentUuids = [editingBatchUuid, ...batchRows.map(r => r.batch_uuid)].filter(Boolean);
+          for (const uuid of originalBatchUuids) {
+            if (!currentUuids.includes(uuid)) {
+              try { await deleteBatch(uuid); } catch (e) { console.error("Failed to delete batch", uuid, e); }
+            }
+          }
+          // Update purchase record if linked
+          if (editingPurchaseUuid && (form.invoice_number || form.invoice_date || form.purchase_discount || form.supplier_uuid)) {
+            const purchaseUpdates: Record<string, any> = {};
+            if (form.invoice_number) purchaseUpdates.invoice_number = form.invoice_number;
+            if (form.invoice_date) purchaseUpdates.invoice_date = form.invoice_date;
+            if (form.purchase_discount) purchaseUpdates.discount = Number(form.purchase_discount);
+            if (form.supplier_uuid) purchaseUpdates.supplier_uuid = form.supplier_uuid;
+            await updatePurchase(editingPurchaseUuid, purchaseUpdates);
+          }
+        } else {
+          const created = await createProduct(payload);
+          // Auto-create base product_unit with conversion_factor=1
+          await createProductUnit({ product_uuid: created.product_uuid, unit_name: form.unit || "Tablet", conversion_factor: 1, is_base_unit: true });
+          // Collect all batch rows (first form batch + additional)
+          const allBatches = [
+            { bn: form.batch_number, qty: Number(form.quantity) || 0, mfg: form.manufacture_date || undefined, exp: form.expiry_date || undefined },
+            ...batchRows.filter(r => r.batch_number).map(r => ({ bn: r.batch_number, qty: Number(r.quantity) || 0, mfg: r.manufacture_date || undefined, exp: r.expiry_date || undefined })),
+          ].filter(b => b.bn);
+          // Create purchase if supplier is selected (purchase model creates the batch)
+          if (form.supplier_uuid && allBatches.length > 0) {
+            await createPurchase({
+              supplier_uuid: form.supplier_uuid,
+              invoice_number: form.invoice_number || undefined,
+              invoice_date: form.invoice_date || undefined,
+              discount: Number(form.purchase_discount) || 0,
+              items: allBatches.map(b => ({ product_uuid: created.product_uuid, batch_number: b.bn, manufacture_date: b.mfg, expiry_date: b.exp, quantity: b.qty, mrp: Number(form.price) || 0, cost_price: Number(form.purchase_price) || Number(form.price) || 0 })),
+            });
+          } else {
+            for (const b of allBatches) {
+              await createSingleBatch(created.product_uuid, b.bn, b.qty, b.mfg, b.exp);
+            }
+          }
+        }
       resetForm();
+      // Clear cached batch info so it refreshes
+      if (editing?.product_uuid) setBatchInfo((prev: any) => { const n = { ...prev }; delete n[editing.product_uuid]; return n; });
+      setEditingBatchUuid(null);
+      setEditingPurchaseUuid(null);
       await loadProducts();
+      window.dispatchEvent(new CustomEvent('stock-updated'));
       setSuccess(editing ? "Product updated successfully!" : "Product created successfully!");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -1288,133 +1253,6 @@ export default function Products() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const addPackage = () => {
-    setWizardData((prev) => ({
-      ...prev,
-      packages: [
-        ...prev.packages,
-        { name: "", contains: 1, unit: prev.baseUnit, price: undefined, purchase_price: undefined, barcode: undefined },
-      ],
-    }));
-  };
-
-  const updatePackage = (idx: number, field: keyof PackageLevel, value: string | number) => {
-    setWizardData((prev) => {
-      const newPackages = [...prev.packages];
-      newPackages[idx] = { ...newPackages[idx], [field]: value };
-      return { ...prev, packages: newPackages };
-    });
-  };
-
-  const removePackage = (idx: number) => {
-    setWizardData((prev) => ({
-      ...prev,
-      packages: prev.packages.filter((_, i) => i !== idx),
-    }));
-  };
-
-  const handleNext = () => {
-    setWizardError(null);
-    if (wizardStep === 0 && !wizardData.productType) {
-      setWizardError("Please select a product type to continue");
-      return;
-    }
-    if (wizardStep === 1) {
-      if (!wizardData.name.trim()) {
-        setWizardError("Product name is required");
-        return;
-      }
-      if (!wizardData.manufacturer.trim()) {
-        setWizardError("Manufacturer is required");
-        return;
-      }
-    }
-    if (wizardStep === 3 && !wizardData.baseUnit.trim()) {
-      setWizardError("Base unit is required for packaging");
-      return;
-    }
-    setWizardStep((s) => s + 1);
-  };
-
-  const handleWizardSubmit = async () => {
-    if (!wizardData.name.trim()) {
-      setError("Product name is required");
-      return;
-    }
-    if (!wizardData.manufacturer.trim()) {
-      setError("Manufacturer is required");
-      return;
-    }
-    if (!wizardData.baseUnit.trim()) {
-      setError("Base unit is required");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const payload: any = {
-        name: wizardData.name,
-        price: 0,
-        purchase_price: 0,
-        sku: undefined,
-        barcode: wizardData.barcode || undefined,
-        gst_percent: wizardData.gst,
-        hsn_code: wizardData.hsnCode || undefined,
-        unit: wizardData.baseUnit || "Piece",
-        image: wizardData.image || undefined,
-        category_uuid: wizardData.category_uuid || undefined,
-        manufacturer: wizardData.manufacturer || undefined,
-        composition: wizardData.composition || undefined,
-        schedule_type: wizardData.schedule_type || "NONE",
-        prescription_required: wizardData.prescriptionRequired ? 1 : 0,
-        medicine_type: wizardData.medicine_type || selectedProductType?.label || "Tablet",
-        rack_location: wizardData.rackLocation || undefined,
-        product_type: "medicine",
-        attributes: [],
-      };
-      const created = await createProduct(payload);
-      const productUuid = created.product_uuid;
-      await createProductUnit({
-        product_uuid: productUuid,
-        unit_name: wizardData.baseUnit,
-        conversion_factor: 1,
-        is_base_unit: true,
-      });
-      for (const pkg of wizardData.packages) {
-        if (pkg.name.trim() && pkg.contains > 0) {
-          await createProductUnit({
-            product_uuid: productUuid,
-            unit_name: pkg.name,
-            conversion_factor: pkg.contains,
-            barcode: pkg.barcode,
-            price: pkg.price,
-            purchase_price: pkg.purchase_price,
-            is_base_unit: false,
-          });
-        }
-      }
-      resetWizard();
-      await loadProducts();
-      setSuccess("Product created successfully!");
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      console.error("Create product error:", err);
-      setError("Failed to create product. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveNewUnit = (newUnit: string) => {
-    const trimmed = newUnit.trim();
-    if (!trimmed || unitsMasterList.includes(trimmed)) return;
-    const updatedList = [...unitsMasterList, trimmed];
-    setUnitsMasterList(updatedList);
-    const builtIn = new Set(PHARMACY_UNITS);
-    const customOnly = updatedList.filter((u) => !builtIn.has(u));
-    localStorage.setItem("custom_units", JSON.stringify(customOnly));
   };
 
   const handleAddUnit = async () => {
@@ -1454,339 +1292,13 @@ export default function Products() {
     await loadUnits(editing.product_uuid);
   };
 
-  const handleTemplatePreFill = (typeId: string) => {
-    const type = PRODUCT_TYPES.find((t) => t.id === typeId);
-    if (!type) return;
-    setTemplateForm((prev) => ({
-      ...prev,
-      defaults_json: {
-        gst_percent: type.defaults.gst,
-        schedule_type: "NONE",
-        medicine_type: type.label,
-        prescription_required: type.defaults.prescriptionRequired || false,
-      },
-      packaging_json: {
-        baseUnit: type.defaultPackaging.baseUnit,
-        templates: type.defaultPackaging.templates.map((p) => ({ ...p })),
-      },
-    }));
-  };
-
-  const handleCreateTemplate = async () => {
-    if (!templateForm.name.trim()) {
-      setError("Template heading is required");
-      return;
-    }
-    try {
-      const payload = {
-        name: templateForm.name,
-        description: templateForm.description,
-        defaults_json: templateForm.defaults_json,
-        packaging_json: templateForm.packaging_json,
-      };
-      await createProductTemplate(payload);
-      setShowTemplateModal(false);
-      setTemplateForm({
-        name: "",
-        description: "",
-        defaults_json: { gst_percent: 12, schedule_type: "NONE", medicine_type: "Tablet", prescription_required: false },
-        packaging_json: { baseUnit: "Tablet", templates: [] },
-      });
-      const updated = await getProductTemplates();
-      setTemplates(updated);
-      setSuccess("Template created successfully!");
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      console.error("Create template error:", err);
-      setError("Failed to create template");
-    }
-  };
-
-  const renderWizardStep = () => {
-    const type = selectedTemplateUuid
-      ? {
-          id: selectedTemplateUuid,
-          label: selectedTemplateData?.name || "Product",
-          icon: "cube",
-          description: "",
-          medicineDetails: ["strength", "dosage_form", "prescription_required", "storage_condition", "flavor", "bottle_size", "sugar_free"],
-          defaultPackaging: { baseUnit: "", templates: [] },
-          defaults: { gst: 12 },
-        }
-      : selectedProductType;
-    switch (wizardStep) {
-      case 0:
-        return (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {PRODUCT_TYPES.map((productType) => (
-              <button
-                key={productType.id}
-                type="button"
-                onClick={() => {
-                  setSelectedTemplateUuid(null);
-                  setWizardData((p) => ({ ...p, productType: productType.id }));
-                }}
-                className={`border-2 rounded-2xl p-4 text-center transition-all cursor-pointer ${wizardData.productType === productType.id && !selectedTemplateUuid
-                  ? "border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-100"
-                  : "border-slate-200 hover:border-slate-300 hover:shadow-md bg-white"
-                  }`}
-              >
-                <IonIcon icon={getIconForType(productType.icon)} className={`text-3xl mb-2 ${wizardData.productType === productType.id && !selectedTemplateUuid ? "text-emerald-600" : "text-slate-500"}`} />
-                <p className={`font-semibold text-sm ${wizardData.productType === productType.id && !selectedTemplateUuid ? "text-emerald-700" : "text-slate-700"}`}>{productType.label}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{productType.description}</p>
-              </button>
-            ))}
-            {templates.filter((tpl: any) => !PRODUCT_TYPES.some((pt) => pt.label.toLowerCase() === (tpl.name || "").toLowerCase())).map((tpl: any) => (
-              <button
-                key={tpl.template_uuid}
-                type="button"
-                onClick={() => {
-                  setSelectedTemplateUuid(tpl.template_uuid);
-                  setWizardData((p) => ({ ...p, productType: tpl.template_uuid }));
-                }}
-                className={`border-2 rounded-2xl p-4 text-center transition-all cursor-pointer ${selectedTemplateUuid === tpl.template_uuid
-                  ? "border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-100"
-                  : "border-slate-200 hover:border-slate-300 hover:shadow-md bg-white"
-                  }`}
-              >
-                <IonIcon icon={getIconForTemplateName(tpl.name)} className={`text-3xl mb-2 ${selectedTemplateUuid === tpl.template_uuid ? "text-emerald-600" : "text-slate-500"}`} />
-                <p className={`font-semibold text-sm ${selectedTemplateUuid === tpl.template_uuid ? "text-emerald-700" : "text-slate-700"}`}>{tpl.name}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{tpl.description || tpl.name}</p>
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setShowTemplateModal(true)}
-              className="border-2 border-dashed border-slate-300 rounded-2xl p-4 text-center transition-all cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/50 hover:shadow-md bg-white"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-2 text-slate-400">
-                <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
-                <line x1="12" x2="12" y1="8" y2="16" />
-                <line x1="8" x2="16" y1="12" y2="12" />
-              </svg>
-              <p className="font-semibold text-sm text-slate-500">Create Template</p>
-              <p className="text-xs text-slate-400 mt-0.5">Save reusable product config</p>
-            </button>
-          </div>
-        );
-      case 1:
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <Input label="Product Name" required value={wizardData.name} onChange={(e: any) => setWizardData((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Dolo 650" />
-            </div>
-            <Input label="Composition" value={wizardData.composition} onChange={(e: any) => setWizardData((p) => ({ ...p, composition: e.target.value }))} placeholder="e.g. Paracetamol 650mg" />
-            <Input label="Manufacturer" required value={wizardData.manufacturer} onChange={(e: any) => setWizardData((p) => ({ ...p, manufacturer: e.target.value }))} placeholder="e.g. Micro Labs" />
-            <Input label="Barcode" value={wizardData.barcode} onChange={(e: any) => setWizardData((p) => ({ ...p, barcode: e.target.value }))} placeholder="Scan or enter barcode" />
-            <Input label="HSN Code" value={wizardData.hsnCode} onChange={(e: any) => setWizardData((p) => ({ ...p, hsnCode: e.target.value }))} placeholder="e.g. 3004" />
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">GST Rate</label>
-              <Select value={String(wizardData.gst)} onChange={(v: string) => setWizardData((p) => ({ ...p, gst: Number(v) }))} options={GST_OPTIONS} />
-            </div>
-            <Input label="Rack Location" value={wizardData.rackLocation} onChange={(e: any) => setWizardData((p) => ({ ...p, rackLocation: e.target.value }))} placeholder="e.g. A-12" />
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Schedule</label>
-              <Select value={wizardData.schedule_type} onChange={(v: string) => setWizardData((p) => ({ ...p, schedule_type: v }))} options={SCHEDULE_TYPES} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Category</label>
-              <CategoryTreePicker
-                value={wizardData.category_uuid}
-                onChange={(uuid: string) => setWizardData((p) => ({ ...p, category_uuid: uuid }))}
-                categories={categories}
-                onCreateNew={async (name: string) => {
-                  const created = await createCategory({ name });
-                  await loadCategories();
-                  return created;
-                }}
-                placeholder="Select category…"
-              />
-            </div>
-          </div>
-        );
-      case 2:
-        if (!type) return null;
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {type.medicineDetails.includes("strength") && (
-              <Input label="Strength" value={wizardData.strength} onChange={(e: any) => setWizardData((p) => ({ ...p, strength: e.target.value }))} placeholder="e.g. 650mg" />
-            )}
-            {type.medicineDetails.includes("dosage_form") && (
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Dosage Form</label>
-                <Select value={wizardData.dosageForm} onChange={(v: string) => setWizardData((p) => ({ ...p, dosageForm: v }))} options={["Tablet", "Capsule", "Syrup", "Injection", "Drops"].map((v) => ({ value: v, label: v }))} />
-              </div>
-            )}
-            {type.medicineDetails.includes("storage_condition") && (
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Storage</label>
-                <Select value={wizardData.storageCondition} onChange={(v: string) => setWizardData((p) => ({ ...p, storageCondition: v }))} options={["Room Temperature", "Cold Storage", "Keep Away From Sunlight"].map((v) => ({ value: v, label: v }))} />
-              </div>
-            )}
-            {type.medicineDetails.includes("prescription_required") && (
-              <div className="flex items-center gap-3 mt-1">
-                <Toggle checked={wizardData.prescriptionRequired} onChange={(v: boolean) => setWizardData((p) => ({ ...p, prescriptionRequired: v }))} label="Prescription Required" />
-              </div>
-            )}
-            {type.medicineDetails.includes("flavor") && (
-              <Input label="Flavor" value={wizardData.flavor} onChange={(e: any) => setWizardData((p) => ({ ...p, flavor: e.target.value }))} placeholder="e.g. Orange" />
-            )}
-            {type.medicineDetails.includes("bottle_size") && (
-              <Input label="Bottle Size" value={wizardData.bottleSize} onChange={(e: any) => setWizardData((p) => ({ ...p, bottleSize: e.target.value }))} placeholder="e.g. 100ml" />
-            )}
-            {type.medicineDetails.includes("sugar_free") && (
-              <div className="flex items-center gap-3 mt-1">
-                <Toggle checked={wizardData.sugarFree} onChange={(v: boolean) => setWizardData((p) => ({ ...p, sugarFree: v }))} label="Sugar Free" />
-              </div>
-            )}
-          </div>
-        );
-      case 3:
-        return (
-          <PackagingManager
-            baseUnit={wizardData.baseUnit}
-            packages={wizardData.packages}
-            onAddPackage={addPackage}
-            onUpdatePackage={updatePackage}
-            onRemovePackage={removePackage}
-            onBaseUnitChange={(unit: string) => setWizardData((prev) => ({ ...prev, baseUnit: unit }))}
-          />
-        );
-      case 4:
-        const hasImage = !!wizardData.image;
-        return (
-          <div className="space-y-5">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Preview</div>
-            <div className="border-2 border-gray-200 bg-white text-gray-800 rounded-2xl flex flex-row overflow-hidden justify-center transition-all font-inter max-w-md mx-auto">
-              <div className="flex-shrink-0 self-center overflow-hidden rounded-xl aspect-square m-[1%]" style={{ width: '40%' }}>
-                {hasImage ? (
-                  <img
-                    src={wizardData.image}
-                    alt={wizardData.name || "Product preview"}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.querySelector('.fallback')?.classList.remove('hidden'); }}
-                  />
-                ) : null}
-                <div className={`w-full h-full flex items-center justify-center ${hasImage ? 'hidden' : ''} fallback`} style={{ backgroundColor: '#83df1a' }}>
-                  <IonIcon icon={medkitOutline} className="text-xl text-white" />
-                </div>
-              </div>
-              <div className="flex-1 min-w-0 px-2.5 py-1.5 flex flex-col justify-start gap-[1px] text-left">
-                <div className="font-semibold text-md truncate leading-tight text-gray-900">
-                  {wizardData.name || "Product Name"}
-                </div>
-                {wizardData.manufacturer && (
-                  <div className="text-xs truncate leading-tight text-gray-500">
-                    {wizardData.manufacturer}
-                  </div>
-                )}
-                <div className="text-sm font-bold text-gray-900">
-                  ₹{wizardData.packages?.[0]?.price || "0.00"}
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Product Image (Optional)</label>
-              <div className="flex gap-3">
-                <input
-                  type="url"
-                  value={wizardData.image}
-                  onChange={(e: any) => setWizardData((p) => ({ ...p, image: e.target.value }))}
-                  placeholder="Paste image URL..."
-                  className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all hover:border-slate-300"
-                />
-                <label className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 cursor-pointer transition-all">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Browse
-                  <input type="file" accept="image/*" className="hidden" onChange={(e: any) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (ev) => setWizardData((p) => ({ ...p, image: ev.target?.result as string }));
-                      reader.readAsDataURL(file);
-                    }
-                  }} />
-                </label>
-              </div>
-              <p className="text-xs text-slate-400 mt-1.5">Upload or paste an image URL. Recommended: 400×400px</p>
-            </div>
-
-            {hasImage && (
-              <button
-                type="button"
-                onClick={() => setWizardData((p) => ({ ...p, image: "" }))}
-                className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Remove image
-              </button>
-            )}
-          </div>
-        );
-      case 5:
-        return (
-          <div className="bg-slate-50 rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
-              <IonIcon icon={getIconForType(type?.icon || "cube")} className="text-3xl text-slate-600" />
-              <div>
-                <h3 className="font-bold text-slate-800">{wizardData.name || "Untitled Product"}</h3>
-                <p className="text-sm text-slate-500">{wizardData.composition || "No composition"}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-              {[
-                ["Type", type?.label],
-                ["Manufacturer", wizardData.manufacturer],
-                ["Schedule", wizardData.schedule_type],
-                ["GST", `${wizardData.gst}%`],
-                ["HSN", wizardData.hsnCode || "—"],
-                ["Rack", wizardData.rackLocation || "—"],
-                ["Prescription", wizardData.prescriptionRequired ? "Required" : "Not required"],
-              ].map(([k, v]) => (
-                <div key={k} className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500">{k}</span>
-                  <span className="font-medium text-slate-700">{v}</span>
-                </div>
-              ))}
-            </div>
-            <div className="pt-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Packaging</p>
-              <div className="flex items-center gap-2 text-sm text-slate-700 mb-2">
-                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md font-medium">{wizardData.baseUnit || "—"}</span>
-                <span className="text-slate-400">base unit</span>
-              </div>
-              {wizardData.packages.map((pkg, i) => (
-                <div key={i} className="flex justify-between text-sm text-slate-600 py-1 border-b border-slate-100">
-                  <span className="font-medium">{pkg.name}</span>
-                  <span className="text-slate-400">
-                    1 {pkg.name} = {pkg.contains} {wizardData.baseUnit}s {pkg.price ? `· ₹${pkg.price}` : ""}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
-
   if (loading && !products.length) {
     return (
       <div className="flex items-center justify-center h-96">
         <Spinner size="lg" />
-    </div>
-  );
-}
-
-const style = document.createElement("style");
-style.textContent = `@keyframes fadeInUp { from { opacity: 0; margin-top: 8px; } to { opacity: 1; margin-top: 0; } } .toast-fade { animation: fadeInUp 0.25s ease-out; }`;
-document.head.appendChild(style);
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F9FC] p-6 space-y-5">
@@ -1829,10 +1341,10 @@ document.head.appendChild(style);
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Total Products</p>
+<p className="text-xs text-gray-400 mb-0.5">{t('products.statistics')}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('products.totalProducts')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none">{totalProducts}</p>
-            <p className="text-xs text-gray-500 mt-1">All registered medicines</p>
+            <p className="text-xs text-gray-500 mt-1">{t('products.allRegisteredMedicines')}</p>
           </div>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 flex items-center gap-6 relative">
@@ -1842,10 +1354,10 @@ document.head.appendChild(style);
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Inventory Value</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('products.statistics')}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('products.inventoryValue')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none">₹{formatCompactNumber(totalInventoryValue)}</p>
-            <p className="text-xs text-gray-500 mt-1">Current stock value</p>
+            <p className="text-xs text-gray-500 mt-1">{t('products.currentStockValue')}</p>
           </div>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 flex items-center gap-6 relative">
@@ -1855,10 +1367,10 @@ document.head.appendChild(style);
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Low Stock</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('products.statistics')}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('products.lowStock')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none">{lowStockProducts}</p>
-            <p className="text-xs text-gray-500 mt-1">Items need reordering</p>
+            <p className="text-xs text-gray-500 mt-1">{t('products.itemsNeedReordering')}</p>
           </div>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 flex items-center gap-6 relative">
@@ -1868,10 +1380,10 @@ document.head.appendChild(style);
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Out of Stock</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('products.statistics')}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('products.outOfStock')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none">{outOfStockProducts}</p>
-            <p className="text-xs text-gray-500 mt-1">Requires immediate action</p>
+            <p className="text-xs text-gray-500 mt-1">{t('products.requiresImmediateAction')}</p>
           </div>
         </div>
       </div>
@@ -1911,7 +1423,7 @@ document.head.appendChild(style);
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
-            Filter
+            {t('products.filter')}
             {hasActiveFilters && (
               <span className="w-2 h-2 rounded-full bg-white inline-block" />
             )}
@@ -1920,7 +1432,7 @@ document.head.appendChild(style);
             onClick={() => {
               resetForm();
               setError(null);
-              setShowWizard(true);
+              setShowForm(true);
             }}
             className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white text-sm font-semibold rounded-xl transition-all shadow-md shadow-green-900/20 shrink-0"
           >
@@ -1929,7 +1441,16 @@ document.head.appendChild(style);
             </svg>
             {t("products.addProduct")}
           </button>
-          <Tooltip label="Quarantine expired batches">
+          <button
+            onClick={() => { setBulkRows([createEmptyBulkRow()]); setShowBulkModal(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-sm font-semibold rounded-xl transition-all shadow-md shadow-blue-900/20 shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2m-6 4v6m4-6v6" />
+            </svg>
+            Bulk Stocks Update
+          </button>
+          <Tooltip label={t('products.quarantineExpired')}>
             <button
               onClick={handleQuarantineExpired}
               disabled={quarantining}
@@ -1946,13 +1467,13 @@ document.head.appendChild(style);
           </Tooltip>
           <ShadSelect value={stockFilter} onValueChange={(val) => setStockFilter(val as any)}>
             <SelectTrigger className="max-w-[150px] bg-white border-slate-200 rounded-xl focus:outline-none focus:ring-0">
-              <SelectValue placeholder="Filter by stock" />
+              <SelectValue placeholder={t('products.filterByStock')} />
             </SelectTrigger>
             <SelectContent className="bg-white border-slate-200 rounded-xl overflow-hidden mt-1 font-medium">
-              <SelectItem value="all" className="px-4 py-2.5 text-slate-700 focus:bg-slate-50 cursor-pointer">All Products</SelectItem>
-              <SelectItem value="in" className="px-4 py-2.5 text-emerald-700 focus:bg-emerald-50 cursor-pointer">In Stock</SelectItem>
-              <SelectItem value="low" className="px-4 py-2.5 text-amber-700 focus:bg-amber-50 cursor-pointer">Low Stock</SelectItem>
-              <SelectItem value="out" className="px-4 py-2.5 text-red-700 focus:bg-red-50 cursor-pointer">Out of Stock</SelectItem>
+              <SelectItem value="all" className="px-4 py-2.5 text-slate-700 focus:bg-slate-50 cursor-pointer">{t('products.allProducts')}</SelectItem>
+              <SelectItem value="in" className="px-4 py-2.5 text-emerald-700 focus:bg-emerald-50 cursor-pointer">{t('products.inStock')}</SelectItem>
+              <SelectItem value="low" className="px-4 py-2.5 text-amber-700 focus:bg-amber-50 cursor-pointer">{t('products.lowStock')}</SelectItem>
+              <SelectItem value="out" className="px-4 py-2.5 text-red-700 focus:bg-red-50 cursor-pointer">{t('products.outOfStock')}</SelectItem>
             </SelectContent>
           </ShadSelect>
         </div>
@@ -1960,66 +1481,63 @@ document.head.appendChild(style);
         {/* Advanced Filter Panel */}
         {showFilters && (
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Date From</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">{t('products.dateFrom')}</label>
                 <div className="relative">
-                  <button ref={filterFromBtnRef} type="button" onClick={() => setShowFilterFromPicker(!showFilterFromPicker)}
-                    className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors">
+                  <button
+                    ref={filterFromBtnRef}
+                    type="button"
+                    onClick={() => setFilterFromShowPicker(!filterFromShowPicker)}
+                    className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                  >
                     <CalendarIcon className="w-4 h-4 text-slate-400" />
-                    <span>{filterFromDate ? format(filterFromDate, "dd MMM yyyy") : "From"}</span>
+                    <span>{filterFromDate ? format(filterFromDate, "dd MMM yyyy") : "Pick a date"}</span>
                   </button>
-                  {filterFromDate && (
-                    <button onClick={() => setFilterFromDate(undefined)}
-                      className="absolute -right-1.5 -top-1.5 w-5 h-5 bg-slate-300 hover:bg-slate-400 text-white rounded-full flex items-center justify-center transition-colors">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                  {showFilterFromPicker && (
-                    <div className="fixed z-[70]" style={{ top: filterFromPickPos.top, right: filterFromPickPos.right }}>
-                      <SimpleDatePicker date={filterFromDate || new Date()} onSelect={(d) => { setFilterFromDate(d); setShowFilterFromPicker(false); }} />
+                  {filterFromShowPicker && (
+                    <div id="filter-from-cal-popup" className="fixed z-[70]" style={{ top: filterFromPickPos.top, right: filterFromPickPos.right }}>
+                      <SimpleDatePicker date={filterFromDate} onSelect={(d) => { setFilterFromDate(d); setFilterFromShowPicker(false); }} />
                     </div>
                   )}
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Date To</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">{t('products.dateTo')}</label>
                 <div className="relative">
-                  <button ref={filterToBtnRef} type="button" onClick={() => setShowFilterToPicker(!showFilterToPicker)}
-                    className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors">
+                  <button
+                    ref={filterToBtnRef}
+                    type="button"
+                    onClick={() => setFilterToShowPicker(!filterToShowPicker)}
+                    className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                  >
                     <CalendarIcon className="w-4 h-4 text-slate-400" />
-                    <span>{filterToDate ? format(filterToDate, "dd MMM yyyy") : "To"}</span>
+                    <span>{filterToDate ? format(filterToDate, "dd MMM yyyy") : "Pick a date"}</span>
                   </button>
-                  {filterToDate && (
-                    <button onClick={() => setFilterToDate(undefined)}
-                      className="absolute -right-1.5 -top-1.5 w-5 h-5 bg-slate-300 hover:bg-slate-400 text-white rounded-full flex items-center justify-center transition-colors">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                  {showFilterToPicker && (
-                    <div className="fixed z-[70]" style={{ top: filterToPickPos.top, right: filterToPickPos.right }}>
-                      <SimpleDatePicker date={filterToDate || new Date()} onSelect={(d) => { setFilterToDate(d); setShowFilterToPicker(false); }} />
+                  {filterToShowPicker && (
+                    <div id="filter-to-cal-popup" className="fixed z-[70]" style={{ top: filterToPickPos.top, right: filterToPickPos.right }}>
+                      <SimpleDatePicker date={filterToDate} onSelect={(d) => { setFilterToDate(d); setFilterToShowPicker(false); }} />
                     </div>
                   )}
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Composition</label>
-                <input type="text" value={filters.composition} onChange={(e) => setFilters(prev => ({ ...prev, composition: e.target.value }))} placeholder="e.g. Paracetamol"
+                <label className="block text-xs font-medium text-slate-500 mb-1">{t('products.composition')}</label>
+                <input type="text" value={filters.composition} onChange={(e) => setFilters(prev => ({ ...prev, composition: e.target.value }))} placeholder={t('products.compositionExample')}
                   className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 placeholder:text-slate-400" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Schedule</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Batch</label>
+                <input type="text" value={filters.batch} onChange={(e) => setFilters(prev => ({ ...prev, batch: e.target.value }))} placeholder="e.g. BATCH-001"
+                  className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 placeholder:text-slate-400" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">{t('products.schedule')}</label>
                 <ShadSelect value={filters.schedule} onValueChange={(v) => setFilters(prev => ({ ...prev, schedule: v === "all" ? "" : v }))}>
                   <SelectTrigger className="bg-white border-slate-200 rounded-xl focus:outline-none focus:ring-0">
-                    <SelectValue placeholder="All" />
+                    <SelectValue placeholder={t('products.all')} />
                   </SelectTrigger>
                   <SelectContent className="bg-white border-slate-200 rounded-xl">
-                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="all">{t('products.all')}</SelectItem>
                     {SCHEDULE_TYPES.map(s => (
                       <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                     ))}
@@ -2027,10 +1545,10 @@ document.head.appendChild(style);
                 </ShadSelect>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">GST (%)</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">{t('products.gstPercent')}</label>
                 <ShadSelect value={filters.gst} onValueChange={(v) => setFilters(prev => ({ ...prev, gst: v === "all" ? "" : v }))}>
                   <SelectTrigger className="bg-white border-slate-200 rounded-xl focus:outline-none focus:ring-0">
-                    <SelectValue placeholder="All" />
+                    <SelectValue placeholder={t('products.all')} />
                   </SelectTrigger>
                   <SelectContent className="bg-white border-slate-200 rounded-xl">
                     <SelectItem value="all">All</SelectItem>
@@ -2041,18 +1559,18 @@ document.head.appendChild(style);
                 </ShadSelect>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">MRP Range</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">{t('products.mrpRange')}</label>
                 <div className="flex items-center gap-1.5">
-                  <input type="number" value={filters.mrpMin} onChange={(e) => setFilters(prev => ({ ...prev, mrpMin: e.target.value }))} placeholder="Min" className="w-full px-2 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 placeholder:text-slate-400" />
+                  <input type="number" value={filters.mrpMin} onChange={(e) => setFilters(prev => ({ ...prev, mrpMin: e.target.value }))} placeholder={t('products.min')} className="w-full px-2 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 placeholder:text-slate-400" />
                   <span className="text-slate-400 text-xs">-</span>
-                  <input type="number" value={filters.mrpMax} onChange={(e) => setFilters(prev => ({ ...prev, mrpMax: e.target.value }))} placeholder="Max" className="w-full px-2 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 placeholder:text-slate-400" />
+                  <input type="number" value={filters.mrpMax} onChange={(e) => setFilters(prev => ({ ...prev, mrpMax: e.target.value }))} placeholder={t('products.max')} className="w-full px-2 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 placeholder:text-slate-400" />
                 </div>
               </div>
             </div>
             <div className="flex justify-end mt-3">
-              <button onClick={() => { setFilters({ dateFrom: "", dateTo: "", composition: "", schedule: "", gst: "", mrpMin: "", mrpMax: "" }); setFilterFromDate(undefined); setFilterToDate(undefined); }}
+              <button onClick={() => { setFilters({ dateFrom: "", dateTo: "", composition: "", schedule: "", gst: "", mrpMin: "", mrpMax: "", batch: "" }); setFilterFromDate(undefined); setFilterToDate(undefined); setAllBatchesMap({}); }}
                 className="text-xs font-medium text-slate-500 hover:text-red-600 transition-colors px-3 py-1.5">
-                Clear all filters
+                {t('products.clearAllFilters')}
               </button>
             </div>
           </div>
@@ -2061,13 +1579,13 @@ document.head.appendChild(style);
         {/* Bulk Action Bar */}
         {selectedRows.size > 0 && (
           <div className="flex items-center gap-3 px-5 py-3 bg-blue-50 border-b border-blue-100">
-            <span className="text-sm font-medium text-blue-700">{selectedRows.size} selected</span>
+            <span className="text-sm font-medium text-blue-700">{selectedRows.size} {t('products.selected')}</span>
             <div className="flex items-center gap-2 ml-auto">
               <button
                 onClick={() => setDeleteConfirm({ count: selectedRows.size })}
                 className="px-3 py-1.5 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
               >
-                Delete
+                {t('products.deleteTitle')}
               </button>
               <button onClick={() => setSelectedRows(new Set())} className="p-1.5 text-slate-400 hover:text-slate-600">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -2080,7 +1598,7 @@ document.head.appendChild(style);
 
         {/* Table – shadcn Table with always-visible action buttons */}
         <div className="overflow-x-auto">
-          <Table className="min-w-[800px]">
+          <Table className="min-w-[650px] lg:min-w-[800px]">
             <TableHeader>
               <TableRow className="bg-slate-50 border-b border-slate-200">
                 {/* Checkbox column - left */}
@@ -2093,13 +1611,14 @@ document.head.appendChild(style);
                   />
                 </TableHead>
                 {[
-                  { field: "name", label: "Product", sortable: true, align: "left" },
-                  { field: "composition", label: "Composition", sortable: true, align: "left" },
-                  { field: "schedule_type", label: "Schedule", sortable: false, align: "left" },
-                  { field: "gst_percent", label: "GST", sortable: false, align: "left" },
-                  { field: "price", label: "MRP", sortable: true, align: "right" },
-                  { field: "stock", label: "Stock", sortable: true, align: "right" },
-                  { field: "status", label: "Status", sortable: false, align: "center" },
+                  { field: "name", label: t('products.tableProduct'), sortable: true, align: "left" },
+                  { field: "composition", label: t('products.tableComposition'), sortable: true, align: "left" },
+                  { field: "schedule_type", label: t('products.tableSchedule'), sortable: false, align: "left" },
+                  { field: "gst_percent", label: t('products.tableGst'), sortable: false, align: "left" },
+                  { field: "price", label: t('products.tableMrp'), sortable: true, align: "right" },
+                  { field: "stock", label: t('products.tableStock'), sortable: true, align: "right" },
+                  { field: "batches", label: "Batches", sortable: false, align: "left" },
+                  { field: "status", label: t('products.tableStatus'), sortable: false, align: "center" },
                 ].map(({ field, label, sortable, align }) => (
                   <TableHead
                     key={field}
@@ -2113,20 +1632,20 @@ document.head.appendChild(style);
                     </div>
                   </TableHead>
                 ))}
-                <TableHead className="text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Actions</TableHead>
+                <TableHead className="text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{t('products.tableActions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredProducts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-16">
+                  <TableCell colSpan={10} className="text-center py-16">
                     {/* empty state content unchanged */}
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedProducts.map((p) => {
                   const batchInfoItem = batchInfo[p.product_uuid];
-                  const isNearExpiry = batchInfoItem?.nearestExpiryDays !== null && batchInfoItem?.nearestExpiryDays <= 90 && batchInfoItem?.nearestExpiryDays > 0;
+                  const isNearExpiry = batchInfoItem?.nearestExpiryDays !== null && batchInfoItem?.nearestExpiryDays <= 10 && batchInfoItem?.nearestExpiryDays > 0;
                   const isOutOfStock = p.stock === 0;
                   const isLowStock = p.stock > 0 && p.stock <= 10;
                   const isSelected = selectedRows.has(p.product_uuid);
@@ -2153,7 +1672,7 @@ document.head.appendChild(style);
                               <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                               </svg>
-                              Expires in {batchInfoItem.nearestExpiryDays}d
+                              {t('products.expiresIn', { days: batchInfoItem.nearestExpiryDays })}
                             </span>
                           )}
                           {batchInfoItem?.hasExpiredStock && (
@@ -2161,7 +1680,7 @@ document.head.appendChild(style);
                               <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                               </svg>
-                              {batchInfoItem.expiredCount} expired
+                              {batchInfoItem.expiredCount} {t('products.expired')}
                             </span>
                           )}
                         </div>
@@ -2194,24 +1713,48 @@ document.head.appendChild(style);
                           </span>
                           <span className="text-xs text-slate-400">{p.unit}s</span>
                         </div>
-                        {batchInfoItem && batchInfoItem.batchCount > 0 && batchInfoItem.totalAvailable !== p.stock && (
-                          <div className="text-xs text-slate-400 mt-0.5">({batchInfoItem.totalAvailable} in batches)</div>
+                      </TableCell>
+                      {/* Batches */}
+                      <TableCell className="text-left">
+                        {batchInfoItem && batchInfoItem.hasBatches ? (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="inline-flex items-center gap-1">
+                              <span className="text-xs font-medium text-slate-700">{batchInfoItem.batchCount} batch{batchInfoItem.batchCount !== 1 ? "es" : ""}</span>
+                              <button
+                                onClick={async (e) => { e.stopPropagation(); const data = await getProductBatches(p.product_uuid); setBatchModalProduct({ product_uuid: p.product_uuid, batches: data }); }}
+                                className="text-slate-400 hover:text-slate-600 transition-colors"
+                                title="View batches"
+                              >
+                                <HugeiconsIcon icon={InformationCircleIcon} size={17} />
+                              </button>
+                            </div>
+                            {batchInfoItem.nearestExpiryDays !== null && batchInfoItem.nearestExpiryDays <= 10 && (
+                              <span className="text-[10px] text-red-500 font-medium">
+                                Exp in {batchInfoItem.nearestExpiryDays}d
+                              </span>
+                            )}
+                            {batchInfoItem.hasExpiredStock && (
+                              <span className="text-[10px] text-red-500 font-medium">{batchInfoItem.expiredCount} expired</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-300">–</span>
                         )}
                       </TableCell>
                       {/* Status */}
                       <TableCell className="text-center">
                         {isOutOfStock ? (
-                          <Badge variant="danger">Out of Stock</Badge>
+                          <Badge variant="danger">{t('products.outOfStockLabel')}</Badge>
                         ) : isLowStock ? (
-                          <Badge variant="warning">Low Stock</Badge>
+                          <Badge variant="warning">{t('products.lowStockLabel')}</Badge>
                         ) : (
-                          <Badge variant="success">In Stock</Badge>
+                          <Badge variant="success">{t('products.inStockLabel')}</Badge>
                         )}
                       </TableCell>
                       {/* Actions */}
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Tooltip label="Edit">
+                          <Tooltip label={t('products.editTitle')}>
                             <button
                               onClick={() => {
                                 handleEdit(p);
@@ -2220,7 +1763,7 @@ document.head.appendChild(style);
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
-                              Edit
+                              {t('products.editTitle')}
                             </button>
                           </Tooltip>
 
@@ -2237,7 +1780,7 @@ document.head.appendChild(style);
         {/* Footer */}
         {filteredProducts.length > 0 && (
           <div className="px-5 py-3.5 border-t border-slate-100 flex items-center justify-between">
-            <p className="text-xs text-slate-400">Showing {(pageP - 1) * pageSize + 1}–{Math.min(pageP * pageSize, filteredProducts.length)} of {filteredProducts.length} products</p>
+            <p className="text-xs text-slate-400">{t('products.showingProducts', { start: (pageP - 1) * pageSize + 1, end: Math.min(pageP * pageSize, filteredProducts.length), total: filteredProducts.length })}</p>
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
                 <button
@@ -2245,7 +1788,7 @@ document.head.appendChild(style);
                   disabled={pageP === 1}
                   className="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  Prev
+                  {t('products.prev')}
                 </button>
                 {(() => {
                   const pages: (number | string)[] = [];
@@ -2280,104 +1823,23 @@ document.head.appendChild(style);
                   disabled={pageP === totalPages}
                   className="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  Next
+                  {t('products.next')}
                 </button>
               </div>
             )}
             <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-emerald-400 rounded-full" />In Stock</span>
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-amber-400 rounded-full" />Low Stock</span>
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-red-400 rounded-full" />Out of Stock</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-emerald-400 rounded-full" />{t('products.inStockLabel')}</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-amber-400 rounded-full" />{t('products.lowStockLabel')}</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-red-400 rounded-full" />{t('products.outOfStockLabel')}</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Wizard Modal */}
-      {showWizard && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) { setMissClickHint(true); setTimeout(() => setMissClickHint(false), 3000); } }}>
-          <div className="bg-white rounded-3xl shadow-2xl shadow-slate-900/20 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 pt-6 pb-0">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Add New Product</h2>
-                <p className="text-sm text-slate-500 mt-0.5">Step {wizardStep + 1} of {wizardSteps.length}</p>
-              </div>
-              <button onClick={resetWizard} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="px-6 pt-4">
-              <WizardSteps current={wizardStep} steps={wizardSteps} />
-            </div>
-            {error && (
-              <div className="mx-6 mb-2 flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                {error}
-              </div>
-            )}
-            <div className="flex-1 overflow-y-auto px-6 pb-4">{renderWizardStep()}</div>
-            {wizardError && (
-              <div className="mx-6 mb-2 flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                {wizardError}
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-              <button
-                onClick={() => { setWizardStep(Math.max(0, wizardStep - 1)); setWizardError(null); }}
-                disabled={wizardStep === 0}
-                className="px-4 py-2.5 text-sm font-medium text-slate-600 border border-slate-200 bg-white rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                ← Previous
-              </button>
-              <div className="flex items-center gap-1.5">
-                {wizardSteps.map((_, i) => (
-                  <div
-                    key={i}
-                    className={`rounded-full transition-all ${i === wizardStep ? "w-5 h-1.5 bg-emerald-500" : i < wizardStep ? "w-1.5 h-1.5 bg-emerald-400" : "w-1.5 h-1.5 bg-slate-200"
-                      }`}
-                  />
-                ))}
-              </div>
-              {wizardStep < wizardSteps.length - 1 ? (
-                <button
-                  onClick={handleNext}
-                  className="px-4 py-2.5 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-md shadow-emerald-200"
-                >
-                  Next →
-                </button>
-              ) : (
-                <button
-                  onClick={handleWizardSubmit}
-                  disabled={loading}
-                  className="px-4 py-2.5 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-md shadow-emerald-200 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {loading && <Spinner size="sm" />}
-                  {loading ? "Creating…" : "Create Product ✓"}
-                </button>
-              )}
-            </div>
-          </div>
-          {missClickHint && (
-            <div className="fixed bottom-6 left-0 right-0 flex justify-center z-[70] pointer-events-none">
-              <div className="px-4 py-2.5 bg-emerald-600 text-white text-sm rounded-xl toast-fade">
-                Miss-click prevention — click ✕ to close
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Edit / Quick Add Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && resetForm()}>
-          <div className="bg-white rounded-3xl shadow-2xl shadow-slate-900/20 w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden">
+      {showForm && createPortal(
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) { setMissClickToast(true); setTimeout(() => setMissClickToast(false), 2000); } }}>
+          <div className="bg-white rounded-3xl shadow-2xl shadow-slate-900/20 w-full max-w-[calc(100vw-2rem)] sm:max-w-xl lg:max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
@@ -2386,8 +1848,8 @@ document.head.appendChild(style);
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">{editing ? "Edit Product" : "Quick Add Product"}</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">{editing ? "Update medicine information" : "Add a product manually"}</p>
+                  <h2 className="text-base font-bold text-slate-900">{editing ? t('products.editProduct') : t('products.quickAddProduct')}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">{editing ? t('products.updateMedicineInfo') : t('products.addProductManually')}</p>
                 </div>
               </div>
               <button onClick={resetForm} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
@@ -2406,70 +1868,531 @@ document.head.appendChild(style);
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              <div className="grid grid-cols-1 gap-4">
-                <Input label="Medicine Name" required value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Dolo 650" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="Manufacturer" value={form.manufacturer} onChange={(e: any) => setForm({ ...form, manufacturer: e.target.value })} placeholder="e.g. Micro Labs" />
-                  <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Medicine Type</label>
-                    <Select value={form.medicine_type} onChange={(v: string) => setForm({ ...form, medicine_type: v })} options={MEDICINE_TYPES.map((t) => ({ value: t, label: t }))} placeholder="Select type…" />
-                  </div>
+            <div className="flex-1 overflow-y-auto p-5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-slate-400">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="col-span-2">
+                  <Input label={t('products.medicineName')} required value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder={t('products.nameExample')} />
                 </div>
-                <Input label="Composition" value={form.composition} onChange={(e: any) => setForm({ ...form, composition: e.target.value })} placeholder="e.g. Paracetamol 650mg" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="Selling Price (MRP)" required prefix="₹" type="number" value={form.price} onChange={(e: any) => setForm({ ...form, price: e.target.value })} placeholder="0.00" />
-                  <Input label="Purchase Price (PTR)" prefix="₹" type="number" value={form.purchase_price} onChange={(e: any) => setForm({ ...form, purchase_price: e.target.value })} placeholder="0.00" />
+                <div className="col-span-2">
+                  <Input label={t('products.composition')} value={form.composition} onChange={(e: any) => setForm({ ...form, composition: e.target.value })} placeholder={t('products.compositionExample')} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">GST Rate</label>
-                    <Select value={form.gst_percent} onChange={(v: string) => setForm({ ...form, gst_percent: v })} options={GST_OPTIONS} placeholder="Select GST…" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Schedule</label>
-                    <Select value={form.schedule_type} onChange={(v: string) => setForm({ ...form, schedule_type: v })} options={SCHEDULE_TYPES} />
-                  </div>
+                <div className="col-span-2">
+                  <Input label="Description" value={form.description || ""} onChange={(e: any) => setForm({ ...form, description: e.target.value })} placeholder="Optional description" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="HSN Code" value={form.hsn_code} onChange={(e: any) => setForm({ ...form, hsn_code: e.target.value })} placeholder="e.g. 3004" />
-                  <Input label="Rack Location" value={form.rack_location} onChange={(e: any) => setForm({ ...form, rack_location: e.target.value })} placeholder="e.g. A-12" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="SKU" value={form.sku} onChange={(e: any) => setForm({ ...form, sku: e.target.value })} placeholder="Optional" />
-                  <Input label="Barcode" value={form.barcode} onChange={(e: any) => setForm({ ...form, barcode: e.target.value })} placeholder="Scan or enter" />
+                <Input label={t('products.manufacturer')} value={form.manufacturer} onChange={(e: any) => setForm({ ...form, manufacturer: e.target.value })} placeholder={t('products.manufacturerExample')} />
+                <Input label={t('products.sellingPriceMrp')} required prefix="₹" type="number" value={form.price} onChange={(e: any) => setForm({ ...form, price: e.target.value })} placeholder="0.00" />
+                <Input label={t('products.purchasePricePtr')} prefix="₹" type="number" value={form.purchase_price} onChange={(e: any) => setForm({ ...form, purchase_price: e.target.value })} placeholder="0.00" />
+                <Input label="Discount (%)" prefix="%" type="number" value={form.discount || ""} onChange={(e: any) => setForm({ ...form, discount: e.target.value })} placeholder="0" />
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.gstRate')}</label>
+                  <Select value={form.gst_percent} onChange={(v: string) => setForm({ ...form, gst_percent: v })} options={GST_OPTIONS} placeholder={t('products.selectGst')} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Category</label>
-                  <CategoryTreePicker
-                    value={form.category_uuid}
-                    onChange={(uuid: string) => setForm({ ...form, category_uuid: uuid })}
-                    categories={categories}
-                    onCreateNew={async (name: string) => {
-                      const created = await createCategory({ name });
-                      await loadCategories();
-                      return created;
-                    }}
-                    placeholder="Select category…"
-                  />
+                  <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.schedule')}</label>
+                  <Select value={form.schedule_type} onChange={(v: string) => setForm({ ...form, schedule_type: v })} options={SCHEDULE_TYPES} />
                 </div>
-                <Toggle checked={form.prescription_required} onChange={(v: boolean) => setForm({ ...form, prescription_required: v })} label="Prescription Required" />
+                <Input label={t('products.hsnCode')} value={form.hsn_code} onChange={(e: any) => setForm({ ...form, hsn_code: e.target.value })} placeholder={t('products.hsnExample')} />
+                <Input label={t('products.barcode')} value={form.barcode} onChange={(e: any) => setForm({ ...form, barcode: e.target.value })} placeholder={t('products.barcodeExample')} />
+                <Input label={t('products.sku')} value={form.sku} onChange={(e: any) => setForm({ ...form, sku: e.target.value })} placeholder={t('products.skuOptional')} />
+                <Input label={t('products.rackLocation')} value={form.rack_location} onChange={(e: any) => setForm({ ...form, rack_location: e.target.value })} placeholder={t('products.rackExample')} />
+                <Dropdown label="Unit" options={UNIT_OPTIONS.map(u => ({ value: u, label: u }))} value={form.unit} onChange={(v: string) => setForm({ ...form, unit: v })} />
+                <Dropdown label="Category" options={CATEGORY_OPTIONS.map(c => ({ value: c.uuid, label: c.name }))} value={form.category_uuid} onChange={(uuid: string) => {
+                  setForm({ ...form, category_uuid: uuid });
+                  const dflt = CATEGORY_DEFAULTS[uuid];
+                  if (dflt) {
+                    setForm((prev) => ({
+                      ...prev,
+                      category_uuid: uuid,
+                      schedule_type: prev.schedule_type || dflt.schedule,
+                      prescription_required: prev.prescription_required ?? dflt.prescription,
+                    }));
+                  }
+                }} />
+                <div className="flex items-end pb-1">
+                  <Toggle checked={form.prescription_required} onChange={(v: boolean) => setForm({ ...form, prescription_required: v })} label={t('products.prescriptionRequired')} />
+                </div>
+
+                <div className="col-span-2">
+                  <hr className="border-slate-200 my-4" />
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Batches</div>
+                  <div className="space-y-3">
+                    <div className="border border-slate-200 rounded-xl p-4 bg-white">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                        <Input label="Batch No" value={form.batch_number} onChange={(e: any) => setForm({ ...form, batch_number: e.target.value })} placeholder="e.g. B001" />
+                        <Input label="Quantity" type="number" value={form.quantity} onChange={(e: any) => setForm({ ...form, quantity: e.target.value })} placeholder="0" />
+                        <div>
+                          <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Mfg Date</label>
+                          <div className="relative">
+                            <button
+                              ref={mfgBtnRef}
+                              type="button"
+                              onClick={() => setMfgShowPicker(!mfgShowPicker)}
+                              className="flex h-10 w-full items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                            >
+                              <CalendarIcon className="w-4 h-4 text-slate-400" />
+                              <span>{form.manufacture_date ? format(new Date(form.manufacture_date + "T00:00:00"), "dd MMM yyyy") : "Pick a date"}</span>
+                            </button>
+                            {mfgShowPicker && (
+                              <div id="mfg-cal-popup" className="fixed z-[70]" style={{ top: mfgPickPos.top, right: mfgPickPos.right }}>
+                                <SimpleDatePicker date={form.manufacture_date ? new Date(form.manufacture_date + "T00:00:00") : undefined} onSelect={(d) => { setForm({ ...form, manufacture_date: format(d, "yyyy-MM-dd") }); setMfgShowPicker(false); }} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Expiry Date</label>
+                          <div className="relative">
+                            <button
+                              ref={expiryBtnRef}
+                              type="button"
+                              onClick={() => setExpiryShowPicker(!expiryShowPicker)}
+                              className="flex h-10 w-full items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                            >
+                              <CalendarIcon className="w-4 h-4 text-slate-400" />
+                              <span>{form.expiry_date ? format(new Date(form.expiry_date + "T00:00:00"), "dd MMM yyyy") : "Pick a date"}</span>
+                            </button>
+                            {expiryShowPicker && (
+                              <div id="expiry-cal-popup" className="fixed z-[70]" style={{ top: expiryPickPos.top, right: expiryPickPos.right }}>
+                                <SimpleDatePicker date={form.expiry_date ? new Date(form.expiry_date + "T00:00:00") : undefined} onSelect={(d) => { setForm({ ...form, expiry_date: format(d, "yyyy-MM-dd") }); setExpiryShowPicker(false); }} disableFuture={false} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {batchRows.map((row) => (
+                      <div key={row.id} className="border border-slate-200 rounded-xl p-4 bg-white relative">
+                        <button
+                          type="button"
+                          onClick={() => removeBatchRow(row.id)}
+                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-50 border border-red-200 rounded-full flex items-center justify-center text-red-500 hover:bg-red-100 text-sm transition-all"
+                        >
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                          <Input label="Batch No" value={row.batch_number} onChange={(e: any) => updateBatchRow(row.id, "batch_number", e.target.value)} placeholder="e.g. B002" />
+                          <Input label="Quantity" type="number" value={row.quantity} onChange={(e: any) => updateBatchRow(row.id, "quantity", e.target.value)} placeholder="0" />
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Mfg Date</label>
+                            <input type="date" value={row.manufacture_date} onChange={(e: any) => updateBatchRow(row.id, "manufacture_date", e.target.value)} className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Expiry Date</label>
+                            <input type="date" value={row.expiry_date} onChange={(e: any) => updateBatchRow(row.id, "expiry_date", e.target.value)} className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addBatchRow}
+                    className="mt-3 w-full py-2.5 border-2 border-dashed border-slate-300 rounded-xl text-sm text-slate-500 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50/30 transition-all flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                    Add Batch
+                  </button>
+                </div>
+
+                {/* Image */}
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Image</label>
+                  {form.image ? (
+                    <div className="relative">
+                      <img src={form.image} alt="Preview" className="w-full h-28 object-contain rounded-xl border border-slate-200 bg-slate-50" />
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, image: "" })}
+                        className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full shadow hover:bg-red-50 hover:text-red-600 text-slate-400 transition-all"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => document.getElementById("product-image-input")?.click()}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const f = e.dataTransfer.files[0];
+                        if (f && f.type.startsWith("image/")) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => setForm({ ...form, image: ev.target?.result as string });
+                          reader.readAsDataURL(f);
+                        }
+                      }}
+                      className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/30 transition-all"
+                    >
+                      <svg className="w-10 h-10 mx-auto text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                      </svg>
+                      <p className="text-sm text-slate-500 font-medium">Click or drag image here</p>
+                      <p className="text-xs text-slate-400 mt-1">PNG, JPG, GIF, WEBP</p>
+                      <input
+                        id="product-image-input"
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f && f.type.startsWith("image/")) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => setForm({ ...form, image: ev.target?.result as string });
+                            reader.readAsDataURL(f);
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
+                {/* Purchase Details — editable on create, read-only on edit */}
+                {editing ? (
+                  <>
+                    <hr className="border-slate-200 my-4" />
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Purchase Details</div>
+                      {!showNewPurchase && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewSupplierSearch("");
+                            setNewSupplierDropdownOpen(false);
+                            setShowNewPurchase(true);
+                          }}
+                          className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-300 hover:border-emerald-400 px-3 py-1.5 rounded-lg transition-all"
+                        >
+                          + Add New Details
+                        </button>
+                      )}
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm text-slate-700">
+                      <div className="flex justify-between"><span className="text-slate-500">Supplier</span><span>{supplierSearch || "-"}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">Invoice No</span><span>{form.invoice_number || "-"}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">Invoice Date</span><span>{form.invoice_date ? format(new Date(form.invoice_date + "T00:00:00"), "dd MMM yyyy") : "-"}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">Discount</span><span>₹{Number(form.purchase_discount || 0).toFixed(2)}</span></div>
+                      <div className="flex justify-between border-t border-slate-200 pt-2 mt-1"><span className="font-medium">Subtotal</span><span className="font-bold text-emerald-600">₹{(() => { const q = (Number(form.quantity) || 0) + batchRows.reduce((s, r) => s + (Number(r.quantity) || 0), 0); const c = Number(form.purchase_price) || 0; const d = Number(form.purchase_discount) || 0; return Math.max(0, q * c - d).toFixed(2); })()}</span></div>
+                    </div>
+                    {showNewPurchase && (
+                      <>
+                        <hr className="border-slate-200 my-4" />
+                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">New Purchase Details</div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                          {/* Supplier Combobox */}
+                          <div className="relative">
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Supplier</label>
+                            <input
+                              type="text"
+                              value={newSupplierSearch}
+                              onChange={(e) => { setNewSupplierSearch(e.target.value); setNewSupplierDropdownOpen(true); if (!e.target.value) setForm({ ...form, supplier_uuid: "" }); }}
+                              onFocus={() => setNewSupplierDropdownOpen(true)}
+                              placeholder="Search or type supplier..."
+                              className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                            />
+                            {newSupplierDropdownOpen && (
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={() => { setNewSupplierDropdownOpen(false); }} />
+                                <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden" style={{ position: 'absolute' }}>
+                                  <div className="max-h-60 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                                    {!newSupplierSearch.trim() ? (
+                                      recentSuppliers.length > 0 ? (
+                                        <>
+                                          <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Recent Suppliers</div>
+                                          {recentSuppliers.map((s) => (
+                                            <button
+                                              key={s.supplier_uuid}
+                                              type="button"
+                                              onClick={() => {
+                                                setForm({ ...form, supplier_uuid: s.supplier_uuid });
+                                                setNewSupplierSearch(s.name);
+                                                setNewSupplierDropdownOpen(false);
+                                              }}
+                                              className="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors flex items-center justify-between text-slate-700"
+                                            >
+                                              <span>{s.name}</span>
+                                              {s.phone && <span className="text-xs text-slate-400">+91 {s.phone}</span>}
+                                            </button>
+                                          ))}
+                                          <div className="px-4 py-2.5 text-xs text-slate-400 border-t border-slate-100 text-center">Type to search all suppliers</div>
+                                        </>
+                                      ) : (
+                                        <div className="px-4 py-6 text-center text-sm text-slate-400">Type to search suppliers</div>
+                                      )
+                                    ) : (
+                                      <>
+                                        {suppliers.filter(s => s.name.toLowerCase().includes(newSupplierSearch.toLowerCase())).length === 0 ? (
+                                          <div className="px-4 py-6 text-center text-sm text-slate-400">No suppliers found</div>
+                                        ) : (
+                                          suppliers.filter(s => s.name.toLowerCase().includes(newSupplierSearch.toLowerCase())).map((s) => (
+                                            <button
+                                              key={s.supplier_uuid}
+                                              type="button"
+                                              onClick={() => {
+                                                setForm({ ...form, supplier_uuid: s.supplier_uuid });
+                                                setNewSupplierSearch(s.name);
+                                                setNewSupplierDropdownOpen(false);
+                                                try {
+                                                  const stored = localStorage.getItem("recent_suppliers");
+                                                  let uuids: string[] = stored ? JSON.parse(stored) : [];
+                                                  uuids = [s.supplier_uuid, ...uuids.filter((id) => id !== s.supplier_uuid)].slice(0, 10);
+                                                  localStorage.setItem("recent_suppliers", JSON.stringify(uuids));
+                                                  setRecentSuppliers((prev) => {
+                                                    const next = [s, ...prev.filter((r) => r.supplier_uuid !== s.supplier_uuid)].slice(0, 10);
+                                                    return next;
+                                                  });
+                                                } catch (e) {}
+                                              }}
+                                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors flex items-center justify-between ${
+                                                form.supplier_uuid === s.supplier_uuid ? "bg-emerald-50 text-emerald-700 font-medium" : "text-slate-700"
+                                              }`}
+                                            >
+                                              <span>{s.name}</span>
+                                              {s.phone && <span className="text-xs text-slate-400">+91 {s.phone}</span>}
+                                            </button>
+                                          ))
+                                        )}
+                                        {!suppliers.some(s => s.name.toLowerCase() === newSupplierSearch.trim().toLowerCase()) && (
+                                          <button
+                                            type="button"
+                                            onClick={async () => {
+                                              try {
+                                                const created = await createSupplier({ name: newSupplierSearch.trim() });
+                                                setForm({ ...form, supplier_uuid: created.supplier_uuid || created.uuid });
+                                                setNewSupplierSearch(newSupplierSearch.trim());
+                                                setNewSupplierDropdownOpen(false);
+                                                setSuppliers(prev => [...prev, created]);
+                                              } catch (e) { console.error(e); }
+                                            }}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-emerald-600 hover:bg-emerald-50 font-medium border-t border-slate-100 flex items-center gap-2"
+                                          >
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                            Add "{newSupplierSearch.trim()}" as new supplier
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                          <Input label="Invoice Number" value={newInvoiceNumber} onChange={(e: any) => setNewInvoiceNumber(e.target.value)} placeholder="e.g. INV-001" />
+                          {/* Invoice Date */}
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Invoice Date</label>
+                            <div className="relative">
+                              <button
+                                ref={newInvoiceBtnRef}
+                                type="button"
+                                onClick={() => {
+                                  if (newInvoiceBtnRef.current) {
+                                    const r = newInvoiceBtnRef.current.getBoundingClientRect();
+                                    setNewInvoicePickPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+                                  }
+                                  setNewInvoiceShowPicker(!newInvoiceShowPicker);
+                                }}
+                                className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                              >
+                                <CalendarIcon className="w-4 h-4 text-slate-400" />
+                                <span>{newInvoiceDate ? format(new Date(newInvoiceDate + "T00:00:00"), "dd MMM yyyy") : "Pick a date"}</span>
+                              </button>
+                              {newInvoiceShowPicker && (
+                                <div id="new-inv-cal-popup" className="fixed z-[70]" style={{ top: newInvoicePickPos.top, right: newInvoicePickPos.right }}>
+                                  <SimpleDatePicker date={newInvoiceDate ? new Date(newInvoiceDate + "T00:00:00") : undefined} onSelect={(d) => { setNewInvoiceDate(format(d, "yyyy-MM-dd")); setNewInvoiceShowPicker(false); }} />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <Input label="Supplier Discount (₹)" type="number" value={newPurchaseDiscount} onChange={(e: any) => { setNewPurchaseDiscount(e.target.value); setNewManualSubtotal(null); }} placeholder="0" />
+                        </div>
+                        {/* Subtotal */}
+                        {(() => {
+                          const qty = (Number(form.quantity) || 0) + batchRows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+                          const cost = Number(form.purchase_price) || 0;
+                          const disc = Number(newPurchaseDiscount) || 0;
+                          const autoSubtotal = Math.max(0, qty * cost - disc);
+                          const displayValue = newManualSubtotal !== null ? newManualSubtotal : autoSubtotal.toFixed(2);
+                          return (
+                            <div className="bg-slate-50 rounded-xl p-4 flex justify-between items-center border border-slate-200 mt-4">
+                              <span className="text-sm font-medium text-slate-600">Subtotal</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-slate-400">₹</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={displayValue}
+                                  onChange={(e) => setNewManualSubtotal(e.target.value)}
+                                  className="w-32 text-right bg-transparent border-b border-slate-300 text-2xl font-bold text-emerald-600 focus:outline-none focus:border-emerald-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                />
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowNewPurchase(false);
+                            setNewSupplierSearch("");
+                            setNewInvoiceNumber("");
+                            setNewInvoiceDate("");
+                            setNewPurchaseDiscount("");
+                            setNewManualSubtotal(null);
+                          }}
+                          className="mt-2 text-xs text-slate-400 hover:text-slate-600 underline"
+                        >
+                          Cancel new details
+                        </button>
+                      </>
+                    )}
+                  </>
+                ) : (
+                <>
+                <hr className="border-slate-200 my-4" />
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Purchase Details (Optional)</div>
+
+
+
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    {/* Supplier Combobox */}
+                    <div className="relative">
+                      <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Supplier</label>
+                      <input
+                        type="text"
+                        value={supplierSearch}
+                        onChange={(e) => { setSupplierSearch(e.target.value); setSupplierDropdownOpen(true); if (!e.target.value) setForm({ ...form, supplier_uuid: "" }); }}
+                        onFocus={() => setSupplierDropdownOpen(true)}
+                        placeholder="Search or type supplier..."
+                        className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                      />
+                      {supplierDropdownOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => { setSupplierDropdownOpen(false); }} />
+                          <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden" style={{ position: 'absolute' }}>
+                            <div className="max-h-60 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                              {suppliers.filter(s => s.name.toLowerCase().includes(supplierSearch.toLowerCase())).length === 0 && !supplierSearch.trim() ? (
+                                <div className="px-4 py-6 text-center text-sm text-slate-400">Type to search suppliers</div>
+                              ) : (
+                                <>
+                                  {suppliers.filter(s => s.name.toLowerCase().includes(supplierSearch.toLowerCase())).map((s) => (
+                                    <button
+                                      key={s.supplier_uuid}
+                                      type="button"
+                                      onClick={() => {
+                                        setForm({ ...form, supplier_uuid: s.supplier_uuid });
+                                        setSupplierSearch(s.name);
+                                        setSupplierDropdownOpen(false);
+                                        try {
+                                          const stored = localStorage.getItem("recent_suppliers");
+                                          let uuids: string[] = stored ? JSON.parse(stored) : [];
+                                          uuids = [s.supplier_uuid, ...uuids.filter((id) => id !== s.supplier_uuid)].slice(0, 10);
+                                          localStorage.setItem("recent_suppliers", JSON.stringify(uuids));
+                                          setRecentSuppliers((prev) => {
+                                            const next = [s, ...prev.filter((r) => r.supplier_uuid !== s.supplier_uuid)].slice(0, 10);
+                                            return next;
+                                          });
+                                        } catch (e) {}
+                                      }}
+                                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors flex items-center justify-between ${
+                                        form.supplier_uuid === s.supplier_uuid ? "bg-emerald-50 text-emerald-700 font-medium" : "text-slate-700"
+                                      }`}
+                                    >
+                                      <span>{s.name}</span>
+                                      {s.phone && <span className="text-xs text-slate-400">+91 {s.phone}</span>}
+                                    </button>
+                                  ))}
+                                  {supplierSearch.trim() && !suppliers.some(s => s.name.toLowerCase() === supplierSearch.trim().toLowerCase()) && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          const created = await createSupplier({ name: supplierSearch.trim() });
+                                          setForm({ ...form, supplier_uuid: created.supplier_uuid || created.uuid });
+                                          setSupplierSearch(supplierSearch.trim());
+                                          setSupplierDropdownOpen(false);
+                                          setSuppliers(prev => [...prev, created]);
+                                        } catch (e) { console.error(e); }
+                                      }}
+                                      className="w-full text-left px-4 py-2.5 text-sm text-emerald-600 hover:bg-emerald-50 font-medium border-t border-slate-100 flex items-center gap-2"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                      Add "{supplierSearch.trim()}" as new supplier
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <Input label="Invoice Number" value={form.invoice_number} onChange={(e: any) => setForm({ ...form, invoice_number: e.target.value })} placeholder="e.g. INV-001" />
+                    {/* Invoice Date */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Invoice Date</label>
+                      <div className="relative">
+                        <button
+                          ref={invoiceBtnRef}
+                          type="button"
+                          onClick={() => setInvoiceShowPicker(!invoiceShowPicker)}
+                          className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                        >
+                          <CalendarIcon className="w-4 h-4 text-slate-400" />
+                          <span>{form.invoice_date ? format(new Date(form.invoice_date + "T00:00:00"), "dd MMM yyyy") : "Pick a date"}</span>
+                        </button>
+                        {invoiceShowPicker && (
+                          <div id="inv-cal-popup" className="fixed z-[70]" style={{ top: invoicePickPos.top, right: invoicePickPos.right }}>
+                            <SimpleDatePicker date={form.invoice_date ? new Date(form.invoice_date + "T00:00:00") : undefined} onSelect={(d) => { setForm({ ...form, invoice_date: format(d, "yyyy-MM-dd") }); setInvoiceShowPicker(false); }} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Input label="Supplier Discount (₹)" type="number" value={form.purchase_discount} onChange={(e: any) => { setForm({ ...form, purchase_discount: e.target.value }); setManualSubtotal(null); }} placeholder="0" />
+                  </div>
+
+
+                  {/* Subtotal */}
+                  {(() => {
+                    const qty = (Number(form.quantity) || 0) + batchRows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+                    const cost = Number(form.purchase_price) || 0;
+                    const disc = Number(form.purchase_discount) || 0;
+                    const autoSubtotal = Math.max(0, qty * cost - disc);
+                    const displayValue = manualSubtotal !== null ? manualSubtotal : autoSubtotal.toFixed(2);
+                    return (
+                      <div className="bg-slate-50 rounded-xl p-4 flex justify-between items-center border border-slate-200 mt-4">
+                        <span className="text-sm font-medium text-slate-600">Subtotal</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-slate-400">₹</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={displayValue}
+                            onChange={(e) => setManualSubtotal(e.target.value)}
+                            className="w-32 text-right bg-transparent border-b border-slate-300 text-2xl font-bold text-emerald-600 focus:outline-none focus:border-emerald-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+                )}
+
               {editing && (
-                <div className="border-2 border-dashed border-red-300 rounded-xl p-4 bg-red-50/50">
+                <div className="border-2 border-dashed border-red-300 rounded-xl p-4 bg-red-50/50 mt-5">
                   <div className="flex items-center gap-2 mb-2">
                     <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Danger Zone</p>
+                    <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">{t('products.dangerZone')}</p>
                   </div>
-                  <p className="text-xs text-red-600 mb-3">Deleting this product will remove it permanently. This action cannot be undone.</p>
+                  <p className="text-xs text-red-600 mb-3">{t('products.deleteWarning')}</p>
                   <button
                     onClick={() => {
                       const uuid = editing.product_uuid || editing.uuid;
                       const product = products.find((p) => p.product_uuid === uuid);
-                      setDeleteConfirm({ uuid, name: product?.name || "this product" });
+                      setDeleteConfirm({ uuid, name: product?.name || t('products.thisProduct') });
                     }}
                     disabled={deleting === (editing.product_uuid || editing.uuid)}
                     className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl transition-all disabled:opacity-50"
@@ -2481,7 +2404,7 @@ document.head.appendChild(style);
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     )}
-                    {deleting === (editing.product_uuid || editing.uuid) ? "Deleting…" : "Delete Product"}
+                    {deleting === (editing.product_uuid || editing.uuid) ? t('products.deletingEllipsis') : t('products.deleteProduct')}
                   </button>
                 </div>
               )}
@@ -2491,257 +2414,109 @@ document.head.appendChild(style);
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-blue-200 disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-emerald-200 disabled:opacity-50"
               >
                 {loading && <Spinner size="sm" />}
-                {loading ? (editing ? "Updating…" : "Creating…") : editing ? "Update Product" : "Create Product"}
+                {loading ? (editing ? t('products.updatingEllipsis') : t('products.creatingEllipsis')) : editing ? t('products.updateProduct') : t('products.createProduct')}
               </button>
             </div>
           </div>
+
+        </div>
+      , document.body)}
+
+      {ctxMenu && createPortal(
+        <div ref={ctxMenuRef} className="fixed z-[90] w-40 bg-white border border-slate-200 rounded-xl shadow-2xl py-1" style={{ left: ctxMenu.x, top: ctxMenu.y }}>
+          <button onClick={() => { const excluded = ["uuid", "name"]; const data: Partial<BulkRow> = {}; for (const k in ctxMenu.row) { if (!excluded.includes(k)) (data as any)[k] = (ctxMenu.row as any)[k]; } setCopyBuffer(data); setCtxMenu(null); }} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50">
+            <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+            Copy fields
+          </button>
+          <button onClick={() => { const newRow = createEmptyBulkRow(); Object.assign(newRow, JSON.parse(JSON.stringify(ctxMenu.row))); newRow.uuid = crypto.randomUUID(); setBulkRows((prev) => { const i = prev.findIndex((r) => r.uuid === ctxMenu.row.uuid); const next = [...prev]; next.splice(i + 1, 0, newRow); return next; }); setCtxMenu(null); }} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50">
+            <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            Duplicate
+          </button>
+          <button onClick={() => { if (copyBuffer) updateBulkRow(ctxMenu.row.uuid, copyBuffer); setCtxMenu(null); }} disabled={!copyBuffer} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-default">
+            <svg className="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+            Paste {copyBuffer ? "fields" : "(copy first)"}
+          </button>
+          <hr className="my-1 border-slate-100" />
+          <button onClick={() => { removeBulkRow(ctxMenu.row.uuid); setCtxMenu(null); }} disabled={bulkRows.length <= 1} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-default">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            Delete row
+          </button>
+        </div>
+      , document.body)}
+
+      {missClickToast && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] px-5 py-2.5 rounded-xl text-sm text-amber-800 bg-amber-50 border border-amber-200 shadow-lg animate-pulse">
+          Safety miss-click activated — use ✕ button to close
         </div>
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
+      {deleteConfirm && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800 text-left">Delete Product</h2>
+              <h2 className="text-lg font-bold text-slate-800 text-left">{t('products.deleteProduct')}</h2>
             </div>
             <div className="p-6">
               <p className="text-slate-600 text-sm text-left">
                 {"uuid" in deleteConfirm
-                  ? `Are you sure you want to delete "${deleteConfirm.name}"? This action cannot be undone.`
-                  : `Are you sure you want to delete ${deleteConfirm.count} selected product(s)? This action cannot be undone.`}
+                  ? t('products.deleteConfirmSingle', { name: deleteConfirm.name })
+                  : t('products.deleteConfirmMultiple', { count: deleteConfirm.count })}
               </p>
             </div>
             <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3 bg-white rounded-b-2xl">
               <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="border-slate-300 text-slate-700 hover:bg-slate-100">
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={() => deleteConfirm && confirmDelete(deleteConfirm)} className="bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-900/20">
-                Delete
+                {t('products.deleteTitle')}
               </Button>
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Quarantine Confirmation Modal */}
-      {showQuarantineConfirm && (
+      {showQuarantineConfirm && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800 text-left">Quarantine Expired Batches</h2>
+              <h2 className="text-lg font-bold text-slate-800 text-left">{t('products.quarantineExpired')}</h2>
             </div>
             <div className="p-6">
-              <p className="text-slate-600 text-sm text-left">All expired batches will be removed from the available stock. This action cannot be undone.</p>
+              <p className="text-slate-600 text-sm text-left">{t('products.quarantineWarning')}</p>
             </div>
             <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3 bg-white rounded-b-2xl">
               <Button variant="outline" onClick={() => setShowQuarantineConfirm(false)} className="border-slate-300 text-slate-700 hover:bg-slate-100">
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={confirmQuarantine} className="bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-900/20">
-                Quarantine
+                {t('products.quarantine')}
               </Button>
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
-      {/* Template Creation Modal */}
-      {showTemplateModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4" onClick={(e) => e.target === e.currentTarget && setShowTemplateModal(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-200">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600">
-                    <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
-                    <line x1="12" x2="12" y1="8" y2="16" />
-                    <line x1="8" x2="16" y1="12" y2="12" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">Create Template</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Save a reusable product configuration</p>
-                </div>
-              </div>
-              <button onClick={() => setShowTemplateModal(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Template Name *</label>
-                <input
-                  value={templateForm.name}
-                  onChange={(e) => setTemplateForm((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="e.g. Capsule"
-                  className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Sub Heading</label>
-                <input
-                  value={templateForm.description}
-                  onChange={(e) => setTemplateForm((p) => ({ ...p, description: e.target.value }))}
-                  placeholder="e.g. Solid oral capsule"
-                  className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
-                />
-              </div>
-
-              <div className="border-t border-slate-100 pt-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pre-filled Defaults</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-slate-400">Quick fill:</span>
-                    <select
-                      onChange={(e) => { if (e.target.value) handleTemplatePreFill(e.target.value); e.target.value = ""; }}
-                      className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none cursor-pointer hover:border-slate-300 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none"
-                      style={{
-                        backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-                        backgroundRepeat: "no-repeat",
-                        backgroundPosition: "right 8px center",
-                        paddingRight: "28px",
-                      }}
-                    >
-                      <option value="">Select type…</option>
-                      {PRODUCT_TYPES.map((pt) => (
-                        <option key={pt.id} value={pt.id}>{pt.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1.5">GST Rate</label>
-                    <Select
-                      value={String(templateForm.defaults_json.gst_percent)}
-                      onChange={(v: string) => setTemplateForm((p) => ({ ...p, defaults_json: { ...p.defaults_json, gst_percent: Number(v) } }))}
-                      options={GST_OPTIONS}
-                      placeholder="Select GST rate"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1.5">Schedule</label>
-                    <Select
-                      value={templateForm.defaults_json.schedule_type}
-                      onChange={(v: string) => setTemplateForm((p) => ({ ...p, defaults_json: { ...p.defaults_json, schedule_type: v } }))}
-                      options={SCHEDULE_TYPES}
-                      placeholder="Select schedule"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1.5">Medicine Type</label>
-                    <Select
-                      value={templateForm.defaults_json.medicine_type}
-                      onChange={(v: string) => setTemplateForm((p) => ({ ...p, defaults_json: { ...p.defaults_json, medicine_type: v } }))}
-                      options={MEDICINE_TYPES.map((t: string) => ({ value: t, label: t }))}
-                      placeholder="Select type…"
-                    />
-                  </div>
-                  <div className="flex items-end pb-1.5">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={templateForm.defaults_json.prescription_required}
-                        onChange={(e) => setTemplateForm((p) => ({ ...p, defaults_json: { ...p.defaults_json, prescription_required: e.target.checked } }))}
-                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                      />
-                      <span className="text-xs text-slate-600">Prescription Required</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-slate-100 pt-4">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Packaging Defaults</h3>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">Base Unit</label>
-                  <input
-                    value={templateForm.packaging_json.baseUnit}
-                    onChange={(e) => setTemplateForm((p) => ({ ...p, packaging_json: { ...p.packaging_json, baseUnit: e.target.value } }))}
-                    placeholder="e.g. Tablet"
-                    className="w-full h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 transition-all mb-3"
-                  />
-                </div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Pack Sizes</label>
-                {templateForm.packaging_json.templates.map((pkg, idx) => (
-                  <div key={idx} className="flex items-center gap-2 mb-2">
-                    <input
-                      value={pkg.name}
-                      onChange={(e) => {
-                        const updated = [...templateForm.packaging_json.templates];
-                        updated[idx] = { ...updated[idx], name: e.target.value };
-                        setTemplateForm((p) => ({ ...p, packaging_json: { ...p.packaging_json, templates: updated } }));
-                      }}
-                      placeholder="Name"
-                      className="flex-1 h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-                    />
-                    <input
-                      type="number"
-                      value={pkg.contains}
-                      onChange={(e) => {
-                        const updated = [...templateForm.packaging_json.templates];
-                        updated[idx] = { ...updated[idx], contains: Number(e.target.value) };
-                        setTemplateForm((p) => ({ ...p, packaging_json: { ...p.packaging_json, templates: updated } }));
-                      }}
-                      placeholder="Qty"
-                      className="w-16 h-9 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs text-slate-900 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-                    />
-                    <input
-                      value={pkg.unit}
-                      onChange={(e) => {
-                        const updated = [...templateForm.packaging_json.templates];
-                        updated[idx] = { ...updated[idx], unit: e.target.value };
-                        setTemplateForm((p) => ({ ...p, packaging_json: { ...p.packaging_json, templates: updated } }));
-                      }}
-                      placeholder="Unit"
-                      className="flex-1 h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-900 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t border-slate-100 px-6 py-4 flex justify-end gap-3 bg-slate-50/50 rounded-b-3xl">
-              <button
-                onClick={() => setShowTemplateModal(false)}
-                className="px-4 py-2.5 text-sm font-medium text-slate-600 border border-slate-200 bg-white rounded-xl hover:bg-slate-50 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateTemplate}
-                className="px-4 py-2.5 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-md shadow-emerald-200"
-              >
-                Save Template
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {selectedStat && (
+      {selectedStat && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedStat(null)}>
-          <div className="w-[400px] h-[500px] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
+          <div className="w-[min(90vw,400px)] h-[min(80vh,500px)] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-end mb-1">
               <button onClick={() => setSelectedStat(null)} className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: "#dc2626", color: "#fff" }}>
-                Close
+                {t('common.close')}
               </button>
             </div>
 
             {selectedStat === 'products' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Total Products</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('products.totalProducts')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">{totalProducts.toLocaleString()}</p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#3b82f6", color: "#fff" }}>
-                    All Products
+                    {t('products.allProducts')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -2753,10 +2528,10 @@ document.head.appendChild(style);
             {selectedStat === 'inventory' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Inventory Value</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('products.inventoryValue')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">₹{Math.round(totalInventoryValue).toLocaleString()}</p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#8b5cf6", color: "#fff" }}>
-                    Stock Value
+                    {t('products.stockValue')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -2768,10 +2543,10 @@ document.head.appendChild(style);
             {selectedStat === 'low' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Low Stock</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('products.lowStockLabel')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">{lowStockProducts.toLocaleString()}</p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#f59e0b", color: "#fff" }}>
-                    Needs Reorder
+                    {t('products.needsReorder')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -2783,10 +2558,10 @@ document.head.appendChild(style);
             {selectedStat === 'out' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Out of Stock</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('products.outOfStockLabel')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">{outOfStockProducts.toLocaleString()}</p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#ef4444", color: "#fff" }}>
-                    Immediate Action
+                    {t('products.immediateAction')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -2797,6 +2572,310 @@ document.head.appendChild(style);
 
           </div>
         </div>
+      , document.body)}
+
+      {/* Bulk Stocks Update Modal */}
+      {showBulkModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) { setMissClickToast(true); setTimeout(() => setMissClickToast(false), 2000); } }}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[calc(100vw-2rem)] lg:max-w-7xl max-h-[85vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2m-6 4v6m4-6v6" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Bulk Stocks Update</h2>
+                  <p className="text-xs text-slate-500">{bulkRows.length} product{bulkRows.length !== 1 ? "s" : ""} — scroll horizontally to fill all fields</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {bulkSubmitting && (
+                  <span className="text-sm text-blue-600 font-medium">Processing {bulkProgress.current} of {bulkProgress.total}...</span>
+                )}
+                <button onClick={addBulkRow} disabled={bulkSubmitting} className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all disabled:opacity-40">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                  + Add Row
+                </button>
+                <button onClick={() => { setShowBulkModal(false); setBulkRows([]); }} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            {bulkSubmitting && (
+              <div className="h-1 bg-slate-100 shrink-0">
+                <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }} />
+              </div>
+            )}
+
+            {/* Spreadsheet table */}
+            <div ref={bulkTableRef} className="flex-1 overflow-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full">
+              <table className="border-collapse text-xs w-max">
+                <thead>
+                  <tr className="bg-slate-50 sticky top-0 z-10">
+                    <th className="sticky left-0 z-20 bg-slate-50 border-r border-b border-slate-200 px-2 py-2.5 text-left font-semibold text-slate-600 w-10 text-center">#</th>
+                    {[
+                      { label: "Name*", w: 160 }, { label: "Composition", w: 160 }, { label: "Description", w: 160 },
+                      { label: "Manufacturer", w: 140 }, { label: "MRP*", w: 90 }, { label: "PTR", w: 90 },
+                      { label: "Disc%", w: 70 }, { label: "GST", w: 100 }, { label: "Schedule", w: 110 },
+                      { label: "HSN", w: 100 }, { label: "Barcode", w: 120 }, { label: "SKU", w: 100 },
+                      { label: "Rack", w: 90 }, { label: "Category", w: 110 }, { label: "Rx", w: 50 },
+                      { label: "Unit", w: 80 }, { label: "Batch", w: 110 }, { label: "Qty", w: 70 },
+                      { label: "Mfg Date", w: 110 }, { label: "Exp Date", w: 110 },
+                      { label: "Supplier", w: 150 }, { label: "Inv#", w: 110 }, { label: "Inv Date", w: 110 },
+                      { label: "S.Disc ₹", w: 85 }, { label: "Subtotal", w: 100 },
+                    ].map((col) => (
+                      <th key={col.label} className="border-r border-b border-slate-200 px-2 py-2.5 text-left font-semibold text-slate-600" style={{ minWidth: col.w }}>
+                        {col.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {bulkRows.map((row, idx) => {
+                    const qty = Number(row.quantity) || 0;
+                    const cost = Number(row.purchase_price) || 0;
+                    const disc = Number(row.purchase_discount) || 0;
+                    const subtotal = Math.max(0, qty * cost - disc);
+                    return (
+                      <tr key={row.uuid} className="hover:bg-blue-50/40 even:bg-slate-50/50 cursor-default">
+                        <td className="sticky left-0 z-10 bg-inherit border-r border-b border-slate-200 px-1 py-1 text-center">
+                          <span className="text-slate-400 text-[11px] font-mono">{idx + 1}</span>
+                        </td>
+
+                        {/* Name */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input value={row.name} onChange={(e) => updateBulkRow(row.uuid, { name: e.target.value })}
+                            placeholder="Required" className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 placeholder:text-slate-300" />
+                        </td>
+
+                        {/* Composition */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input value={row.composition} onChange={(e) => updateBulkRow(row.uuid, { composition: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
+                        </td>
+
+                        {/* Description */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input value={row.description} onChange={(e) => updateBulkRow(row.uuid, { description: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
+                        </td>
+
+                        {/* Manufacturer */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input value={row.manufacturer} onChange={(e) => updateBulkRow(row.uuid, { manufacturer: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
+                        </td>
+
+                        {/* MRP */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input type="number" value={row.price} onChange={(e) => updateBulkRow(row.uuid, { price: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                        </td>
+
+                        {/* PTR */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input type="number" value={row.purchase_price} onChange={(e) => updateBulkRow(row.uuid, { purchase_price: e.target.value, manual_subtotal: null })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                        </td>
+
+                        {/* Disc% */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input type="number" value={row.discount} onChange={(e) => updateBulkRow(row.uuid, { discount: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 [appearance:textfield]" />
+                        </td>
+
+                        {/* GST */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <select value={row.gst_percent} onChange={(e) => updateBulkRow(row.uuid, { gst_percent: e.target.value })}
+                            className="w-full px-1 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700">
+                            {GST_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                        </td>
+
+                        {/* Schedule */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <select value={row.schedule_type} onChange={(e) => updateBulkRow(row.uuid, { schedule_type: e.target.value })}
+                            className="w-full px-1 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700">
+                            {SCHEDULE_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                        </td>
+
+                        {/* HSN */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input value={row.hsn_code} onChange={(e) => updateBulkRow(row.uuid, { hsn_code: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
+                        </td>
+
+                        {/* Barcode */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input value={row.barcode} onChange={(e) => updateBulkRow(row.uuid, { barcode: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
+                        </td>
+
+                        {/* SKU */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input value={row.sku} onChange={(e) => updateBulkRow(row.uuid, { sku: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
+                        </td>
+
+                        {/* Rack */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input value={row.rack_location} onChange={(e) => updateBulkRow(row.uuid, { rack_location: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
+                        </td>
+
+                        {/* Category */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <select value={row.category_uuid} onChange={(e) => {
+                            const uuid = e.target.value;
+                            const dflt = CATEGORY_DEFAULTS[uuid];
+                            updateBulkRow(row.uuid, {
+                              category_uuid: uuid,
+                              schedule_type: dflt ? dflt.schedule : row.schedule_type,
+                              prescription_required: dflt ? dflt.prescription : row.prescription_required,
+                            });
+                          }}
+                            className="w-full px-1 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700">
+                            <option value="">Select...</option>
+                            {CATEGORY_OPTIONS.map((c) => <option key={c.uuid} value={c.uuid}>{c.name}</option>)}
+                          </select>
+                        </td>
+
+                        {/* Rx */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1 text-center">
+                          <input type="checkbox" checked={row.prescription_required} onChange={(e) => updateBulkRow(row.uuid, { prescription_required: e.target.checked })}
+                            className="accent-blue-600 w-3.5 h-3.5" />
+                        </td>
+
+                        {/* Unit */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input value={row.unit} onChange={(e) => updateBulkRow(row.uuid, { unit: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
+                        </td>
+
+                        {/* Batch */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input value={row.batch_number} onChange={(e) => updateBulkRow(row.uuid, { batch_number: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
+                        </td>
+
+                        {/* Qty */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input type="number" value={row.quantity} onChange={(e) => updateBulkRow(row.uuid, { quantity: e.target.value, manual_subtotal: null })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 [appearance:textfield]" />
+                        </td>
+
+                        {/* Mfg Date */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input type="date" value={row.manufacture_date} onChange={(e) => updateBulkRow(row.uuid, { manufacture_date: e.target.value })}
+                            className="w-full px-1 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700 text-[11px]" />
+                        </td>
+
+                        {/* Exp Date */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input type="date" value={row.expiry_date} onChange={(e) => updateBulkRow(row.uuid, { expiry_date: e.target.value })}
+                            className="w-full px-1 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700 text-[11px]" />
+                        </td>
+
+                        {/* Supplier */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input value={row.supplier_name} onChange={(e) => updateBulkRow(row.uuid, { supplier_name: e.target.value })}
+                            placeholder="Type supplier name" list="bulk-supplier-suggest"
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 placeholder:text-slate-300" />
+                          <datalist id="bulk-supplier-suggest">
+                            {suppliers.map((s) => <option key={s.supplier_uuid} value={s.name} />)}
+                          </datalist>
+                        </td>
+
+                        {/* Inv# */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input value={row.invoice_number} onChange={(e) => updateBulkRow(row.uuid, { invoice_number: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
+                        </td>
+
+                        {/* Inv Date */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input type="date" value={row.invoice_date} onChange={(e) => updateBulkRow(row.uuid, { invoice_date: e.target.value })}
+                            className="w-full px-1 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700 text-[11px]" />
+                        </td>
+
+                        {/* S.Disc ₹ */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input type="number" value={row.purchase_discount} onChange={(e) => updateBulkRow(row.uuid, { purchase_discount: e.target.value, manual_subtotal: null })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 [appearance:textfield]" />
+                        </td>
+
+                        {/* Subtotal (editable) */}
+                        <td className="border-r border-b border-slate-200 px-1 py-1">
+                          <input type="number" step="0.01"
+                            value={row.manual_subtotal !== null ? row.manual_subtotal : subtotal.toFixed(2)}
+                            onChange={(e) => updateBulkRow(row.uuid, { manual_subtotal: e.target.value })}
+                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700 text-right font-medium [appearance:textfield]" />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end shrink-0">
+              <button
+                onClick={handleBulkSubmit}
+                disabled={bulkSubmitting}
+                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-blue-200 disabled:opacity-50"
+              >
+                {bulkSubmitting && <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />}
+                {bulkSubmitting ? `Processing ${bulkProgress.current} of ${bulkProgress.total}...` : `Submit ${bulkRows.length} Product${bulkRows.length !== 1 ? "s" : ""}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {/* Batch Info Modal */}
+      {batchModalProduct && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setBatchModalProduct(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h3 className="text-base font-semibold text-gray-900">Product Batches</h3>
+              <button onClick={() => setBatchModalProduct(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[60vh] p-6">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left pb-2 text-xs font-medium text-gray-500">Batch No</th>
+                    <th className="text-center pb-2 text-xs font-medium text-gray-500">Qty</th>
+                    <th className="text-center pb-2 text-xs font-medium text-gray-500">Sold</th>
+                    <th className="text-right pb-2 text-xs font-medium text-gray-500">Mfg</th>
+                    <th className="text-right pb-2 text-xs font-medium text-gray-500">Expiry</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {batchModalProduct.batches.map((b: any, idx: number) => (
+                    <tr key={idx} className="border-b border-gray-50 last:border-0">
+                      <td className="py-2.5 pr-4 text-gray-800 font-medium">{b.batch_number || "-"}</td>
+                      <td className="py-2.5 text-center text-gray-700">{b.quantity || 0}</td>
+                      <td className="py-2.5 text-center text-gray-400">{b.sold_quantity || 0}</td>
+                      <td className="py-2.5 text-right text-gray-500">{b.manufacture_date ? format(new Date(b.manufacture_date + "T00:00:00"), "dd MMM yyyy") : "-"}</td>
+                      <td className="py-2.5 text-right text-gray-500">{b.expiry_date ? format(new Date(b.expiry_date + "T00:00:00"), "dd MMM yyyy") : "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
     </div>

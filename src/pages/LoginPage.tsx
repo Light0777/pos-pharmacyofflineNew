@@ -55,8 +55,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "linear-gradient(180deg, #00e060 0%, #00b84a 15%, #007a30 35%, #003a16 55%, #000e05 75%, #000000 100%)" }}>
-      <div className="w-full max-w-3xl bg-white rounded-2xl overflow-hidden flex shadow-2xl">
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "#f5f5f5" }}>
+      <div className="w-full max-w-[calc(100vw-2rem)] sm:max-w-xl lg:max-w-3xl bg-white rounded-2xl overflow-hidden flex shadow-2xl">
         {/* LEFT: Green gradient panel */}
         <div
           className="w-[45%] hidden sm:flex flex-col justify-between p-8 relative min-h-[520px]"
@@ -142,12 +142,17 @@ export default function LoginPage() {
               )}
             </button>
 
-            <p className="text-center text-sm text-gray-500 pt-1">
-              Don&apos;t have an account?{" "}
-              <Link to="/signup" className="text-gray-800 font-medium underline underline-offset-2 hover:text-[#16a34a] transition-colors">
-                Sign up
+            <div className="flex items-center justify-between text-sm pt-1">
+              <p className="text-gray-500">
+                Don&apos;t have an account?{" "}
+                <Link to="/signup" className="text-gray-800 font-medium underline underline-offset-2 hover:text-[#16a34a] transition-colors">
+                  Sign up
+                </Link>
+              </p>
+              <Link to="/forgot-password" className="text-gray-500 hover:text-[#16a34a] transition-colors underline underline-offset-2">
+                Forgot password?
               </Link>
-            </p>
+            </div>
           </form>
         </div>
       </div>

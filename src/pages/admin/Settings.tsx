@@ -10,35 +10,46 @@ import {
   getLicenseStatus,
   activateLicense,
 } from "../../renderer/services/settingsApi";
-import { IonIcon } from "@ionic/react";
+import { apiPut } from "../../renderer/services/api";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useAuth } from "../../context/AuthContext";
 import { getProfile, type UserProfile, type ShopProfile } from "../../renderer/services/profileApi";
+
+const SECURITY_QUESTIONS = [
+  "What is your pet's name?",
+  "What city were you born in?",
+  "What is your mother's maiden name?",
+  "What was the name of your first school?",
+  "What is your favorite book?",
+  "What is your favorite movie?",
+  "What was the model of your first car?",
+  "What is your favorite food?",
+];
 import {
-  saveOutline,
-  closeOutline,
-  checkmarkCircleOutline,
-  warningOutline,
-  businessOutline,
-  callOutline,
-  locationOutline,
-  documentTextOutline,
-  pricetagOutline,
-  refreshOutline,
-  cloudUploadOutline,
-  cloudDownloadOutline,
-  createOutline,
-  keyOutline,
-  shieldCheckmarkOutline,
-  checkmarkCircle,
-  closeCircleOutline,
-  mailOutline,
-  copyOutline,
-  checkmarkOutline,
-  calendarOutline,
-  timeOutline,
-  personCircleOutline,
-  logOutOutline,
-} from "ionicons/icons";
+  SaveIcon,
+  Cancel01Icon,
+  CheckmarkCircle01Icon,
+  Alert01Icon,
+  Building01Icon,
+  CallIcon,
+  Location01Icon,
+  File01Icon,
+  Tag01Icon,
+  RefreshIcon,
+  CloudUploadIcon,
+  CloudDownloadIcon,
+  Edit01Icon,
+  Key01Icon,
+  Shield01Icon,
+  CancelCircleIcon,
+  Mail01Icon,
+  CopyIcon,
+  CheckIcon,
+  Calendar01Icon,
+  Time01Icon,
+  UserCircleIcon,
+  Logout01Icon,
+} from "@hugeicons/core-free-icons";
 
 const DEFAULT_SETTINGS = {
   shop_name: "",
@@ -67,6 +78,10 @@ export default function Settings() {
   const [profileUser, setProfileUser] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [showSecurityForm, setShowSecurityForm] = useState(false);
+  const [secQuestion, setSecQuestion] = useState("");
+  const [secAnswer, setSecAnswer] = useState("");
+  const [savingSecurity, setSavingSecurity] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -150,7 +165,7 @@ export default function Settings() {
 
   const handleActivate = async () => {
     if (!licenseKey.trim()) {
-      setError("License key is required");
+      setError(t('settings.licenseKeyRequired'));
       return;
     }
     setActivating(true);
@@ -159,14 +174,14 @@ export default function Settings() {
     try {
       const res = await activateLicense(licenseKey.trim());
       if (res?.success) {
-        setSuccess("License activated successfully!");
+        setSuccess(t('settings.licenseActivated'));
         await loadLicenseStatus();
         setLicenseKey("");
       } else {
-        setError(res?.error || "License activation failed");
+        setError(t('settings.licenseActivationFailed'));
       }
     } catch (err) {
-      setError("License activation failed");
+      setError(t('settings.licenseActivationFailed'));
     } finally {
       setActivating(false);
     }
@@ -279,7 +294,7 @@ export default function Settings() {
       <div style={{ background: "#ffffff" }} className="min-h-screen flex items-center justify-center p-6">
         <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-8 text-center max-w-md w-full">
           <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
-            <IonIcon icon={warningOutline} className="text-2xl text-red-400" />
+            <HugeiconsIcon icon={Alert01Icon} className="text-2xl text-red-400"  />
           </div>
           <p style={{ color: "#374151" }} className="text-sm">{t("settings.loadFailed")}</p>
           <button onClick={handleRefresh} className="mt-5 btn btn-primary">
@@ -314,11 +329,11 @@ export default function Settings() {
             color: success ? "#16a34a" : "#dc2626"
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <IonIcon icon={success ? checkmarkCircleOutline : warningOutline} className="text-2xl" />
+              <HugeiconsIcon icon={success ? CheckmarkCircle01Icon : Alert01Icon} className="text-2xl"  />
               <span>{success || error}</span>
             </div>
             <button onClick={() => { setSuccess(null); setError(null); }} style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", opacity: 0.6 }}>
-              <IonIcon icon={closeOutline} className="text-2xl" />
+              <HugeiconsIcon icon={Cancel01Icon} className="text-2xl"  />
             </button>
           </div>
         </div>
@@ -331,15 +346,15 @@ export default function Settings() {
         <div className="settings-section" style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 14, overflow: "hidden", marginBottom: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
           <div className="section-header" style={{ padding: "16px 20px 15px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 10 }}>
             <div className="section-icon green" style={{ width: 42, height: 42, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: "rgba(22,163,74,0.1)", color: "#16a34a" }}>
-              <IonIcon icon={personCircleOutline} className="text-xl" />
+              <HugeiconsIcon icon={UserCircleIcon} className="text-xl"  />
             </div>
             <div style={{ flex: 1, textAlign: "left" }}>
-              <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>Profile</div>
-              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>Your account information</div>
+              <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>{t('settings.profile')}</div>
+              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>{t('settings.yourAccountInfo')}</div>
             </div>
             <button onClick={loadProfile} className="edit-inline" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 6, fontSize: "0.8rem", fontWeight: 500, color: "#6b7280", cursor: "pointer", transition: "all 0.15s" }}>
-              <IonIcon icon={refreshOutline} className="text-base" />
-              Refresh
+              <HugeiconsIcon icon={RefreshIcon} className="text-base"  />
+              {t('settings.refresh')}
             </button>
           </div>
           {profileLoading ? (
@@ -363,31 +378,118 @@ export default function Settings() {
                   color: profileUser.role === "owner" ? "#b45309" : profileUser.role === "manager" ? "#0369a1" : "#047857",
                   borderColor: profileUser.role === "owner" ? "#fde68a" : profileUser.role === "manager" ? "#bae6fd" : "#a7f3d0",
                 }}>
-                  {profileUser.role?.charAt(0).toUpperCase() + profileUser.role?.slice(1) || "User"}
+                  {t('profile.roles.' + (profileUser.role || 'user'))}
                 </span>
               </div>
               {profileUser.user_uuid && (
                 <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb" }}>
-                  <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>User ID</span>
+                  <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>{t('profile.userId')}</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: "0.85rem", color: "#6b7280", fontFamily: "monospace" }}>{profileUser.user_uuid}</span>
-                    <button onClick={() => copyToClipboard(profileUser.user_uuid!)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition" title="Copy User ID">
-                      <IonIcon icon={copied ? checkmarkOutline : copyOutline} className={`text-sm ${copied ? "text-green-600" : "text-gray-400"}`} />
+                    <button onClick={() => copyToClipboard(profileUser.user_uuid!)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition" title={t('settings.copyUserId')}>
+                      <HugeiconsIcon icon={copied ? CheckIcon : CopyIcon} className={`text-sm ${copied ? "text-green-600" : "text-gray-400"}`}  />
                     </button>
                   </div>
                 </div>
               )}
               <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>Account Dates</span>
+                <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>{t('settings.accountDates')}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: "0.85rem", color: "#6b7280" }}>
-                  <span><IonIcon icon={calendarOutline} className="mr-1" /> Created: 01 Jan 2025</span>
-                  <span><IonIcon icon={timeOutline} className="mr-1" /> Last Login: 07 Jun 2026</span>
+                  <span><HugeiconsIcon icon={Calendar01Icon} className="mr-1"  /> {t('settings.created')} 01 Jan 2025</span>
+                  <span><HugeiconsIcon icon={Time01Icon} className="mr-1"  /> {t('settings.lastLogin')} 07 Jun 2026</span>
                 </div>
               </div>
+
+              {/* Security Question */}
+              <div className="setting-row" style={{ padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid #e5e7eb" }}>
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>Security Question</div>
+                  {profileUser.security_question ? (
+                    <div style={{ fontSize: "0.85rem", color: "#16a34a", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a", display: "inline-block" }} />
+                      {profileUser.security_question}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: "0.85rem", color: "#9ca3af", marginTop: 2, fontStyle: "italic" }}>
+                      Not set — used to reset your password if you forget it
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    if (!showSecurityForm) {
+                      setSecQuestion(profileUser.security_question || "");
+                      setSecAnswer("");
+                    }
+                    setShowSecurityForm(!showSecurityForm);
+                  }}
+                  className="edit-inline"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 6, fontSize: "0.8rem", fontWeight: 500, color: "#6b7280", cursor: "pointer", transition: "all 0.15s" }}
+                >
+                  <HugeiconsIcon icon={Edit01Icon} className="text-base"  />
+                  {showSecurityForm ? "Cancel" : profileUser.security_question ? "Change" : "Set"}
+                </button>
+              </div>
+              {showSecurityForm && (
+                <div style={{ padding: "12px 20px 16px", borderTop: "1px solid #e5e7eb", background: "#f9fafb" }}>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5" style={{ textAlign: "left" }}>Choose a question</label>
+                      <div className="relative">
+                        <select
+                          value={secQuestion}
+                          onChange={(e) => setSecQuestion(e.target.value)}
+                          className="h-10 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3.5 pr-10 text-sm text-slate-900 shadow-sm transition-all outline-none hover:border-slate-300 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
+                        >
+                          <option value="" disabled>Select a security question</option>
+                          {SECURITY_QUESTIONS.map((q) => (
+                            <option key={q} value={q}>{q}</option>
+                          ))}
+                        </select>
+                        <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1" style={{ textAlign: "left" }}>Your answer</label>
+                      <input
+                        type="text"
+                        value={secAnswer}
+                        onChange={(e) => setSecAnswer(e.target.value)}
+                        placeholder="Enter the answer"
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 transition-all outline-none"
+                      />
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!secQuestion || !secAnswer) return;
+                        setSavingSecurity(true);
+                        try {
+                          await apiPut("/auth/security-question", { security_question: secQuestion, security_answer: secAnswer });
+                          setProfileUser((prev) => prev ? { ...prev, security_question: secQuestion } : prev);
+                          setSuccess("Security question saved successfully");
+                          setShowSecurityForm(false);
+                          setTimeout(() => setSuccess(null), 3000);
+                        } catch (err: any) {
+                          setError(err?.response?.data?.error || "Failed to save");
+                          setTimeout(() => setError(null), 3000);
+                        } finally {
+                          setSavingSecurity(false);
+                        }
+                      }}
+                      disabled={savingSecurity || !secQuestion || !secAnswer}
+                      className="px-4 py-1.5 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {savingSecurity ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className="setting-row" style={{ padding: "20px", textAlign: "center", color: "#9ca3af", fontSize: "0.85rem" }}>
-              Could not load profile data
+              {t('settings.couldNotLoadProfile')}
             </div>
           )}
         </div>
@@ -401,8 +503,8 @@ export default function Settings() {
               </svg>
             </div>
             <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>Preferences</div>
-              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>Behaviour and automation settings</div>
+              <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>{t('settings.preferences')}</div>
+              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>{t('settings.behaviourAutomation')}</div>
             </div>
           </div>
           <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb" }}>
@@ -429,8 +531,8 @@ export default function Settings() {
           </div>
           <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>Language</div>
-              <div style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: 2 }}>Switch between English and Tamil</div>
+              <div style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>{t('settings.language')}</div>
+              <div style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: 2 }}>{t('settings.switchLanguage')}</div>
             </div>
             <LanguageToggle />
           </div>
@@ -446,31 +548,31 @@ export default function Settings() {
             </div>
             <div style={{ flex: 1, textAlign: "left" }}>
               <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>{t("settings.businessInformation")}</div>
-              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>Store name, contact, and invoice settings</div>
+              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>{t('settings.storeContactInvoice')}</div>
             </div>
             <button onClick={openEditModal} className="edit-inline" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 6, fontSize: "0.8rem", fontWeight: 500, color: "#6b7280", cursor: "pointer", transition: "all 0.15s" }}>
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
               </svg>
-              Edit
+              {t('settings.edit')}
             </button>
           </div>
           <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb" }}>
             <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>{t("settings.businessName")}</span>
-            <span style={{ fontSize: "0.85rem", color: "#6b7280", fontFamily: "inherit" }}>{data.shop_name || <span style={{ color: "#9ca3af", fontStyle: "italic" }}>— Not set</span>}</span>
+            <span style={{ fontSize: "0.85rem", color: "#6b7280", fontFamily: "inherit" }}>{data.shop_name || <span style={{ color: "#9ca3af", fontStyle: "italic" }}>{t('settings.notSet')}</span>}</span>
           </div>
           <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb" }}>
             <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>{t("settings.contactNumber")}</span>
-            <span style={{ fontSize: "0.85rem", color: "#6b7280", fontFamily: "inherit" }}>{data.mobile || <span style={{ color: "#9ca3af", fontStyle: "italic" }}>— Not set</span>}</span>
+            <span style={{ fontSize: "0.85rem", color: "#6b7280", fontFamily: "inherit" }}>{data.mobile || <span style={{ color: "#9ca3af", fontStyle: "italic" }}>{t('settings.notSet')}</span>}</span>
           </div>
           <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb" }}>
             <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>{t("settings.addressLabel")}</span>
-            <span style={{ fontSize: "0.85rem", color: "#6b7280", fontFamily: "inherit" }}>{data.address || <span style={{ color: "#9ca3af", fontStyle: "italic" }}>— Not set</span>}</span>
+            <span style={{ fontSize: "0.85rem", color: "#6b7280", fontFamily: "inherit" }}>{data.address || <span style={{ color: "#9ca3af", fontStyle: "italic" }}>{t('settings.notSet')}</span>}</span>
           </div>
           <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ textAlign: "left" }}>
               <div style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>{t("settings.invoicePrefixLabel")}</div>
-              <div style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: 2 }}>Prepended to all invoice numbers</div>
+              <div style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: 2 }}>{t('settings.prependedToAll')}</div>
             </div>
             <input
               className="setting-input"
@@ -498,7 +600,7 @@ export default function Settings() {
             </div>
             <div style={{ flex: 1, textAlign: "left" }}>
               <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>{t("settings.backupRestore")}</div>
-              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>Protect your data with regular backups</div>
+              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>{t('settings.protectData')}</div>
             </div>
             <button onClick={handleBackup} disabled={backupLoading} className="btn btn-outline" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, fontSize: "0.85rem", fontWeight: 600, cursor: backupLoading ? "not-allowed" : "pointer", transition: "all 0.15s", border: "none", outline: "none", background: "transparent", color: "#2563eb", border: "1px solid rgba(37,99,235,0.25)", opacity: backupLoading ? 0.5 : 1 }}>
             <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -543,7 +645,7 @@ export default function Settings() {
             <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: 0, color: "#2563eb" }}>
               <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <span style={{ textAlign: "center" }}>⚡ {t("settings.autoBackupNote")} <code style={{ fontFamily: "inherit", color: "#2563eb", fontSize: "0.75rem", background: "rgba(37,99,235,0.08)", padding: "1px 5px", borderRadius: 3 }}>%APPDATA%\pos-app\backups\</code> {t("settings.onWindows")}</span>
+            <span style={{ textAlign: "center" }}>{t("settings.autoBackupNote")} <code style={{ fontFamily: "inherit", color: "#2563eb", fontSize: "0.75rem", background: "rgba(37,99,235,0.08)", padding: "1px 5px", borderRadius: 3 }}>%APPDATA%\pos-app\backups\</code> {t("settings.onWindows")}</span>
           </div>
         </div>
 
@@ -556,32 +658,32 @@ export default function Settings() {
               </svg>
             </div>
             <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>License Management</div>
-              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>Software activation and key management</div>
+              <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>{t('settings.licenseManagement')}</div>
+              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>{t('settings.softwareActivation')}</div>
             </div>
           </div>
           <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb" }}>
             <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>Status</div>
-              <div style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: 2 }}>Current activation state</div>
+              <div style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>{t('settings.status')}</div>
+              <div style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: 2 }}>{t('settings.activationState')}</div>
             </div>
             <span className="badge badge-green" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, fontSize: "0.8rem", fontWeight: 600, background: "rgba(22,163,74,0.1)", color: "#16a34a" }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: "#16a34a", boxShadow: "0 0 5px #16a34a" }} />
-              {licenseStatus?.licensed ? "Licensed" : "Not Licensed"}
+              {licenseStatus?.licensed ? t('settings.licensed') : t('settings.notLicensed')}
             </span>
           </div>
           <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>Activate License</div>
+              <div style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>{t('settings.activateLicense')}</div>
               <div style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: 3 }}>
-                {licenseStatus?.licensed ? "Already activated on this machine" : "Enter your license key to activate"}
+                {licenseStatus?.licensed ? t('settings.alreadyActivated') : t('settings.enterLicenseKey')}
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input
                 className="setting-input"
                 type="text"
-                placeholder="License key"
+                placeholder={t('settings.licenseKeyPlaceholder')}
                 value={licenseKey}
                 onChange={(e) => setLicenseKey(e.target.value)}
                 disabled={licenseStatus?.licensed}
@@ -600,7 +702,7 @@ export default function Settings() {
                     <path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
                   </svg>
                 )}
-                Activate
+{t('settings.activate')}
               </button>
             </div>
           </div>
@@ -610,23 +712,23 @@ export default function Settings() {
         <div className="settings-section" style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
           <div className="section-header" style={{ padding: "16px 20px 15px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 10 }}>
             <div className="section-icon" style={{ width: 42, height: 42, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: "rgba(220,38,38,0.1)", color: "#dc2626" }}>
-              <IonIcon icon={logOutOutline} className="text-xl" />
+              <HugeiconsIcon icon={Logout01Icon} className="text-xl"  />
             </div>
             <div style={{ flex: 1, textAlign: "left" }}>
-              <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>Logout</div>
-              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>Sign out of your account</div>
+              <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>{t('settings.logout')}</div>
+              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>{t('settings.signOut')}</div>
             </div>
           </div>
           <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>Are you sure you want to logout?</span>
+            <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>{t('settings.logoutConfirm')}</span>
             <button
               onClick={logout}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 8, fontSize: "0.85rem", fontWeight: 600, color: "#fff", background: "#dc2626", border: "none", cursor: "pointer", transition: "all 0.15s" }}
               onMouseEnter={(e) => { e.currentTarget.style.background = "#b91c1c"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "#dc2626"; }}
             >
-              <IonIcon icon={logOutOutline} className="text-base" />
-              Logout
+              <HugeiconsIcon icon={Logout01Icon} className="text-base"  />
+{t('settings.logout')}
             </button>
           </div>
         </div>
@@ -640,7 +742,7 @@ export default function Settings() {
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-bold text-slate-800">{t("settings.editSettings")}</h2>
               <button onClick={() => setDialogOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <IonIcon icon={closeOutline} className="text-2xl" />
+                <HugeiconsIcon icon={Cancel01Icon} className="text-2xl"  />
               </button>
             </div>
 
@@ -661,7 +763,7 @@ export default function Settings() {
                   {t("settings.mobileNumber")}
                 </label>
                 <input
-                  placeholder="+91 98765 43210"
+                  placeholder={t('settings.mobilePlaceholder')}
                   value={formData.mobile || ""}
                   onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
                   className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 transition-all outline-none"
@@ -684,7 +786,7 @@ export default function Settings() {
                   {t("settings.gstinNumber")}
                 </label>
                 <input
-                  placeholder="22AAAAA0000A1Z"
+                  placeholder={t('settings.gstinPlaceholder')}
                   className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 transition-all outline-none uppercase"
                   value={formData.gstin || ""}
                   onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
@@ -695,7 +797,7 @@ export default function Settings() {
                   {t("settings.invoicePrefix")}
                 </label>
                 <input
-                  placeholder="INV"
+                  placeholder={t('settings.invPrefixPlaceholder')}
                   className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 transition-all outline-none uppercase"
                   value={formData.invoice_prefix || "INV"}
                   onChange={(e) => setFormData({ ...formData, invoice_prefix: e.target.value.toUpperCase() })}
@@ -718,8 +820,8 @@ export default function Settings() {
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
-                    <IonIcon icon={saveOutline} className="text-2xl" />
-                    Save Changes
+                    <HugeiconsIcon icon={SaveIcon} className="text-2xl"  />
+                    {t('settings.saveChanges')}
                   </span>
                 )}
               </button>

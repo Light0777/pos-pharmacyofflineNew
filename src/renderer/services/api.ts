@@ -1,6 +1,12 @@
 // api.ts
 const BASE_URL = "http://127.0.0.1:3000/api";
 
+let onUnauthorized: (() => void) | null = null;
+
+export function setOnUnauthorized(cb: () => void) {
+  onUnauthorized = cb;
+}
+
 function getToken() {
   return localStorage.getItem("token");
 }
@@ -13,16 +19,13 @@ function getHeaders() {
 }
 
 // 🔥 CENTRALIZED HANDLER
-// In api.ts, update handleResponse to return error data instead of throwing
 async function handleResponse(res: Response, url: string) {
   console.log(`📥 API Response [${res.status}] for ${url}`);
   
-  // Don't auto-redirect for auth endpoints — let the caller handle it
   if (res.status === 401 && !res.url.includes('/auth/login')) {
-    console.log("🔴 Unauthorized, redirecting to login");
-    localStorage.removeItem("token");
-    window.location.hash = "#/login";
-    return;
+    console.log("🔴 Unauthorized — clearing auth");
+    onUnauthorized?.();
+    return { success: false, error: 'Unauthorized', status: 401 };
   }
 
   const data = await res.json();

@@ -1,15 +1,15 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Tooltip,
 } from "recharts";
 import { format } from "date-fns";
-import { IonIcon } from "@ionic/react";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  eyeOutline,
-  checkmarkCircleOutline,
-} from "ionicons/icons";
+  EyeIcon,
+  CheckmarkCircle01Icon,
+} from "@hugeicons/core-free-icons";
 
 import { ChartContainer } from "@/components/ui/chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -263,13 +263,26 @@ export default function Dashboard() {
 
   const Sparkline = ({ data: chartData, dataKey, width = 320, height = 100, color = "#22c55e" }: { data: any[], dataKey: string, width?: number, height?: number, color?: string }) => {
     const [hovered, setHovered] = useState(false);
+    const [containerWidth, setContainerWidth] = useState(width);
+    const containerRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+      const el = containerRef.current?.parentElement;
+      if (el) {
+        const resize = () => setContainerWidth(el.clientWidth || width);
+        resize();
+        const ro = new ResizeObserver(resize);
+        ro.observe(el);
+        return () => ro.disconnect();
+      }
+    }, []);
     if (!chartData || chartData.length === 0) return null;
     const values = chartData.map((d: any) => Number(d[dataKey]) || 0);
     const max = Math.max(...values, 1);
     const min = Math.min(...values, 0);
     const range = max - min || 1;
+    const w = containerWidth;
     const points = values.map((v: number, i: number) => ({
-      x: i / (values.length - 1) * width,
+      x: i / (values.length - 1) * w,
       y: 4 + (height - 8) * (1 - (v - min) / range),
     }));
 
@@ -291,10 +304,11 @@ export default function Dashboard() {
     };
 
     const lineD = smoothPath(points);
-    const areaD = `${lineD} L ${width},${height} L 0,${height} Z`;
+    const areaD = `${lineD} L ${w},${height} L 0,${height} Z`;
 
     return (
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none"
+      <div ref={containerRef} style={{ width: '100%', height }}>
+      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none"
         onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
         style={{ cursor: 'pointer' }}>
         <defs>
@@ -306,6 +320,7 @@ export default function Dashboard() {
         <path d={areaD} fill={`url(#sg-${dataKey})`} />
         <path d={lineD} fill="none" stroke={color} strokeWidth={hovered ? 3.5 : 2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'stroke-width 0.15s' }} />
       </svg>
+      </div>
     );
   };
 
@@ -315,7 +330,7 @@ export default function Dashboard() {
       {/* Product Stats */}
       <div className="flex bg-[#0a0a0a] rounded-xl">
         <div className="flex items-center px-5 py-3 shrink-0 border-r border-white/[0.08]">
-          <span className="text-xl font-bold text-white/60 tracking-[0.04em] uppercase whitespace-nowrap">Quick Inventory</span>
+          <span className="text-xl font-bold text-white/60 tracking-[0.04em] uppercase whitespace-nowrap">{t("dashboard.quickInventory")}</span>
         </div>
         <div className="flex-1 flex items-center gap-3 px-5 py-3 relative after:content-[''] after:absolute after:right-0 after:top-3 after:bottom-3 after:w-px after:bg-white/[0.08] cursor-pointer" onClick={() => navigate('/admin/products')}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-green-400/15 border border-green-400/35">
@@ -325,7 +340,7 @@ export default function Dashboard() {
             </svg>
           </div>
           <div className="flex flex-col items-start">
-            <span className="text-[11px] font-semibold text-white/55 tracking-[0.04em] uppercase">Total Products</span>
+            <span className="text-[11px] font-semibold text-white/55 tracking-[0.04em] uppercase">{t("dashboard.totalProducts")}</span>
             <span className="text-xl font-bold leading-none tracking-wide text-green-400">{totalProducts.toLocaleString()}</span>
           </div>
         </div>
@@ -338,29 +353,29 @@ export default function Dashboard() {
               </svg>
             </div>
             <div className="flex flex-col items-start">
-              <span className="text-[11px] font-semibold text-white/55 tracking-[0.04em] uppercase">Low Stocks</span>
+              <span className="text-[11px] font-semibold text-white/55 tracking-[0.04em] uppercase">{t("dashboard.lowStocks")}</span>
               <span className="text-xl font-bold leading-none tracking-wide text-lime-400">{productStats.lowStock}</span>
             </div>
           </div>
           {showLowStock && (
             <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
-                <span className="text-xs font-semibold text-white/60 uppercase tracking-wide">Low Stock Items</span>
-                <button onClick={() => setShowLowStock(false)} className="text-xs font-semibold text-white bg-red-500/80 hover:bg-red-500 px-3 py-1 rounded-full transition">Cancel</button>
+                <span className="text-xs font-semibold text-white/60 uppercase tracking-wide">{t("dashboard.lowStockItems")}</span>
+                <button onClick={() => setShowLowStock(false)} className="text-xs font-semibold text-white bg-red-500/80 hover:bg-red-500 px-3 py-1 rounded-full transition">{t("common.cancel")}</button>
               </div>
               <div className="max-h-60 overflow-y-auto">
                 {data.low_stock?.length > 0 ? data.low_stock.map((p: any) => (
                   <div key={p.product_uuid} className="flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
                     <div className="min-w-0 flex-1 text-left">
                       <p className="text-sm font-medium text-white/90 truncate">{p.name}</p>
-                      <p className="text-xs text-white/40 truncate mt-0.5">ID: {p.product_uuid?.slice(0, 8)}</p>
+                      <p className="text-xs text-white/40 truncate mt-0.5">{t("dashboard.idLabel")}: {p.product_uuid?.slice(0, 8)}</p>
                     </div>
                     <div className="text-right shrink-0 ml-3">
-                      <span className="text-sm font-semibold text-lime-400">{p.stock} left</span>
+                      <span className="text-sm font-semibold text-lime-400">{p.stock} {t("dashboard.leftLabel")}</span>
                     </div>
                   </div>
                 )) : (
-                  <div className="px-4 py-6 text-center text-sm text-white/40">All stock levels are good</div>
+                  <div className="px-4 py-6 text-center text-sm text-white/40">{t("dashboard.allStockGood")}</div>
                 )}
               </div>
             </div>
@@ -376,15 +391,15 @@ export default function Dashboard() {
               </svg>
             </div>
             <div className="flex flex-col items-start">
-              <span className="text-[11px] font-semibold text-white/55 tracking-[0.04em] uppercase">Out of Stock</span>
+              <span className="text-[11px] font-semibold text-white/55 tracking-[0.04em] uppercase">{t("dashboard.outOfStock")}</span>
               <span className="text-xl font-bold leading-none tracking-wide text-red-400">{productStats.outOfStock}</span>
             </div>
           </div>
           {showOutOfStock && (
             <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
-                <span className="text-xs font-semibold text-white/60 uppercase tracking-wide">Out of Stock Items</span>
-                <button onClick={() => setShowOutOfStock(false)} className="text-xs font-semibold text-white bg-red-500/80 hover:bg-red-500 px-3 py-0.5 rounded-full transition">Cancel</button>
+                <span className="text-xs font-semibold text-white/60 uppercase tracking-wide">{t("dashboard.outOfStockItems")}</span>
+                <button onClick={() => setShowOutOfStock(false)} className="text-xs font-semibold text-white bg-red-500/80 hover:bg-red-500 px-3 py-0.5 rounded-full transition">{t("common.cancel")}</button>
               </div>
               <div className="max-h-60 overflow-y-auto">
                 {data.low_stock?.filter((p: any) => p.stock === 0).length > 0 ? data.low_stock.filter((p: any) => p.stock === 0).map((p: any) => (
@@ -398,7 +413,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )) : (
-                  <div className="px-4 py-6 text-center text-sm text-white/40">No out of stock items</div>
+                  <div className="px-4 py-6 text-center text-sm text-white/40">{t("dashboard.noOutOfStock")}</div>
                 )}
               </div>
             </div>
@@ -419,12 +434,12 @@ export default function Dashboard() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Today's Sales</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t("dashboard.statistics")}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t("dashboard.todaySales")}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none mb-2">₹{formatCompactNumber(data.today_net_sales ?? data.today_sales ?? 0)}</p>
             {(data.today_refunds ?? 0) > 0 && (
               <p className="text-xs text-red-500 mt-1">
-                Refunds: -₹{formatCompactNumber(data.today_refunds ?? 0)}
+                {t("dashboard.refunds", { amount: formatCompactNumber(data.today_refunds ?? 0) })}
               </p>
             )}
             {todaySalesDelta && (
@@ -452,16 +467,16 @@ export default function Dashboard() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Monthly Sales</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t("dashboard.statistics")}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t("dashboard.monthlySales")}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none mb-2">₹{formatCompactNumber(data.month_net_sales ?? data.month_sales ?? 0)}</p>
             {(data.month_refunds ?? 0) > 0 && (
               <p className="text-xs text-red-500 mt-1">
-                Refunds: -₹{formatCompactNumber(data.month_refunds ?? 0)}
+                {t("dashboard.refunds", { amount: formatCompactNumber(data.month_refunds ?? 0) })}
               </p>
             )}
             <div className="flex items-center gap-1">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#0066FF", color: "#fff" }}>This Month</span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#0066FF", color: "#fff" }}>{t("dashboard.thisMonth")}</span>
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -478,16 +493,16 @@ export default function Dashboard() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Total Sales</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t("dashboard.statistics")}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t("dashboard.totalSales")}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none mb-2">₹{formatCompactNumber(data.total_net_sales ?? data.total_sales ?? 0)}</p>
             {(data.total_refunds ?? 0) > 0 && (
               <p className="text-xs text-red-500 mt-1">
-                Refunds: -₹{formatCompactNumber(data.total_refunds ?? 0)}
+                {t("dashboard.refunds", { amount: formatCompactNumber(data.total_refunds ?? 0) })}
               </p>
             )}
             <div className="flex items-center gap-1">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#8800FF", color: "#fff" }}>Lifetime Revenue</span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#8800FF", color: "#fff" }}>{t("dashboard.lifetimeRevenue")}</span>
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -504,11 +519,11 @@ export default function Dashboard() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Total Orders</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t("dashboard.statistics")}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t("dashboard.totalOrders")}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none mb-2">{(data.total_orders || 0).toLocaleString()}</p>
             <div className="flex items-center gap-1">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#FF6600", color: "#fff" }}>Invoices Processed</span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#FF6600", color: "#fff" }}>{t("dashboard.invoicesProcessed")}</span>
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -529,30 +544,24 @@ export default function Dashboard() {
               <h2 className="sr-only">Sales area chart showing monthly revenue totals with hover interaction</h2>
               <div className="flex items-start justify-between mb-6 flex-wrap gap-3 shrink-0">
                 <div>
-                  <p className="text-[13px] text-slate-500 mb-1 text-start font-bold">Sales {new Date().getFullYear()}</p>
+                  <p className="text-[13px] text-slate-500 mb-1 text-start font-bold">{t("dashboard.salesYear", { year: new Date().getFullYear() })}</p>
                   <div className="flex items-center gap-2.5">
                     <span className="text-[28px] font-medium text-slate-900">
                       ₹{formatCompactNumber(totalRevenue)}
                     </span>
                     {revenueDelta && (
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${revenueDelta.up ? "text-emerald-700 bg-emerald-50" : "text-red-700 bg-red-50"}`}>
-                      {revenueDelta.up ? "↑" : "↓"} {Math.abs(revenueDelta.pct)}% vs last year
+                      {revenueDelta.up ? "↑" : "↓"} {Math.abs(revenueDelta.pct)}% {t("dashboard.vsLastYear")}
                     </span>
                     )}
                   </div>
                 </div>
                 <div className="flex gap-1.5 items-center">
                   {["Daily", "Weekly", "Monthly", "Annually"].map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => setChartView(v.toLowerCase())}
-                      className={`px-3.5 py-1.5 text-[13px] rounded-full font-medium transition-colors ${
-                        chartView === v.toLowerCase()
-                          ? "bg-green-600 text-white"
-                          : "border border-slate-300 text-slate-500 bg-transparent"
-                      }`}
+                    <button key={v} onClick={() => setChartView(v.toLowerCase())}
+                      className={`px-3.5 py-1.5 text-[13px] rounded-full font-medium transition-colors ${chartView === v.toLowerCase() ? "bg-green-600 text-white" : "border border-slate-300 text-slate-500 bg-transparent"}`}
                     >
-                      {v}
+                      {t("dashboard.chart" + v)}
                     </button>
                   ))}
                 </div>
@@ -573,13 +582,13 @@ export default function Dashboard() {
                   <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
                 </svg>
               </div>
-              <span className="text-sm text-gray-500">Credit Given</span>
+              <span className="text-sm text-gray-500">{t("dashboard.creditGivenLabel")}</span>
             </div>
             <div className="flex items-baseline gap-2.5 mb-5">
               <span className="text-3xl font-semibold text-gray-900 tracking-tight">₹{formatCompactNumber(currentTotalCredit)}</span>
               {currentCustomersWithCredit > 0 && (
                 <span className="text-[13px] font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                  {currentCustomersWithCredit} customer{currentCustomersWithCredit !== 1 ? 's' : ''}
+                  {t("dashboard.customerCount", { count: currentCustomersWithCredit })}
                 </span>
               )}
             </div>
@@ -641,7 +650,7 @@ export default function Dashboard() {
                         )}
                       </div>
                     )) : (
-                      <div className="w-full flex items-center justify-center text-[11px] text-gray-400">No credit data yet</div>
+                      <div className="w-full flex items-center justify-center text-[11px] text-gray-400">{t("dashboard.noCreditData")}</div>
                     )}
                   </div>
                 </div>
@@ -663,8 +672,8 @@ export default function Dashboard() {
           <div className="bg-white rounded-[20px] shadow-[0_4px_32px_0_rgba(90,100,200,0.09),0_1px_4px_rgba(0,0,0,0.05)] p-7 pb-6">
             <div className="flex items-start justify-between mb-5">
               <div>
-                <p className="text-xs font-medium text-gray-400 tracking-wide uppercase mb-0.5">Statistics</p>
-                <h2 className="text-[20px] font-bold text-gray-800 leading-tight">Top Debtors</h2>
+                <p className="text-xs font-medium text-gray-400 tracking-wide uppercase mb-0.5">{t("dashboard.statistics")}</p>
+                <h2 className="text-[20px] font-bold text-gray-800 leading-tight">{t("dashboard.topDebtors")}</h2>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => setShowDebtorModal(true)} className="flex items-center justify-center w-8 h-8 rounded-full bg-[#f2f3f8] hover:bg-[#e5e7f5] transition-colors" title="Expand">
@@ -681,11 +690,12 @@ export default function Dashboard() {
                   </button>
                   {showDebtorMenu && (
                     <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50 min-w-[130px]">
-                      {["This Month", "Last Month", "Last 3 Months", "All Time"].map((opt) => (
-                        <button key={opt} onMouseDown={() => { setDebtorMonth(opt); setShowDebtorMenu(false); }} className="block w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-slate-50 transition-colors">
+                      {[["debtorThisMonth","This Month"],["debtorLastMonth","Last Month"],["debtorLast3Months","Last 3 Months"],["debtorAllTime","All Time"]].map(([key, fallback]) => {
+                        const opt = t(`dashboard.${key}`, fallback);
+                        return <button key={key} onMouseDown={() => { setDebtorMonth(opt); setShowDebtorMenu(false); }} className="block w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-slate-50 transition-colors">
                           {opt}
-                        </button>
-                      ))}
+                        </button>;
+                      })}
                     </div>
                   )}
                 </div>
@@ -748,9 +758,9 @@ export default function Dashboard() {
               );
             })() : (
               <div className="text-center py-8 text-slate-400 flex flex-col items-center gap-2">
-                <IonIcon icon={checkmarkCircleOutline} className="text-4xl text-emerald-500" />
-                <p className="text-sm">No debtors</p>
-                <p className="text-xs">All accounts cleared</p>
+                <HugeiconsIcon icon={CheckmarkCircle01Icon} className="text-4xl text-emerald-500"  />
+                <p className="text-sm">{t("dashboard.noDebtors")}</p>
+                <p className="text-xs">{t("dashboard.allAccountsCleared")}</p>
               </div>
             )}
           </div>
@@ -762,8 +772,8 @@ export default function Dashboard() {
           <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-[20px] shadow-xl p-8" style={{ width: 'min(90vw, 900px)', maxHeight: '90vh', overflow: 'hidden' }}>
             <div className="flex items-start justify-between mb-6">
               <div>
-                <p className="text-xs font-medium text-gray-400 tracking-wide uppercase mb-0.5">Statistics</p>
-                <h2 className="text-[20px] font-bold text-gray-800 leading-tight">All Debtors</h2>
+                <p className="text-xs font-medium text-gray-400 tracking-wide uppercase mb-0.5">{t("dashboard.statistics")}</p>
+                <h2 className="text-[20px] font-bold text-gray-800 leading-tight">{t("dashboard.allDebtors")}</h2>
               </div>
               <button onClick={() => setShowDebtorModal(false)} className="flex items-center justify-center w-8 h-8 rounded-full bg-[#f2f3f8] hover:bg-[#e5e7f5] transition-colors">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -824,12 +834,13 @@ export default function Dashboard() {
                   </div>
 
                   <div className="border-t border-slate-100 pt-4">
+                    <div className="table-scroll">
                     <table className="w-full text-left">
                       <thead>
                         <tr className="text-xs text-gray-400 uppercase tracking-wide">
                           <th className="pb-2 pr-2">#</th>
-                          <th className="pb-2 pr-2">Name</th>
-                          <th className="pb-2 pr-2 text-right">Debt</th>
+                          <th className="pb-2 pr-2">{t("dashboard.debtorName")}</th>
+                          <th className="pb-2 pr-2 text-right">{t("dashboard.debtorDebt")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -842,14 +853,15 @@ export default function Dashboard() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 </div>
               );
             })() : (
               <div className="text-center py-8 text-slate-400 flex flex-col items-center gap-2">
-                <IonIcon icon={checkmarkCircleOutline} className="text-4xl text-emerald-500" />
-                <p className="text-sm">No debtors</p>
-                <p className="text-xs">All accounts cleared</p>
+                <HugeiconsIcon icon={CheckmarkCircle01Icon} className="text-4xl text-emerald-500"  />
+                <p className="text-sm">{t("dashboard.noDebtors")}</p>
+                <p className="text-xs">{t("dashboard.allAccountsCleared")}</p>
               </div>
             )}
           </div>
@@ -858,25 +870,26 @@ export default function Dashboard() {
 
       {/* Orders */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="table-scroll">
         <table className="w-full text-sm table-fixed">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Order ID</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Date</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Customer</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Price</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Refund</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Status</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Action</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t("dashboard.orderId")}</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t("dashboard.tableDate")}</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t("dashboard.tableCustomer")}</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t("dashboard.tablePrice")}</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t("dashboard.tableRefund")}</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t("dashboard.tableStatus")}</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t("dashboard.tableAction")}</th>
             </tr>
           </thead>
           <tbody>
             {pageItems.map((s: any) => {
               const statusMap: Record<string, { label: string; classes: string }> = {
-                completed: { label: "Paid", classes: "bg-green-100 text-green-700" },
-                paid: { label: "Paid", classes: "bg-green-100 text-green-700" },
-                pending: { label: "Pending", classes: "bg-amber-100 text-amber-700" },
-                cancelled: { label: "Cancelled", classes: "bg-red-100 text-red-600" },
+                completed: { label: t("dashboard.paid"), classes: "bg-green-100 text-green-700" },
+                paid: { label: t("dashboard.paid"), classes: "bg-green-100 text-green-700" },
+                pending: { label: t("dashboard.pending"), classes: "bg-amber-100 text-amber-700" },
+                cancelled: { label: t("dashboard.cancelled"), classes: "bg-red-100 text-red-600" },
               };
               const st = statusMap[s.status] || { label: s.status || "Paid", classes: "bg-gray-100 text-gray-600" };
               return (
@@ -884,8 +897,8 @@ export default function Dashboard() {
                   <td className="px-5 py-3.5 font-medium text-blue-600">#{s.invoice_number}</td>
                   <td className="px-5 py-3.5 text-gray-500">{s.created_at ? format(new Date(s.created_at), "M/d/yy") : "—"}</td>
                   <td className="px-5 py-3.5">
-                    <p className="font-medium text-gray-800">{s.customer_name || "Walk-in"}</p>
-                    {s.customer_name && <p className="text-xs text-gray-400 mt-0.5">Regular</p>}
+                    <p className="font-medium text-gray-800">{s.customer_name || t("dashboard.walkIn")}</p>
+                    {s.customer_name && <p className="text-xs text-gray-400 mt-0.5">{t("dashboard.regular")}</p>}
                   </td>
                   <td className="px-5 py-3.5 font-medium text-gray-800">₹{Number(s.grand_total).toLocaleString('en-IN')}</td>
                   <td className="px-5 py-3.5 text-center">
@@ -903,8 +916,8 @@ export default function Dashboard() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-center">
-                    <button onClick={() => handleViewInvoice(s.sale_uuid)} className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md p-1.5 transition-colors" title="View invoice">
-                      <IonIcon icon={eyeOutline} className="text-lg" />
+                    <button onClick={() => handleViewInvoice(s.sale_uuid)} className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md p-1.5 transition-colors" title={t("dashboard.viewInvoice")}>
+                      <HugeiconsIcon icon={EyeIcon} className="text-lg"  />
                     </button>
                   </td>
                 </tr>
@@ -912,11 +925,12 @@ export default function Dashboard() {
             })}
             {pageItems.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-gray-400 text-sm">No recent sales</td>
+                <td colSpan={7} className="py-8 text-center text-gray-400 text-sm">{t("dashboard.noRecentSales")}</td>
               </tr>
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Pagination */}
@@ -972,28 +986,28 @@ export default function Dashboard() {
 
       {selectedStat && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedStat(null)}>
-          <div className="w-[400px] h-[500px] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
+          <div className="w-[min(90vw,400px)] h-[min(80vh,500px)] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
             {/* Close X button */}
             <div className="flex justify-end mb-1">
               <button onClick={() => setSelectedStat(null)} className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: "#dc2626", color: "#fff" }}>
-                Close
+                {t("common.close")}
               </button>
             </div>
 
             {selectedStat === 'today' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Today's Net Revenue</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t("dashboard.todayNetRevenue")}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">
                     ₹{Number(data.today_net_sales ?? data.today_sales ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                   {(data.today_refunds ?? 0) > 0 && (
                     <p className="text-xs text-red-400 mt-2">
-                      Gross: ₹{Number(data.today_sales ?? 0).toLocaleString('en-IN')} &nbsp;|&nbsp; Refunds: -₹{Number(data.today_refunds ?? 0).toLocaleString('en-IN')}
+                      {t("dashboard.grossAndRefunds", { gross: Number(data.today_sales ?? 0).toLocaleString('en-IN'), refunds: Number(data.today_refunds ?? 0).toLocaleString('en-IN') })}
                     </p>
                   )}
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: todaySalesDelta?.up ? "#22c55e" : "#ef4444", color: "#fff" }}>
-                    {todaySalesDelta ? `${todaySalesDelta.up ? '+' : ''}${todaySalesDelta.pct}%` : 'N/A'}
+                    {todaySalesDelta ? `${todaySalesDelta.up ? '+' : ''}${todaySalesDelta.pct}%` : t("dashboard.na")}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -1005,17 +1019,17 @@ export default function Dashboard() {
             {selectedStat === 'monthly' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Monthly Net Revenue</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t("dashboard.monthlyNetRevenue")}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">
                     ₹{Number(data.month_net_sales ?? data.month_sales ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                   {(data.month_refunds ?? 0) > 0 && (
                     <p className="text-xs text-red-400 mt-2">
-                      Gross: ₹{Number(data.month_sales ?? 0).toLocaleString('en-IN')} &nbsp;|&nbsp; Refunds: -₹{Number(data.month_refunds ?? 0).toLocaleString('en-IN')}
+                      {t("dashboard.grossAndRefunds", { gross: Number(data.month_sales ?? 0).toLocaleString('en-IN'), refunds: Number(data.month_refunds ?? 0).toLocaleString('en-IN') })}
                     </p>
                   )}
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#0066FF", color: "#fff" }}>
-                    This Month
+                    {t("dashboard.thisMonth")}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -1027,17 +1041,17 @@ export default function Dashboard() {
             {selectedStat === 'total' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Lifetime Net Revenue</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t("dashboard.lifetimeNetRevenue")}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">
                     ₹{Number(data.total_net_sales ?? data.total_sales ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                   {(data.total_refunds ?? 0) > 0 && (
                     <p className="text-xs text-red-400 mt-2">
-                      Gross: ₹{Number(data.total_sales ?? 0).toLocaleString('en-IN')} &nbsp;|&nbsp; Refunds: -₹{Number(data.total_refunds ?? 0).toLocaleString('en-IN')}
+                      {t("dashboard.grossAndRefunds", { gross: Number(data.total_sales ?? 0).toLocaleString('en-IN'), refunds: Number(data.total_refunds ?? 0).toLocaleString('en-IN') })}
                     </p>
                   )}
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#8800FF", color: "#fff" }}>
-                    Lifetime Revenue
+                    {t("dashboard.lifetimeRevenue")}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -1049,12 +1063,12 @@ export default function Dashboard() {
             {selectedStat === 'orders' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Total Orders</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t("dashboard.totalOrders")}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">
                     {(data.total_orders || 0).toLocaleString('en-IN')}
                   </p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#FF6600", color: "#fff" }}>
-                    Invoices Processed
+                    {t("dashboard.invoicesProcessed")}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>

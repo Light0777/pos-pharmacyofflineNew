@@ -25,7 +25,8 @@ export class CategoryController {
 
       const {
         name,
-        parent_uuid
+        parent_uuid,
+        description
       } = req.body;
 
       if (!name) {
@@ -41,7 +42,8 @@ export class CategoryController {
       const category =
         CategoryModel.create({
           name,
-          parent_uuid
+          parent_uuid,
+          description
         });
 
       res.status(201).json({
@@ -114,6 +116,58 @@ export class CategoryController {
       res.json({
         success: true,
         message: 'Category deleted'
+      });
+
+    } catch (error: any) {
+
+      console.error(error);
+
+      const message = error?.message || 'Internal server error';
+
+      res.status(500).json({
+        success: false,
+        error: message
+      });
+    }
+  };
+
+  // UPDATE
+  static update = (
+    req: AuthRequest,
+    res: Response
+  ): void => {
+
+    try {
+
+      const uuid =
+        String(req.params.uuid);
+
+      const {
+        name,
+        parent_uuid,
+        description
+      } = req.body;
+
+      const category =
+        CategoryModel.update(uuid, {
+          name,
+          parent_uuid,
+          description
+        });
+
+      if (!category) {
+
+        res.status(404).json({
+          success: false,
+          error: 'Category not found'
+        });
+
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: category
       });
 
     } catch (error) {

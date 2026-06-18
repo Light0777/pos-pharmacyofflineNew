@@ -9,12 +9,13 @@ import {
   getProfitTrend,
   getSalesByPayment,
   getCustomerPurchaseReport,
+  getCustomerTrend,
 } from "../../renderer/services/reportApi";
-import { IonIcon } from "@ionic/react";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  warningOutline,
-  closeCircleOutline,
-} from "ionicons/icons";
+  Alert01Icon,
+  CancelCircleIcon,
+} from "@hugeicons/core-free-icons";
 import {
   AreaChart,
   Area,
@@ -61,6 +62,7 @@ export default function Reports() {
   const [profitTrend, setProfitTrend] = useState<any[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [customerReport, setCustomerReport] = useState<any[]>([]);
+  const [customerTrend, setCustomerTrend] = useState<Array<{ date: string; total: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [trendDays, setTrendDays] = useState(7);
@@ -84,6 +86,7 @@ export default function Reports() {
         profitTrendRes,
         paymentRes,
         customerRes,
+        customerTrendRes,
       ] = await Promise.allSettled([
         getDashboardReport(),
         getTopProducts(),
@@ -93,6 +96,7 @@ export default function Reports() {
         getProfitTrend(trendDays),
         getSalesByPayment(),
         getCustomerPurchaseReport(),
+        getCustomerTrend(),
       ]);
 
       if (dashboardRes.status === "fulfilled") setDashboard(dashboardRes.value);
@@ -105,6 +109,7 @@ export default function Reports() {
       if (profitTrendRes.status === "fulfilled" && Array.isArray(profitTrendRes.value)) setProfitTrend(profitTrendRes.value);
       if (paymentRes.status === "fulfilled" && Array.isArray(paymentRes.value)) setPaymentMethods(paymentRes.value);
       if (customerRes.status === "fulfilled" && Array.isArray(customerRes.value)) setCustomerReport(customerRes.value);
+      if (customerTrendRes.status === "fulfilled" && Array.isArray(customerTrendRes.value)) setCustomerTrend(customerTrendRes.value);
     } catch (err) {
       console.error("Reports error:", err);
       setError(t('reports.loadError'));
@@ -226,11 +231,11 @@ export default function Reports() {
         <Card className="border-red-200 bg-red-50">
           <CardContent className="p-4 flex justify-between items-center">
             <div className="flex items-center gap-2 text-red-700">
-              <IonIcon icon={warningOutline} className="text-xl" />
+              <HugeiconsIcon icon={Alert01Icon} className="text-xl"  />
               <p className="text-sm">{error}</p>
             </div>
             <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
-              <IonIcon icon={closeCircleOutline} className="text-lg" />
+              <HugeiconsIcon icon={CancelCircleIcon} className="text-lg"  />
             </button>
           </CardContent>
         </Card>
@@ -248,12 +253,12 @@ export default function Reports() {
                 </svg>
               </button>
               <div className="flex-shrink-0">
-                <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-                <p className="text-sm font-semibold text-gray-700 mb-3">Revenue</p>
+                <p className="text-xs text-gray-400 mb-0.5">{t('reports.statistics')}</p>
+                <p className="text-sm font-semibold text-gray-700 mb-3">{t('reports.totalRevenue')}</p>
                 <p className="text-5xl font-bold text-gray-900 leading-none mb-2">₹{formatCompactNumber(profit.revenue || 0)}</p>
                 {(profit.refunds ?? 0) > 0 && (
                   <p className="text-xs text-red-500 mt-1">
-                    Refunds: -₹{formatCompactNumber(profit.refunds ?? 0)}
+                    {t('reports.refunds', { amount: formatCompactNumber(profit.refunds ?? 0) })}
                   </p>
                 )}
                 {revenueDelta && (
@@ -280,8 +285,8 @@ export default function Reports() {
                 </svg>
               </button>
               <div className="flex-shrink-0">
-                <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-                <p className="text-sm font-semibold text-gray-700 mb-3">Cost</p>
+                <p className="text-xs text-gray-400 mb-0.5">{t('reports.statistics')}</p>
+                <p className="text-sm font-semibold text-gray-700 mb-3">{t('reports.totalCost')}</p>
                 <p className="text-5xl font-bold text-gray-900 leading-none mb-2">₹{formatCompactNumber(profit.cost || 0)}</p>
                 {costDelta && (
                   <div className="flex items-center gap-1">
@@ -307,8 +312,8 @@ export default function Reports() {
                 </svg>
               </button>
               <div className="flex-shrink-0">
-                <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-                <p className="text-sm font-semibold text-gray-700 mb-3">Net Profit</p>
+                <p className="text-xs text-gray-400 mb-0.5">{t('reports.statistics')}</p>
+                <p className="text-sm font-semibold text-gray-700 mb-3">{t('reports.netProfit')}</p>
                 <p className="text-5xl font-bold text-gray-900 leading-none mb-2">₹{formatCompactNumber(profit.profit || 0)}</p>
                 {profitDelta && (
                   <div className="flex items-center gap-1">
@@ -334,8 +339,8 @@ export default function Reports() {
                 </svg>
               </button>
               <div className="flex-shrink-0">
-                <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-                <p className="text-sm font-semibold text-gray-700 mb-3">Profit Margin</p>
+                <p className="text-xs text-gray-400 mb-0.5">{t('reports.statistics')}</p>
+                <p className="text-sm font-semibold text-gray-700 mb-3">{t('reports.profitMargin')}</p>
                 <p className="text-5xl font-bold text-gray-900 leading-none mb-2">{profitMargin.toFixed(1)}%</p>
                 {profitMarginDelta && (
                   <div className="flex items-center gap-1">
@@ -363,15 +368,15 @@ export default function Reports() {
                 <CardHeader className="pb-1 shrink-0">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm font-medium" style={{ color: '#a0aabf' }}>Statistics</p>
-                      <p className="text-xl font-bold mt-0.5" style={{ color: '#1e2535' }}>Sales Trend</p>
+                      <p className="text-sm font-medium" style={{ color: '#a0aabf' }}>{t('reports.statistics')}</p>
+                      <p className="text-xl font-bold mt-0.5" style={{ color: '#1e2535' }}>{t('reports.salesTrend')}</p>
                     </div>
                     <div className="relative">
                       <button
                         onClick={() => setShowRangeMenu(!showRangeMenu)}
                         className="px-3 py-1 text-xs font-medium rounded-full border border-slate-300 text-slate-600 bg-white hover:bg-slate-50 transition-colors"
                       >
-                        Last {trendDays === 365 ? "1 year" : `${trendDays} days`}
+                        {trendDays === 365 ? t('reports.lastYear') : t('reports.lastDays', { days: trendDays })}
                       </button>
                       {showRangeMenu && (
                         <>
@@ -383,7 +388,7 @@ export default function Reports() {
                                 onClick={() => { setTrendDays(d); setShowRangeMenu(false); }}
                                 className={`block w-full text-left px-4 py-2 text-sm hover:bg-slate-50 transition-colors ${trendDays === d ? "text-blue-600 font-semibold" : "text-slate-700"}`}
                               >
-                                Last {d === 365 ? "1 year" : `${d} days`}
+                                {d === 365 ? t('reports.lastYear') : t('reports.lastDays', { days: d })}
                               </button>
                             ))}
                           </div>
@@ -456,7 +461,7 @@ export default function Reports() {
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
                 <div className="flex items-start justify-between mb-1">
                   <div>
-                    <p className="text-sm text-slate-400 font-medium leading-none mb-1">Customers</p>
+                    <p className="text-sm text-slate-400 font-medium leading-none mb-1">{t('reports.customers')}</p>
                     <p className="text-3xl font-bold text-slate-800 leading-tight">{customerReport.length.toLocaleString()}</p>
                   </div>
                   <div className="flex items-center gap-1.5 bg-emerald-50 rounded-xl px-3 py-1.5 mt-1">
@@ -466,7 +471,7 @@ export default function Reports() {
                     </svg>
                     <div className="text-right">
                       <p className="text-xs font-bold text-slate-700 leading-none">1.3%</p>
-                      <p className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">VS LAST WEEK</p>
+                      <p className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">{t('reports.vsLastWeek')}</p>
                     </div>
                   </div>
                 </div>
@@ -474,22 +479,14 @@ export default function Reports() {
                   <ChartContainer
                     config={{
                       customers: {
-                        label: "Customers",
+                        label: t('reports.customers'),
                         color: "#22c55e",
                       },
                     }}
                     className="h-full w-full"
                   >
                   <AreaChart
-                    data={[
-                      { day: 'MON', val: 3800 },
-                      { day: 'TUE', val: 450 },
-                      { day: 'WED', val: 1150 },
-                      { day: 'THU', val: 300 },
-                      { day: 'FRI', val: 2100 },
-                      { day: 'SAT', val: 2900 },
-                      { day: 'SUN', val: 2400 },
-                    ]}
+                    data={customerTrend.length > 0 ? customerTrend.map((d: any) => ({ day: d.date.slice(5), val: d.total })) : []}
                     margin={{ top: 4, right: 4, left: 4, bottom: 4 }}
                   >
                     <defs>
@@ -499,7 +496,7 @@ export default function Reports() {
                       </linearGradient>
                     </defs>
                     <XAxis dataKey="day" hide />
-                    <YAxis hide domain={[0, 4000]} />
+                    <YAxis hide domain={[0, 'dataMax']} />
                     <Area
                       type="monotone"
                       dataKey="val"
@@ -511,7 +508,7 @@ export default function Reports() {
                     />
                     <Tooltip
                       contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600 }}
-                      formatter={(value: any) => [value.toLocaleString(), 'Customers']}
+                      formatter={(value: any) => [value.toLocaleString(), t('reports.customers')]}
                       labelStyle={{ display: 'none' }}
                     />
                   </AreaChart>
@@ -519,8 +516,8 @@ export default function Reports() {
                 </div>
               </div>
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-                <p className="text-sm font-medium" style={{ color: '#a0aabf' }}>Statistics</p>
-                <p className="text-lg font-semibold mt-0.5" style={{ color: '#1e2535' }}>Yearly Credit</p>
+                <p className="text-sm font-medium" style={{ color: '#a0aabf' }}>{t('reports.statistics')}</p>
+                <p className="text-lg font-semibold mt-0.5" style={{ color: '#1e2535' }}>{t('reports.yearlyCredit')}</p>
                 <hr className="my-4" style={{ border: 'none', borderTop: '1.5px solid #f0f2f7' }} />
                 <div className="flex items-center justify-center mb-6" style={{ height: 200 }}>
                   <div style={{ position: 'relative', width: 200, height: 200 }}>
@@ -560,7 +557,7 @@ export default function Reports() {
                       })()}
                     </svg>
                     <div style={{ position: 'absolute', top: '44%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
-                      <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 2px' }}>Total Credits</p>
+                      <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 2px' }}>{t('reports.totalCredits')}</p>
                       <p style={{ fontSize: 17, fontWeight: 700, color: '#1f2937', margin: 0 }}>₹{totalCreditBalance.toLocaleString()}</p>
                     </div>
                     {hoveredSegment && tooltipPos && (
@@ -580,8 +577,8 @@ export default function Reports() {
                         whiteSpace: 'nowrap',
                       }}>
                         {hoveredSegment === 'credits'
-                          ? `Total Credits: ₹${totalCreditBalance.toLocaleString()} (${(creditsPct * 100).toFixed(0)}%)`
-                          : `Inventory: ₹${inventoryValue.toLocaleString()} (${(invPct * 100).toFixed(0)}%)`}
+                          ? t('reports.creditsTooltip', { amount: totalCreditBalance.toLocaleString(), pct: (creditsPct * 100).toFixed(0) })
+                          : t('reports.inventoryTooltip', { amount: inventoryValue.toLocaleString(), pct: (invPct * 100).toFixed(0) })}
                       </div>
                     )}
                   </div>
@@ -589,11 +586,11 @@ export default function Reports() {
                 <div className="flex items-center justify-center gap-6 text-sm" style={{ color: '#6b7280' }}>
                   <span className="flex items-center gap-2">
                     <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#10b981', display: 'inline-block', flexShrink: 0 }} />
-                    Total Credits <span className="font-medium ml-1" style={{ color: '#374151' }}>{(creditsPct * 100).toFixed(0)}%</span>
+                    {t('reports.totalCredits')} <span className="font-medium ml-1" style={{ color: '#374151' }}>{(creditsPct * 100).toFixed(0)}%</span>
                   </span>
                   <span className="flex items-center gap-2">
                     <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#a7f3d0', display: 'inline-block', flexShrink: 0 }} />
-                    Inventory <span className="font-medium ml-1" style={{ color: '#374151' }}>{(invPct * 100).toFixed(0)}%</span>
+                    {t('reports.inventory')} <span className="font-medium ml-1" style={{ color: '#374151' }}>{(invPct * 100).toFixed(0)}%</span>
                   </span>
                 </div>
               </div>
@@ -606,11 +603,11 @@ export default function Reports() {
           {/* Top Selling Products - 1 col */}
           <div className="md:col-span-1 bg-white border border-gray-200 rounded-2xl p-5 shadow-sm flex flex-col text-left">
             <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-0.5">Statistics</p>
-              <h2 className="text-lg font-bold text-gray-800">Top Selling Products</h2>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-0.5">{t('reports.statistics')}</p>
+              <h2 className="text-lg font-bold text-gray-800">{t('reports.topSellingProducts')}</h2>
             </div>
             {top.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">No sales data yet</div>
+              <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">{t('reports.noSalesData')}</div>
             ) : (
               <>
                 <div className="flex-1 flex flex-col gap-3 min-h-0">
@@ -623,11 +620,11 @@ export default function Reports() {
                         <div key={p.product_uuid || idx}>
                           <div className="flex justify-between items-center mb-1">
                             <div className="min-w-0 flex-1">
-                              <span className="text-sm font-medium text-gray-700 truncate block">{p.name || 'Unknown'}</span>
+                              <span className="text-sm font-medium text-gray-700 truncate block">{p.name || t('reports.unknown')}</span>
                               {p.manufacturerName && <span className="text-xs text-gray-400">{p.manufacturerName}</span>}
                             </div>
                             <span className={`text-sm font-semibold shrink-0 ml-2 ${isFirst ? 'text-green-600' : 'text-gray-400'}`}>
-                              {p.total_qty || 0} units
+                              {p.total_qty || 0} {t('reports.units')}
                             </span>
                           </div>
                           <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -647,9 +644,9 @@ export default function Reports() {
                   })()}
                 </div>
                 <div className="flex justify-between mt-3">
-                  <span className="text-[11px] text-gray-400 font-medium">0%</span>
-                  <span className="text-[11px] text-gray-400 font-medium">50%</span>
-                  <span className="text-[11px] text-gray-400 font-medium">100%</span>
+                  <span className="text-[11px] text-gray-400 font-medium">{t('reports.zeroPct')}</span>
+                  <span className="text-[11px] text-gray-400 font-medium">{t('reports.fiftyPct')}</span>
+                  <span className="text-[11px] text-gray-400 font-medium">{t('reports.hundredPct')}</span>
                 </div>
               </>
             )}
@@ -662,8 +659,8 @@ export default function Reports() {
             return (
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-200 flex flex-col text-left">
                 <div className="mb-4">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-0.5">Statistics</p>
-                  <h2 className="text-lg font-bold text-gray-800">Recent Purchases</h2>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-0.5">{t('reports.statistics')}</p>
+                  <h2 className="text-lg font-bold text-gray-800">{t('reports.recentPurchases')}</h2>
                 </div>
                 <div className="flex flex-col gap-3">
                   {purchases.map((purchase: any, idx: number) => {
@@ -673,7 +670,7 @@ export default function Reports() {
                       <div key={idx}>
                         <div className="flex justify-between items-center mb-1">
                           <div className="min-w-0 flex-1">
-                            <span className="text-sm font-medium text-gray-700 truncate block">{purchase.supplier_name || 'Unknown Supplier'}</span>
+                            <span className="text-sm font-medium text-gray-700 truncate block">{purchase.supplier_name || t('reports.unknownSupplier')}</span>
                             <span className="text-xs text-gray-400">{new Date(purchase.created_at).toLocaleDateString()}</span>
                           </div>
                           <span className={`text-sm font-semibold shrink-0 ml-2 ${isFirst ? 'text-green-600' : 'text-gray-400'}`}>
@@ -696,7 +693,7 @@ export default function Reports() {
                   })}
                 </div>
                 <div className="flex justify-between mt-3">
-                  <span className="text-[11px] text-gray-400 font-medium">0</span>
+                  <span className="text-[11px] text-gray-400 font-medium">{t('reports.zero')}</span>
                   <span className="text-[11px] text-gray-400 font-medium">₹{Math.round(maxTotal / 2).toLocaleString()}</span>
                   <span className="text-[11px] text-gray-400 font-medium">₹{maxTotal.toLocaleString()}</span>
                 </div>
@@ -708,12 +705,12 @@ export default function Reports() {
           <Card className="shadow-sm border-slate-200 flex flex-col rounded-3xl" style={{ background: '#000' }}>
             <CardContent className="p-5 flex-1 flex flex-col text-white select-none">
               {paymentMethods.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">No payment data</div>
+                <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">{t('reports.noPaymentData')}</div>
               ) : (
                 <>
                   {/* Header */}
                   <div className="mb-4 text-left">
-                    <span className="text-base font-medium tracking-tight">Donut chart</span>
+                    <span className="text-base font-medium tracking-tight">{t('reports.donutChart')}</span>
                   </div>
 
                   {/* Total Activity */}
@@ -724,7 +721,7 @@ export default function Reports() {
                     return (
                       <div className="flex items-start gap-2 mb-5 text-left">
                         <span className="text-5xl font-bold leading-none">{avgPct}%</span>
-                        <span className="text-sm text-neutral-400 leading-tight pt-1">Avg<br />share</span>
+                        <span className="text-sm text-neutral-400 leading-tight pt-1" style={{ whiteSpace: 'pre-line' }}>{t('reports.avgShare')}</span>
                       </div>
                     );
                   })()}
@@ -796,22 +793,22 @@ export default function Reports() {
 
       {selectedStat && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedStat(null)}>
-          <div className="w-[400px] h-[500px] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
+          <div className="w-[min(90vw,400px)] h-[min(80vh,500px)] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-end mb-1">
               <button onClick={() => setSelectedStat(null)} className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: "#dc2626", color: "#fff" }}>
-                Close
+                {t('common.close')}
               </button>
             </div>
 
             {selectedStat === 'revenue' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Revenue</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('reports.totalRevenue')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">
                     ₹{Math.round(profit.revenue || 0).toLocaleString('en-IN')}
                   </p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#22c55e", color: "#fff" }}>
-                    {revenueDelta ? `${revenueDelta.up ? '+' : ''}${Math.abs(revenueDelta.pct)}%` : 'N/A'}
+                    {revenueDelta ? `${revenueDelta.up ? '+' : ''}${Math.abs(revenueDelta.pct)}%` : t('reports.na')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -823,12 +820,12 @@ export default function Reports() {
             {selectedStat === 'cost' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Cost</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('reports.totalCost')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">
                     ₹{Math.round(profit.cost || 0).toLocaleString('en-IN')}
                   </p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#3b82f6", color: "#fff" }}>
-                    {costDelta ? `${costDelta.up ? '+' : ''}${Math.abs(costDelta.pct)}%` : 'N/A'}
+                    {costDelta ? `${costDelta.up ? '+' : ''}${Math.abs(costDelta.pct)}%` : t('reports.na')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -840,12 +837,12 @@ export default function Reports() {
             {selectedStat === 'profit' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Net Profit</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('reports.netProfit')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">
                     ₹{Math.round(profit.profit || 0).toLocaleString('en-IN')}
                   </p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#a855f7", color: "#fff" }}>
-                    {profitDelta ? `${profitDelta.up ? '+' : ''}${Math.abs(profitDelta.pct)}%` : 'N/A'}
+                    {profitDelta ? `${profitDelta.up ? '+' : ''}${Math.abs(profitDelta.pct)}%` : t('reports.na')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -857,12 +854,12 @@ export default function Reports() {
             {selectedStat === 'margin' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Profit Margin</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('reports.profitMargin')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">
                     {profitMargin.toFixed(1)}%
                   </p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#f97316", color: "#fff" }}>
-                    {profitMarginDelta ? `${profitMarginDelta.up ? '+' : ''}${Math.abs(profitMarginDelta.pct)}%` : 'N/A'}
+                    {profitMarginDelta ? `${profitMarginDelta.up ? '+' : ''}${Math.abs(profitMarginDelta.pct)}%` : t('reports.na')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>

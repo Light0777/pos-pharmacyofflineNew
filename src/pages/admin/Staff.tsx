@@ -7,19 +7,30 @@ import {
   deleteStaff,
   type Staff,
 } from "../../renderer/services/staffApi";
-import { IonIcon } from "@ionic/react";
+
+const SECURITY_QUESTIONS = [
+  "What is your pet's name?",
+  "What city were you born in?",
+  "What is your mother's maiden name?",
+  "What was the name of your first school?",
+  "What is your favorite book?",
+  "What is your favorite movie?",
+  "What was the model of your first car?",
+  "What is your favorite food?",
+];
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  addOutline,
-  trashOutline,
-  searchOutline,
-  closeOutline,
-  peopleOutline,
-  mailOutline,
-  keyOutline,
-  checkmarkCircleOutline,
-  warningOutline,
-  refreshOutline,
-} from "ionicons/icons";
+  Add01Icon,
+  Delete01Icon,
+  Search01Icon,
+  Cancel01Icon,
+  UserGroupIcon,
+  Mail01Icon,
+  Key01Icon,
+  CheckmarkCircle01Icon,
+  Alert01Icon,
+  RefreshIcon,
+} from "@hugeicons/core-free-icons";
 
 // shadcn/ui components (only those that work)
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,6 +62,8 @@ export default function StaffPage() {
     email: "",
     password: "",
     role: "cashier",
+    security_question: "",
+    security_answer: "",
   });
 
   useEffect(() => {
@@ -82,7 +95,14 @@ export default function StaffPage() {
     setError(null);
 
     try {
-      await createStaff(form);
+      await createStaff({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        role: form.role,
+        security_question: form.security_question || undefined,
+        security_answer: form.security_answer || undefined,
+      });
       await loadStaff();
       setSuccess(t('staff.createSuccess'));
       setTimeout(() => setSuccess(null), 3000);
@@ -103,6 +123,8 @@ export default function StaffPage() {
       email: s.email,
       password: "",
       role: s.role,
+      security_question: (s as any).security_question || "",
+      security_answer: "",
     });
     setModalOpen(true);
   };
@@ -114,7 +136,14 @@ export default function StaffPage() {
     setError(null);
 
     try {
-      await updateStaff(editing.user_uuid, form);
+      await updateStaff(editing.user_uuid, {
+        name: form.name,
+        email: form.email,
+        password: form.password || undefined,
+        role: form.role,
+        security_question: form.security_question || undefined,
+        security_answer: form.security_answer || undefined,
+      });
       await loadStaff();
       setSuccess(t('staff.updateSuccess'));
       setTimeout(() => setSuccess(null), 3000);
@@ -154,6 +183,8 @@ export default function StaffPage() {
       email: "",
       password: "",
       role: "cashier",
+      security_question: "",
+      security_answer: "",
     });
   };
 
@@ -228,7 +259,7 @@ export default function StaffPage() {
       {success && (
         <Card className="border-emerald-200 bg-emerald-50">
           <CardContent className="p-4 flex items-center gap-2 text-emerald-700">
-            <IonIcon icon={checkmarkCircleOutline} className="text-xl" />
+            <HugeiconsIcon icon={CheckmarkCircle01Icon} className="text-xl"  />
             <p className="text-sm">{success}</p>
           </CardContent>
         </Card>
@@ -237,11 +268,11 @@ export default function StaffPage() {
         <Card className="border-red-200 bg-red-50">
           <CardContent className="p-4 flex justify-between items-center">
             <div className="flex items-center gap-2 text-red-700">
-              <IonIcon icon={warningOutline} className="text-xl" />
+              <HugeiconsIcon icon={Alert01Icon} className="text-xl"  />
               <p className="text-sm">{error}</p>
             </div>
             <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
-              <IonIcon icon={closeOutline} className="text-lg" />
+              <HugeiconsIcon icon={Cancel01Icon} className="text-lg"  />
             </button>
           </CardContent>
         </Card>
@@ -290,7 +321,7 @@ export default function StaffPage() {
       {/* Search Bar + Add Button */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <IonIcon icon={searchOutline} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg" />
+          <HugeiconsIcon icon={Search01Icon} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"  />
           <Input
             placeholder={t('staff.searchPlaceholder')}
             value={searchTerm}
@@ -302,18 +333,19 @@ export default function StaffPage() {
               onClick={() => setSearchTerm("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
             >
-              <IonIcon icon={closeOutline} className="text-lg" />
+              <HugeiconsIcon icon={Cancel01Icon} className="text-lg"  />
             </button>
           )}
         </div>
         <Button onClick={() => { resetForm(); setModalOpen(true); }} className="gap-2 bg-green-600 hover:bg-green-700 text-white shrink-0">
-          <IonIcon icon={addOutline} className="text-xl" />
+          <HugeiconsIcon icon={Add01Icon} className="text-xl"  />
           {t('staff.addStaff')}
         </Button>
       </div>
 
       {/* Staff Table */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="table-scroll">
         <table className="w-full text-sm table-fixed">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
@@ -334,7 +366,7 @@ export default function StaffPage() {
               <tr>
                 <td colSpan={4} className="text-center py-12 text-slate-500">
                   <div className="flex flex-col items-center gap-2">
-                    <IonIcon icon={peopleOutline} className="text-6xl text-slate-300" />
+                    <HugeiconsIcon icon={UserGroupIcon} className="text-6xl text-slate-300"  />
                     <p className="text-lg">{t('staff.noStaff')}</p>
                     <p className="text-sm">{searchTerm ? t('staff.noSearchResults') : t('staff.noStaffSubtext')}</p>
                   </div>
@@ -358,7 +390,7 @@ export default function StaffPage() {
                   </td>
                   <td className="px-5 py-3.5 text-center">
                     <div className="flex items-center justify-center gap-1 text-sm text-slate-600">
-                      <IonIcon icon={mailOutline} className="text-xs shrink-0" />
+                      <HugeiconsIcon icon={Mail01Icon} className="text-xs shrink-0"  />
                       <span className="truncate">{s.email}</span>
                     </div>
                   </td>
@@ -385,6 +417,7 @@ export default function StaffPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Custom Modal */}
@@ -396,7 +429,7 @@ export default function StaffPage() {
                 {editing ? t('staff.editStaff') : t('staff.addNewStaff')}
               </h2>
               <button onClick={() => { setModalOpen(false); resetForm(); }} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <IonIcon icon={closeOutline} className="text-2xl" />
+                <HugeiconsIcon icon={Cancel01Icon} className="text-2xl"  />
               </button>
             </div>
 
@@ -454,12 +487,46 @@ export default function StaffPage() {
                 </Select>
                 <p className="text-xs text-slate-500 mt-1.5">{t('staff.roleHint')}</p>
               </div>
+
+              <div className="border-t border-slate-200 pt-4">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Security Question (for password reset)</p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-start font-semibold text-slate-700 mb-1.5">Choose a question</label>
+                    <div className="relative">
+                      <select
+                        value={form.security_question}
+                        onChange={(e) => setForm({ ...form, security_question: e.target.value })}
+                        className="h-10 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3.5 pr-10 text-sm text-slate-900 shadow-sm transition-all outline-none hover:border-slate-300 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
+                      >
+                        <option value="" disabled>Select a security question</option>
+                        {SECURITY_QUESTIONS.map((q) => (
+                          <option key={q} value={q}>{q}</option>
+                        ))}
+                      </select>
+                      <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-start font-semibold text-slate-700 mb-1.5">Your answer</label>
+                    <input
+                      type="text"
+                      value={form.security_answer}
+                      onChange={(e) => setForm({ ...form, security_answer: e.target.value })}
+                      placeholder="Enter the answer"
+                      className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 transition-all outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="border-t border-slate-200 px-6 py-4 flex justify-between gap-3 bg-white">
               {editing && (
                 <Button variant="outline" onClick={() => handleDelete(editing.user_uuid)} className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
-                  <IonIcon icon={trashOutline} className="text-lg mr-1" />
+                  <HugeiconsIcon icon={Delete01Icon} className="text-lg mr-1"  />
                   {t('staff.deleteTitle')}
                 </Button>
               )}
@@ -489,7 +556,7 @@ export default function StaffPage() {
 
       {selectedStat && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedStat(null)}>
-          <div className="w-[400px] h-[500px] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
+          <div className="w-[min(90vw,400px)] h-[min(80vh,500px)] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-end mb-1">
               <button onClick={() => setSelectedStat(null)} className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: "#dc2626", color: "#fff" }}>
                 Close

@@ -5,14 +5,14 @@ import {
   addCustomerPayment,
 } from "../../renderer/services/customerApi";
 import CustomerStatement from "./CustomerStatement";
-import { IonIcon } from "@ionic/react";
+import { IndianRupee } from "../../components/IndianRupee";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  closeOutline,
-  cashOutline,
-  printOutline,
-  logoWhatsapp,
-  receiptOutline,
-} from "ionicons/icons";
+  Cancel01Icon,
+  PrinterIcon,
+  WhatsappIcon,
+  ReceiptTextIcon,
+} from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -94,7 +94,7 @@ export default function CustomerLedgerModal({ customer, onClose }: any) {
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <IonIcon icon={closeOutline} className="text-2xl" />
+            <HugeiconsIcon icon={Cancel01Icon} className="text-2xl"  />
           </button>
         </div>
 
@@ -132,17 +132,17 @@ export default function CustomerLedgerModal({ customer, onClose }: any) {
                 </Select>
               </div>
               <Button onClick={handlePayment} className="bg-green-600 hover:bg-green-700 text-white gap-1.5 rounded-full h-10 px-5">
-                <IonIcon icon={cashOutline} className="text-lg" />
+                <IndianRupee className="text-lg" />
                 {t('customerLedger.payButton')}
               </Button>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={handlePrint} className="gap-1.5 rounded-full border-slate-300 text-slate-700 hover:bg-slate-100">
-                <IonIcon icon={printOutline} className="text-lg" />
+                <HugeiconsIcon icon={PrinterIcon} className="text-lg"  />
                 {t('customerLedger.printButton')}
               </Button>
               <Button variant="outline" onClick={sendWhatsApp} className="gap-1.5 rounded-full text-emerald-600 border-emerald-200 hover:bg-emerald-50">
-                <IonIcon icon={logoWhatsapp} className="text-lg" />
+                <HugeiconsIcon icon={WhatsappIcon} className="text-lg"  />
                 {t('customerLedger.whatsappButton')}
               </Button>
             </div>

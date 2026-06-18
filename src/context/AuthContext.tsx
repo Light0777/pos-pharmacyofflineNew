@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { apiGet } from "../renderer/services/api";
+import { apiGet, setOnUnauthorized } from "../renderer/services/api";
 
 const VALID_ROLES = ["owner", "manager", "admin", "cashier"] as const;
 
@@ -35,8 +35,10 @@ function isUserValid(user: any): user is User {
   return user && typeof user === "object" && user.name && isValidRole(user.role);
 }
 
-// 🔥 INIT AUTH (runs once on app load)
+  // 🔥 INIT AUTH (runs once on app load)
   useEffect(() => {
+    setOnUnauthorized(logout);
+
     const init = async () => {
       const storedToken = localStorage.getItem("token");
       const storedUser = localStorage.getItem("user");
@@ -51,6 +53,17 @@ function isUserValid(user: any): user is User {
       setToken(storedToken);
       try {
         const res = await apiGet("/auth/me");
+
+        // Server explicitly rejected token — must re-login
+        if (res?.status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          setToken(null);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         const userData = res?.data?.user || res?.user;
 
         if (userData && isUserValid(userData)) {
@@ -62,12 +75,19 @@ function isUserValid(user: any): user is User {
           setToken(null);
           setUser(null);
         } else {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          setToken(null);
-          setUser(null);
+          // Empty response — fall back to stored user (offline mode)
+          const parsedUser = JSON.parse(storedUser);
+          if (isUserValid(parsedUser)) {
+            setUser(parsedUser);
+          } else {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            setToken(null);
+            setUser(null);
+          }
         }
       } catch (e) {
+        // Network error — use cached user for offline mode
         let parsedUser: any;
         try {
           parsedUser = JSON.parse(storedUser);

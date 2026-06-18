@@ -312,6 +312,7 @@ export function runMigrations(): void {
       discount REAL NOT NULL DEFAULT 0.00,
       tax_percent REAL NOT NULL DEFAULT 0.00,
       unit_uuid TEXT,
+      batch_uuid TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (cart_uuid) REFERENCES carts(cart_uuid),
@@ -325,6 +326,7 @@ export function runMigrations(): void {
 
       name TEXT NOT NULL,
       parent_uuid TEXT,
+      description TEXT,
 
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -559,6 +561,65 @@ export function runMigrations(): void {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // ── Migration fixes for existing databases ──
+  const fixColumns = [
+    { table: 'categories', column: 'description', def: 'TEXT' },
+    { table: 'products', column: 'description', def: 'TEXT' },
+    { table: 'products', column: 'discount', def: 'REAL DEFAULT 0' },
+    { table: 'purchase_items', column: 'discount', def: 'REAL DEFAULT 0' },
+    { table: 'h1_register', column: 'schedule_type', def: "TEXT NOT NULL DEFAULT 'H1'" },
+    { table: 'purchases', column: 'invoice_number', def: 'TEXT' },
+    { table: 'purchases', column: 'invoice_date', def: 'TEXT' },
+    { table: 'cart_items', column: 'batch_uuid', def: 'TEXT' },
+  ];
+  for (const fix of fixColumns) {
+    try {
+      db.exec(`ALTER TABLE ${fix.table} ADD COLUMN ${fix.column} ${fix.def}`);
+      console.log(`  ✓ Added column ${fix.table}.${fix.column}`);
+    } catch {
+      // column already exists — ignore
+    }
+  }
+
+  // ── Seed product_units for products missing a base unit ──
+  const missingUnits = db.prepare(`
+    SELECT p.product_uuid, COALESCE(p.unit, 'Tablet') AS unit_name
+    FROM products p
+    WHERE NOT EXISTS (
+      SELECT 1 FROM product_units pu WHERE pu.product_uuid = p.product_uuid
+    )
+  `).all() as { product_uuid: string; unit_name: string }[];
+  const insertUnit = db.prepare(`
+    INSERT OR IGNORE INTO product_units (unit_uuid, product_uuid, unit_name, conversion_factor, is_base_unit)
+    VALUES (?, ?, ?, 1, 1)
+  `);
+  for (const row of missingUnits) {
+    insertUnit.run(`unit-${row.product_uuid}`, row.product_uuid, row.unit_name);
+  }
+  if (missingUnits.length > 0) {
+    console.log(`  ✓ Seeded ${missingUnits.length} product_units`);
+  }
+
+  // ── Seed default categories ──
+  const seedCategories = [
+    { uuid: 'cat-drug',      name: 'Drug',        description: 'Prescription medicines' },
+    { uuid: 'cat-generic',   name: 'Generic',     description: 'Generic medicines' },
+    { uuid: 'cat-otc',       name: 'OTC',         description: 'Over-the-counter medicines' },
+    { uuid: 'cat-nutra',     name: 'Nutraceutical', description: 'Nutritional supplements' },
+    { uuid: 'cat-ayurvedic', name: 'Ayurvedic',   description: 'Herbal/Ayurvedic products' },
+    { uuid: 'cat-surgical',  name: 'Surgical',    description: 'Surgical items' },
+    { uuid: 'cat-fmcg',      name: 'FMCG',        description: 'Fast-moving consumer goods' },
+    { uuid: 'cat-cosmetic',  name: 'Cosmetic',    description: 'Cosmetic products' },
+  ];
+  const insertCat = db.prepare(`
+    INSERT OR IGNORE INTO categories (category_uuid, name, description)
+    VALUES (?, ?, ?)
+  `);
+  for (const cat of seedCategories) {
+    insertCat.run(cat.uuid, cat.name, cat.description);
+  }
+  console.log('  ✓ Seeded 8 default categories');
 
   console.log('Migrations completed successfully!');
 }

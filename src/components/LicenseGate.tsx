@@ -56,7 +56,7 @@ export default function LicenseGate({ children }: { children: React.ReactNode })
     // Not licensed — show activation screen
     if (!licensed) return (
         <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "linear-gradient(180deg, #00e060 0%, #00b84a 15%, #007a30 35%, #003a16 55%, #000e05 75%, #000000 100%)" }}>
-            <div className="w-full max-w-3xl bg-white rounded-2xl overflow-hidden flex shadow-2xl">
+            <div className="w-full max-w-[calc(100vw-2rem)] sm:max-w-xl lg:max-w-3xl bg-white rounded-2xl overflow-hidden flex shadow-2xl">
                 {/* LEFT: Green gradient panel */}
                 <div
                     className="w-[45%] hidden sm:flex flex-col justify-between p-8 relative min-h-[520px]"

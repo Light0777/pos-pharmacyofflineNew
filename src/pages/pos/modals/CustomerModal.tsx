@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { IonIcon } from '@ionic/react';
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  closeOutline,
-  personAddOutline,
-  callOutline,
-  saveOutline,
-  mapOutline,
-  documentTextOutline,
-  informationCircleOutline
-} from 'ionicons/icons';
+  Cancel01Icon,
+  UserAdd01Icon,
+  CallIcon,
+  SaveIcon,
+  MapPinIcon,
+  File01Icon,
+  InformationCircleIcon,
+} from "@hugeicons/core-free-icons";
 
 interface CustomerModalProps {
   initialMobile?: string;
@@ -72,7 +72,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
         <div className="border-b border-gray-700/80 px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-500/10 rounded-xl">
-              <IonIcon icon={personAddOutline} className="text-blue-400 text-2xl" />
+              <HugeiconsIcon icon={UserAdd01Icon} className="text-blue-400 text-2xl"  />
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">Add New Customer</h2>
@@ -84,7 +84,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
             onClick={onClose}
             className="p-2 hover:bg-gray-700/50 rounded-xl transition-colors"
           >
-            <IonIcon icon={closeOutline} className="text-gray-400 text-xl" />
+            <HugeiconsIcon icon={Cancel01Icon} className="text-gray-400 text-xl"  />
           </button>
         </div>
 
@@ -96,7 +96,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
               Customer Name <span className="text-red-400">*</span>
             </label>
             <div className="relative">
-              <IonIcon icon={personAddOutline} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none" />
+              <HugeiconsIcon icon={UserAdd01Icon} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none"  />
               <input
                 type="text"
                 placeholder="Enter customer name"
@@ -115,7 +115,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
               Mobile Number <span className="text-red-400">*</span>
             </label>
             <div className="relative">
-              <IonIcon icon={callOutline} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none" />
+              <HugeiconsIcon icon={CallIcon} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none"  />
               <input
                 type="tel"
                 inputMode="numeric"
@@ -138,7 +138,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">Address</label>
             <div className="relative">
-              <IonIcon icon={mapOutline} className="absolute left-3.5 top-3 text-gray-500 text-lg pointer-events-none" />
+              <HugeiconsIcon icon={MapPinIcon} className="absolute left-3.5 top-3 text-gray-500 text-lg pointer-events-none"  />
               <textarea
                 rows={2}
                 placeholder="Enter customer address (optional)"
@@ -153,7 +153,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">GSTIN</label>
             <div className="relative">
-              <IonIcon icon={documentTextOutline} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none" />
+              <HugeiconsIcon icon={File01Icon} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none"  />
               <input
                 type="text"
                 placeholder="Enter GSTIN (optional)"
@@ -192,7 +192,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
         {/* Info Box */}
         <div className="mx-6 mb-4 p-3 bg-blue-500/5 border border-blue-500/15 rounded-xl">
           <div className="flex items-start gap-2">
-            <IonIcon icon={informationCircleOutline} className="text-blue-400 text-lg mt-0.5 shrink-0" />
+            <HugeiconsIcon icon={InformationCircleIcon} className="text-blue-400 text-lg mt-0.5 shrink-0"  />
             <div>
               <span className="text-blue-400 text-xs font-semibold uppercase tracking-wider">Note</span>
               <p className="text-gray-500 text-xs mt-0.5">
@@ -224,7 +224,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
               </>
             ) : (
               <>
-                <IonIcon icon={saveOutline} className="text-lg" />
+                <HugeiconsIcon icon={SaveIcon} className="text-lg"  />
                 <span>Create Customer</span>
               </>
             )}

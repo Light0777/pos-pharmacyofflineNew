@@ -1,53 +1,22 @@
-// controllers/ProductController.ts
-
-import type {
-  Request,
-  Response
-} from 'express';
-
+import type { Request, Response } from 'express';
 import { ProductModel } from '../models/Product';
 import type { AuthRequest } from '../middleware/auth';
 
 export class ProductController {
 
-
-  private static getString(
-    value: unknown
-  ): string {
-
-    if (Array.isArray(value)) {
-      return String(value[0] || '');
-    }
-
-    return String(value || '');
-  }
-
-  // =========================
-  // CREATE
-  // =========================
-
-  static create = (
-    req: AuthRequest,
-    res: Response
-  ): void => {
-
+  static create = (req: AuthRequest, res: Response): void => {
     try {
-
       const {
         name,
         category_uuid,
-        subcategory,
         barcode,
         sku,
-        // PHARMACY
-        product_type,
         manufacturer,
         composition,
+        description,
         schedule_type,
         prescription_required,
-        medicine_type,
         rack_location,
-        // GENERAL
         unit,
         price,
         purchase_price,
@@ -55,381 +24,127 @@ export class ProductController {
         stock,
         hsn_code,
         image,
-        attributes
+        discount,
       } = req.body;
 
       if (!name || price === undefined) {
-
-        res.status(400).json({
-          success: false,
-          error: 'Name and price required'
-        });
-
+        res.status(400).json({ success: false, error: 'Name and price required' });
         return;
       }
 
-      // BARCODE CHECK
-
       if (barcode) {
-
-        const existing =
-          ProductModel.findByBarcode(barcode);
-
+        const existing = ProductModel.findByBarcode(barcode);
         if (existing) {
-
-          res.status(400).json({
-            success: false,
-            error: 'Barcode already exists'
-          });
-
-          return;
-        }
-      }
-
-      // SKU CHECK
-
-      if (sku) {
-
-        const existing =
-          ProductModel.findBySku(sku);
-
-        if (existing) {
-
-          res.status(400).json({
-            success: false,
-            error: 'SKU already exists'
-          });
-
+          res.status(400).json({ success: false, error: 'Barcode already exists' });
           return;
         }
       }
 
       const product = ProductModel.create({
-
         name,
-
         category_uuid,
-        subcategory,
-
         barcode,
         sku,
-
-        // PHARMACY
-        product_type,
-
         manufacturer,
-
         composition,
-
+        description,
         schedule_type,
-
-        prescription_required:
-          prescription_required !== undefined
-            ? Number(prescription_required)
-            : 0,
-
-        medicine_type,
-
+        prescription_required: prescription_required !== undefined ? Number(prescription_required) : 0,
         rack_location,
-
-        // GENERAL
-
         unit,
-
         price: Number(price),
-
-        purchase_price:
-          purchase_price !== undefined
-            ? Number(purchase_price)
-            : undefined,
-
-        gst_percent:
-          gst_percent !== undefined
-            ? Number(gst_percent)
-            : undefined,
-
-        stock:
-          stock !== undefined
-            ? Number(stock)
-            : undefined,
-
+        purchase_price: purchase_price !== undefined ? Number(purchase_price) : undefined,
+        gst_percent: gst_percent !== undefined ? Number(gst_percent) : undefined,
+        stock: stock !== undefined ? Number(stock) : undefined,
         hsn_code,
         image,
-
-        attributes
+        discount: discount !== undefined ? Number(discount) : undefined,
       });
 
-      res.status(201).json({
-        success: true,
-        data: product
-      });
-
+      res.status(201).json({ success: true, data: product });
     } catch (error) {
-
       console.error(error);
-
-      res.status(500).json({
-        success: false,
-        error: 'Internal server error'
-      });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   };
 
-  // =========================
-  // LIST
-  // =========================
-
-  static index = (
-    req: Request,
-    res: Response
-  ): void => {
-
+  static index = (req: Request, res: Response): void => {
     try {
-
-      const page =
-        Number(req.query.page || 1);
-
-      const limit =
-        Number(req.query.limit || 20);
-
-      const data =
-        ProductModel.findAll(page, limit);
-
-      res.json({
-        success: true,
-        ...data
-      });
-
+      const page = Number(req.query.page || 1);
+      const limit = Number(req.query.limit || 20);
+      const data = ProductModel.findAll(page, limit);
+      res.json({ success: true, ...data });
     } catch (error) {
-
       console.error(error);
-
-      res.status(500).json({
-        success: false,
-        error: 'Internal server error'
-      });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   };
 
-  // =========================
-  // SHOW
-  // =========================
-
-  static show = (
-    req: Request,
-    res: Response
-  ): void => {
-
+  static show = (req: Request, res: Response): void => {
     try {
-
-      const uuid =
-        this.getString(req.params.uuid);
-
-      const product =
-        ProductModel.findById(uuid);
-
+      const product = ProductModel.findById(req.params.uuid);
       if (!product) {
-
-        res.status(404).json({
-          success: false,
-          error: 'Product not found'
-        });
-
+        res.status(404).json({ success: false, error: 'Product not found' });
         return;
       }
-
-      res.json({
-        success: true,
-        data: product
-      });
-
+      res.json({ success: true, data: product });
     } catch (error) {
-
       console.error(error);
-
-      res.status(500).json({
-        success: false,
-        error: 'Internal server error'
-      });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   };
 
-  // =========================
-  // SEARCH
-  // =========================
-
-  static search = (
-    req: Request,
-    res: Response
-  ): void => {
-
+  static search = (req: Request, res: Response): void => {
     try {
-
-      const q =
-        this.getString(req.query.q);
-
+      const q = req.query.q as string;
       if (!q) {
-
-        res.status(400).json({
-          success: false,
-          error: 'Search query required'
-        });
-
+        res.status(400).json({ success: false, error: 'Search query required' });
         return;
       }
-
-      const products =
-        ProductModel.search(q);
-
-      res.json({
-        success: true,
-        count: products.length,
-        data: products
-      });
-
+      const products = ProductModel.search(q);
+      res.json({ success: true, count: products.length, data: products });
     } catch (error) {
-
       console.error(error);
-
-      res.status(500).json({
-        success: false,
-        error: 'Internal server error'
-      });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   };
 
-  // =========================
-  // UPDATE
-  // =========================
-
-  static update = (
-    req: AuthRequest,
-    res: Response
-  ): void => {
-
+  static update = (req: AuthRequest, res: Response): void => {
     try {
-
-      const product =
-        ProductModel.update(
-          this.getString(req.params.uuid),
-          req.body
-        );
-
+      const product = ProductModel.update(req.params.uuid, req.body);
       if (!product) {
-
-        res.status(404).json({
-          success: false,
-          error: 'Product not found'
-        });
-
+        res.status(404).json({ success: false, error: 'Product not found' });
         return;
       }
-
-      res.json({
-        success: true,
-        data: product
-      });
-
+      res.json({ success: true, data: product });
     } catch (error) {
-
       console.error(error);
-
-      res.status(500).json({
-        success: false,
-        error: 'Internal server error'
-      });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   };
-
-  // =========================
-  // DELETE
-  // =========================
-
-  // static destroy = (
-  //   req: AuthRequest,
-  //   res: Response
-  // ): void => {
-
-  //   try {
-
-  //     const deleted =
-  //       ProductModel.delete(
-  //         this.getString(req.params.uuid)
-  //       );
-
-  //     if (!deleted) {
-
-  //       res.status(404).json({
-  //         success: false,
-  //         error: 'Product not found'
-  //       });
-
-  //       return;
-  //     }
-
-  //     res.json({
-  //       success: true,
-  //       message: 'Deleted successfully'
-  //     });
-
-  //   } catch (error) {
-
-  //     console.error(error);
-
-  //     res.status(500).json({
-  //       success: false,
-  //       error: 'Internal server error'
-  //     });
-  //   }
-  // };
 
   static destroy = (req: AuthRequest, res: Response): void => {
-  try {
-    const deleted = ProductModel.delete(this.getString(req.params.uuid));
-    if (!deleted) {
-      res.status(404).json({ success: false, error: 'Product not found' });
-      return;
-    }
-    res.json({ success: true, message: 'Deleted successfully' });
-  } catch (error: any) {
-    console.error(error);
-    // Send the actual error message to frontend
-    res.status(500).json({ success: false, error: error.message || 'Internal server error' });
-  }
-};
-
-  // =========================
-  // LOW STOCK
-  // =========================
-
-  static lowStock = (
-    req: Request,
-    res: Response
-  ): void => {
-
     try {
-
-      const threshold =
-        Number(req.query.threshold || 10);
-
-      const products =
-        ProductModel.getLowStock(
-          threshold
-        );
-
-      res.json({
-        success: true,
-        data: products
-      });
-
-    } catch (error) {
-
+      const deleted = ProductModel.delete(req.params.uuid);
+      if (!deleted) {
+        res.status(404).json({ success: false, error: 'Product not found' });
+        return;
+      }
+      res.json({ success: true, message: 'Deleted successfully' });
+    } catch (error: any) {
       console.error(error);
+      res.status(500).json({ success: false, error: error.message || 'Internal server error' });
+    }
+  };
 
-      res.status(500).json({
-        success: false,
-        error: 'Internal server error'
-      });
+  static lowStock = (req: Request, res: Response): void => {
+    try {
+      const threshold = Number(req.query.threshold || 10);
+      const products = ProductModel.getLowStock(threshold);
+      res.json({ success: true, data: products });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   };
 }

@@ -1,9 +1,18 @@
-import { IonIcon } from '@ionic/react';
-import { pricetagOutline, personCircleOutline, settingsOutline, logOutOutline, notificationsOutline, closeCircleOutline, warningOutline, checkmarkCircle } from 'ionicons/icons';
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  MoonIcon,
+  Tag01Icon,
+  UserCircleIcon,
+  Settings01Icon,
+
+  Notification01Icon,
+  CancelCircleIcon,
+  Alert01Icon,
+  CheckmarkCircle01Icon,
+} from "@hugeicons/core-free-icons";
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from "react";
-import { moonOutline } from "ionicons/icons";
 import EODModal from "../../../components/EODModal";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -31,7 +40,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const activeTab = location.pathname;
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
   const [lowStockCount, setLowStockCount] = useState(0);
@@ -121,7 +130,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
           onClick={() => setShowEOD(true)}
           className="flex items-center gap-3 px-2 sm:px-4 py-2 sm:py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full text-base font-medium transition-colors whitespace-nowrap"
         >
-          <IonIcon icon={moonOutline} className="text-xl" />
+          <HugeiconsIcon icon={MoonIcon} className="text-xl"  />
           <span className="hidden sm:inline">End of Day</span>
         </button>
 
@@ -129,7 +138,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
           className="px-3 sm:px-5 py-2 sm:py-3 bg-green-500 text-white rounded-full font-bold flex gap-2 justify-center items-center hover:bg-green-600 transition-colors text-base"
           onClick={onShowSales}
         >
-          <IonIcon icon={pricetagOutline} className="text-lg" />
+          <HugeiconsIcon icon={Tag01Icon} className="text-lg"  />
           <span className="hidden sm:inline">{t('common.sales')}</span>
         </button>
 
@@ -137,7 +146,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative text-gray-500 hover:text-gray-900 hover:bg-gray-100 border border-gray-300 rounded-full h-12 w-12 flex items-center justify-center focus-visible:ring-0 focus-visible:ring-offset-0">
-              <IonIcon icon={notificationsOutline} className="text-xl" />
+              <HugeiconsIcon icon={Notification01Icon} className="text-xl"  />
               {lowStockCount > 0 && (
                 <Badge className="absolute -top-1 -right-1 px-1.5 py-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] rounded-full">
                   {lowStockCount > 99 ? '99+' : lowStockCount}
@@ -159,7 +168,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
               {lowStockItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
                   <div className="w-14 h-14 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
-                    <IonIcon icon={checkmarkCircle} className="text-3xl text-green-500" />
+                    <HugeiconsIcon icon={CheckmarkCircle01Icon} className="text-3xl text-green-500"  />
                   </div>
                   <p className="text-sm font-medium text-gray-700">{t('topbar.notifAllGood')}</p>
                   <p className="text-xs text-gray-500 mt-1">{t('topbar.notifAllGoodSub')}</p>
@@ -174,10 +183,9 @@ export default function TopBar({ onShowSales }: TopBarProps) {
                     >
                       <div className="flex items-start gap-3 w-full">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${item.stock === 0 ? 'bg-red-500/20' : 'bg-amber-500/20'}`}>
-                          <IonIcon
-                            icon={item.stock === 0 ? closeCircleOutline : warningOutline}
+                          <HugeiconsIcon icon={item.stock === 0 ? CancelCircleIcon : Alert01Icon}
                             className={`text-xl ${item.stock === 0 ? 'text-red-500' : 'text-amber-500'}`}
-                          />
+                           />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
@@ -250,26 +258,18 @@ export default function TopBar({ onShowSales }: TopBarProps) {
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-gray-200" />
             <DropdownMenuItem
-              onClick={() => handleNavigate('/admin/profile')}
+              onClick={() => handleNavigate('/admin/settings')}
               className="cursor-pointer gap-3 px-3 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors"
             >
-              <IonIcon icon={personCircleOutline} className="text-lg text-gray-500" />
+              <HugeiconsIcon icon={UserCircleIcon} className="text-lg text-gray-500"  />
               <span>{t('topbar.yourProfile')}</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => handleNavigate('/admin/settings')}
               className="cursor-pointer gap-3 px-3 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors"
             >
-              <IonIcon icon={settingsOutline} className="text-lg text-gray-500" />
+              <HugeiconsIcon icon={Settings01Icon} className="text-lg text-gray-500"  />
               <span>{t('topbar.settingsDropdown')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-gray-200" />
-            <DropdownMenuItem
-              onClick={logout}
-              className="cursor-pointer gap-3 px-3 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors focus:text-red-700"
-            >
-              <IonIcon icon={logOutOutline} className="text-lg" />
-              <span>{t('topbar.logout')}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

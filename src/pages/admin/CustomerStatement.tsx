@@ -40,7 +40,7 @@ export default function CustomerStatement({ customer, ledger }: any) {
         </div>
       </div>
 
-      <table className="w-full border text-xs">
+      <div className="table-scroll"><table className="w-full border text-xs">
         <thead>
           <tr className="border-b">
             <th className="p-2">{t('customerStatement.tableDate')}</th>
@@ -65,6 +65,7 @@ export default function CustomerStatement({ customer, ledger }: any) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

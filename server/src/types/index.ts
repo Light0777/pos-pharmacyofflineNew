@@ -4,6 +4,8 @@ export interface User {
   email: string;
   password: string;
   role: 'owner' | 'manager' | 'cashier';
+  security_question?: string;
+  security_answer?: string;
   created_at: string;
   updated_at: string;
 }
@@ -16,29 +18,21 @@ export interface Product {
 
   category_uuid?: string;
 
-  subcategory?: string;
-
   barcode?: string;
 
   sku?: string;
-
-  // PHARMACY
-
-  product_type?: string;
 
   manufacturer?: string;
 
   composition?: string;
 
+  description?: string;
+
   schedule_type?: string;
 
   prescription_required?: number;
 
-  medicine_type?: string;
-
   rack_location?: string;
-
-  // GENERAL
 
   unit: string;
 
@@ -54,11 +48,11 @@ export interface Product {
 
   image?: string;
 
+  discount?: number;
+
   created_at: string;
 
   updated_at: string;
-
-  attributes?: ProductAttribute[];
 }
 
 export interface ProductUnit {
@@ -113,29 +107,21 @@ export interface ProductCreateInput {
 
   category_uuid?: string;
 
-  subcategory?: string;
-
   barcode?: string;
 
   sku?: string;
-
-  // PHARMACY
-
-  product_type?: string;
 
   manufacturer?: string;
 
   composition?: string;
 
+  description?: string;
+
   schedule_type?: string;
 
   prescription_required?: number;
 
-  medicine_type?: string;
-
   rack_location?: string;
-
-  // GENERAL
 
   unit?: string;
 
@@ -151,13 +137,7 @@ export interface ProductCreateInput {
 
   image?: string;
 
-  attributes?: {
-
-    attribute_uuid: string;
-
-    value: string;
-
-  }[];
+  discount?: number;
 }
 
 export interface ProductUpdateInput {
@@ -166,29 +146,21 @@ export interface ProductUpdateInput {
 
   category_uuid?: string;
 
-  subcategory?: string;
-
   barcode?: string;
 
   sku?: string;
-
-  // PHARMACY
-
-  product_type?: string;
 
   manufacturer?: string;
 
   composition?: string;
 
+  description?: string;
+
   schedule_type?: string;
 
   prescription_required?: number;
 
-  medicine_type?: string;
-
   rack_location?: string;
-
-  // GENERAL
 
   unit?: string;
 
@@ -204,13 +176,7 @@ export interface ProductUpdateInput {
 
   image?: string;
 
-  attributes?: {
-
-    attribute_uuid: string;
-
-    value: string;
-
-  }[];
+  discount?: number;
 }
 
 export interface ProductBatch {
@@ -404,6 +370,8 @@ export interface Purchase {
   purchase_uuid: string;
   total: number;
   supplier_uuid?: string;
+  invoice_number?: string;
+  invoice_date?: string;
   created_at: string;
   updated_at: string;
 }
@@ -423,6 +391,8 @@ export interface PurchaseItem {
   cost_price: number;
   selling_price?: number;
   gst_percent?: number;
+  unit_uuid?: string;
+  discount?: number;
   created_at: string;
   updated_at: string;
 }
@@ -496,6 +466,7 @@ export interface CartItem {
   cart_uuid: string;
   product_uuid: string;
   unit_uuid: string;
+  batch_uuid?: string;
   quantity: number;
   price: number;
   discount: number;
@@ -745,6 +716,8 @@ export interface H1Register {
 
   quantity: number;
 
+  schedule_type?: string | null;
+
   pharmacist_name?: string | null;
 
   created_at: string;
@@ -774,6 +747,8 @@ export interface CreateH1RegisterInput {
 
   quantity: number;
 
+  schedule_type: string;
+
   pharmacist_name?: string;
 }
 
@@ -782,6 +757,7 @@ export type AuditActionType =
   | 'sale_created'
   | 'sale_updated'
   | 'schedule_h1_sale'
+  | 'schedule_drug_sale'
   | 'schedule_x_sale'
   | 'batch_quarantined';
 

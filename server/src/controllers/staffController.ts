@@ -55,7 +55,9 @@ export class StaffController {
         name: String(name),
         email: String(email),
         password: String(password),
-        role: role as 'manager' | 'cashier'
+        role: role as 'manager' | 'cashier',
+        security_question: req.body.security_question ? String(req.body.security_question) : undefined,
+        security_answer: req.body.security_answer ? String(req.body.security_answer) : undefined
       });
 
       // Return user without password
@@ -157,7 +159,9 @@ export class StaffController {
         name: String(name),
         email: String(email),
         password: password ? String(password) : undefined,
-        role: role as 'manager' | 'cashier'
+        role: role as 'manager' | 'cashier',
+        security_question: req.body.security_question ? String(req.body.security_question) : undefined,
+        security_answer: req.body.security_answer ? String(req.body.security_answer) : undefined,
       });
 
       if (!updatedUser) {

@@ -33,12 +33,14 @@ export async function addItem(
   cart_uuid: string,
   product_uuid: string,
   unit_uuid: string,
-  quantity: number = 1
+  quantity: number = 1,
+  batch_uuid?: string
 ) {
   const response = await apiPost(`/carts/${cart_uuid}/items`, {
     product_uuid,
     unit_uuid,
     quantity,
+    batch_uuid,
   });
   return response.data || response;
 }

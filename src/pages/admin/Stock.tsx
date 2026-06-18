@@ -1,15 +1,16 @@
 import { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { getStock, updateStock } from "../../renderer/services/stockApi";
-import { IonIcon } from "@ionic/react";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  checkmarkCircleOutline,
-  warningOutline,
-  closeCircleOutline,
-  closeOutline,
-  cubeOutline,
-  searchOutline,
-} from "ionicons/icons";
+  CheckmarkCircle01Icon,
+  Alert01Icon,
+  CancelCircleIcon,
+  Cancel01Icon,
+  CubeIcon,
+  Search01Icon,
+} from "@hugeicons/core-free-icons";
 
 // shadcn/ui components
 import { Input } from "@/components/ui/input";
@@ -179,7 +180,7 @@ export default function Stock() {
     if (stock === 0) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">
-          <IonIcon icon={closeCircleOutline} className="text-xs" />
+          <HugeiconsIcon icon={CancelCircleIcon} className="text-xs"  />
           {t('stock.outOfStockLabel')}
         </span>
       );
@@ -187,14 +188,14 @@ export default function Stock() {
     if (stock < 10) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
-          <IonIcon icon={warningOutline} className="text-xs" />
+          <HugeiconsIcon icon={Alert01Icon} className="text-xs"  />
           {t('stock.lowStockLabel')}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
-        <IonIcon icon={checkmarkCircleOutline} className="text-xs" />
+        <HugeiconsIcon icon={CheckmarkCircle01Icon} className="text-xs"  />
         {t('stock.inStockLabel')}
       </span>
     );
@@ -213,7 +214,7 @@ export default function Stock() {
           </Button>
         </div>
         <div className="border border-red-200 bg-red-50 rounded-xl p-8 text-center">
-          <IonIcon icon={warningOutline} className="text-5xl text-red-500 mx-auto mb-4" />
+          <HugeiconsIcon icon={Alert01Icon} className="text-5xl text-red-500 mx-auto mb-4"  />
           <p className="text-red-700 font-medium">{error}</p>
           <p className="text-red-600 text-sm mt-2">{t('stock.checkConnection')}</p>
         </div>
@@ -232,10 +233,10 @@ export default function Stock() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Total Products</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('stock.statistics')}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('stock.totalProducts')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none">{formatCompactNumber(totalProducts)}</p>
-            <p className="text-xs text-gray-500 mt-1">In master database</p>
+            <p className="text-xs text-gray-500 mt-1">{t('stock.inMasterDatabase')}</p>
           </div>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 flex items-center gap-6 relative">
@@ -245,10 +246,10 @@ export default function Stock() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Total Stock</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('stock.statistics')}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('stock.totalStock')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none">{formatCompactNumber(totalStock)}</p>
-            <p className="text-xs text-gray-500 mt-1">Units across batches</p>
+            <p className="text-xs text-gray-500 mt-1">{t('stock.unitsAcrossBatches')}</p>
           </div>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 flex items-center gap-6 relative">
@@ -258,10 +259,10 @@ export default function Stock() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Low Stock</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('stock.statistics')}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('stock.lowStock')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none">{formatCompactNumber(lowStockCount)}</p>
-            <p className="text-xs text-gray-500 mt-1">Below threshold</p>
+            <p className="text-xs text-gray-500 mt-1">{t('stock.belowThreshold')}</p>
           </div>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 flex items-center gap-6 relative">
@@ -271,10 +272,10 @@ export default function Stock() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Out of Stock</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('stock.statistics')}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('stock.outOfStock')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none">{formatCompactNumber(outOfStockCount)}</p>
-            <p className="text-xs text-gray-500 mt-1">Needs restock</p>
+            <p className="text-xs text-gray-500 mt-1">{t('stock.needsRestock')}</p>
           </div>
         </div>
       </div>
@@ -296,30 +297,30 @@ export default function Stock() {
               onClick={() => setSearchTerm("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
             >
-              <IonIcon icon={closeOutline} className="text-lg" />
+              <HugeiconsIcon icon={Cancel01Icon} className="text-lg"  />
             </button>
           )}
         </div>
 
         <Select value={filterStatus} onValueChange={(val: any) => setFilterStatus(val)}>
           <SelectTrigger className="max-w-[180px] bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-400">
-            <SelectValue placeholder="Filter by status" />
+            <SelectValue placeholder={t('stock.filterByStatus')} />
           </SelectTrigger>
           <SelectContent
             className="bg-white border-slate-200 rounded-xl overflow-hidden mt-1 font-medium"
             style={{ width: 'var(--radix-select-trigger-width)' }}
           >
             <SelectItem value="all" className="px-4 py-2.5 text-slate-700 focus:bg-slate-50 cursor-pointer">
-              All Products
+              {t('stock.filterAll')}
             </SelectItem>
             <SelectItem value="low" className="px-4 py-2.5 text-amber-700 focus:bg-amber-50 cursor-pointer">
-              Low Stock
+              {t('stock.lowStock')}
             </SelectItem>
             <SelectItem value="ok" className="px-4 py-2.5 text-emerald-700 focus:bg-emerald-50 cursor-pointer">
-              In Stock
+              {t('stock.filterInStock')}
             </SelectItem>
             <SelectItem value="out" className="px-4 py-2.5 text-red-700 focus:bg-red-50 cursor-pointer">
-              Out of Stock
+              {t('stock.outOfStock')}
             </SelectItem>
           </SelectContent>
         </Select>
@@ -334,13 +335,14 @@ export default function Stock() {
 
       {/* Stock Table */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="table-scroll">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Product</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Current Stock</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Status</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Action</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('stock.tableProduct')}</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('stock.tableCurrentStock')}</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('stock.tableStatus')}</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('stock.tableActions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -394,7 +396,7 @@ export default function Stock() {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
                         </svg>
-                        Edit
+{t('stock.edit')}
                       </button>
                     </td>
                   </tr>
@@ -403,11 +405,12 @@ export default function Stock() {
             )}
           </tbody>
         </table>
+        </div>
 
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50">
             <p className="text-xs text-slate-500">
-              Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredItems.length)} of {filteredItems.length}
+              {t('stock.showing', { start: (page - 1) * pageSize + 1, end: Math.min(page * pageSize, filteredItems.length), total: filteredItems.length })}
             </p>
             <div className="flex items-center gap-1">
               <button
@@ -415,8 +418,8 @@ export default function Stock() {
                 disabled={page === 1}
                 className="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                Prev
-              </button>
+{t('stock.prev')}
+                </button>
               {(() => {
                 const pages: (number | string)[] = [];
                 const range = 2;
@@ -450,19 +453,19 @@ export default function Stock() {
                 disabled={page === totalPages}
                 className="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                Next
-              </button>
+{t('stock.next')}
+                </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Low Stock Alert Footer */}
+      {/* {t('stock.lowStock')} Alert Footer */}
       {lowStockCount > 0 && (
         <div className="border border-amber-200 bg-amber-50 rounded-xl p-4 flex justify-between items-center flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-              <IonIcon icon={warningOutline} className="text-amber-600 text-xl" />
+              <HugeiconsIcon icon={Alert01Icon} className="text-amber-600 text-xl"  />
             </div>
             <div>
               <p className="text-sm font-medium text-amber-800">{t('stock.lowStockAlert')}</p>
@@ -481,21 +484,21 @@ export default function Stock() {
       )}
 
       {/* Edit Stock Modal */}
-      {modalOpen && editingItem && (
+      {modalOpen && editingItem && createPortal(
         <div
           className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={(e) => e.target === e.currentTarget && setModalOpen(false)}
         >
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <div className="bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">Update Stock</h3>
+              <h3 className="text-lg font-bold text-slate-800">{t('stock.updateTitle')}</h3>
               <button onClick={() => setModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
-                <IonIcon icon={closeOutline} className="text-2xl" />
+                <HugeiconsIcon icon={Cancel01Icon} className="text-2xl"  />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div className="pb-3 border-b border-slate-100">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Product Details</p>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">{t('stock.productDetails')}</p>
                 <p className="text-base font-semibold text-slate-800">{editingItem.name}</p>
                 {editingItem.sku && (
                   <p className="text-xs text-slate-400 mt-1 font-mono">
@@ -506,7 +509,7 @@ export default function Stock() {
 
               {/* Current Stock (highlighted) */}
               <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1 text-center">Current Stock</p>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1 text-center">{t('stock.currentStockLabel')}</p>
                 <div className="flex items-baseline justify-center gap-2">
                   <span className="text-3xl font-bold text-slate-900">{editingItem.stock}</span>
                   {editingItem.unit && (
@@ -515,7 +518,7 @@ export default function Stock() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">New Stock Quantity</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">{t('stock.newStockQuantity')}</label>
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
@@ -552,7 +555,7 @@ export default function Stock() {
                   variant="outline"
                   className="flex-1"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   onClick={handleUpdate}
@@ -563,8 +566,8 @@ export default function Stock() {
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                   ) : (
                     <>
-                      {/* <IonIcon icon={saveOutline} className="text-lg mr-2" /> */}
-                      Save Changes
+                      {/* <HugeiconsIcon icon={SaveIcon} className="text-lg mr-2"  /> */}
+                      {t('stock.saveChanges')}
                     </>
                   )}
                 </Button>
@@ -572,24 +575,24 @@ export default function Stock() {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
-      {selectedStat && (
+      {selectedStat && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedStat(null)}>
-          <div className="w-[400px] h-[500px] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
+          <div className="w-[min(90vw,400px)] h-[min(80vh,500px)] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-end mb-1">
               <button onClick={() => setSelectedStat(null)} className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: "#dc2626", color: "#fff" }}>
-                Close
+                {t('common.close')}
               </button>
             </div>
 
             {selectedStat === 'products' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Total Products</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('stock.totalProducts')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">{totalProducts.toLocaleString()}</p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#3b82f6", color: "#fff" }}>
-                    Master Database
+                    {t('stock.masterDatabase')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -601,10 +604,10 @@ export default function Stock() {
             {selectedStat === 'stock' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Total Stock</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('stock.totalStock')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">{totalStock.toLocaleString()}</p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#8b5cf6", color: "#fff" }}>
-                    Units Across Batches
+                    {t('stock.unitsAcrossBatchesTitle')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -616,10 +619,10 @@ export default function Stock() {
             {selectedStat === 'low' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Low Stock</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('stock.lowStock')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">{lowStockCount.toLocaleString()}</p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#f59e0b", color: "#fff" }}>
-                    Below Threshold
+                    {t('stock.belowThresholdTitle')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -631,10 +634,10 @@ export default function Stock() {
             {selectedStat === 'out' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Out of Stock</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('stock.outOfStock')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">{outOfStockCount.toLocaleString()}</p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#ef4444", color: "#fff" }}>
-                    Needs Restock
+                    {t('stock.needsRestockTitle')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -645,7 +648,7 @@ export default function Stock() {
 
           </div>
         </div>
-      )}
+      , document.body)}
 
     </div>
   );

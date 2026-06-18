@@ -29,6 +29,8 @@ export class PurchaseController {
 
       const {
         supplier_uuid,
+        invoice_number,
+        invoice_date,
         items
       } = req.body;
 
@@ -80,16 +82,6 @@ export class PurchaseController {
             error:
               `Item ${i + 1}: product_uuid is required`
           });
-          return;
-        }
-
-        if (!item.unit_uuid) {
-
-          res.status(400).json({
-            error:
-              `Item ${i + 1}: unit_uuid is required`
-          });
-
           return;
         }
 
@@ -204,6 +196,11 @@ export class PurchaseController {
           gst_percent:
             item.gst_percent !== undefined
               ? Number(item.gst_percent)
+              : 0,
+
+          discount:
+            item.discount !== undefined
+              ? Number(item.discount)
               : 0
         }));
 
@@ -219,6 +216,16 @@ export class PurchaseController {
           supplier_uuid:
             supplier_uuid
               ? String(supplier_uuid)
+              : undefined,
+
+          invoice_number:
+            invoice_number
+              ? String(invoice_number)
+              : undefined,
+
+          invoice_date:
+            invoice_date
+              ? String(invoice_date)
               : undefined,
 
           items:
@@ -290,6 +297,36 @@ export class PurchaseController {
         error:
           'Internal server error'
       });
+    }
+  };
+
+  // =========================
+  // UPDATE PURCHASE
+  // =========================
+
+  static update = (
+    req: AuthRequest,
+    res: Response
+  ): void => {
+    try {
+      const purchase_uuid = String(req.params.purchase_uuid);
+      const { supplier_uuid, invoice_number, invoice_date, discount } = req.body;
+
+      const updates: Record<string, any> = {};
+      if (supplier_uuid !== undefined) updates.supplier_uuid = supplier_uuid;
+      if (invoice_number !== undefined) updates.invoice_number = invoice_number;
+      if (invoice_date !== undefined) updates.invoice_date = invoice_date;
+      if (discount !== undefined) updates.discount = Number(discount);
+
+      const updated = PurchaseModel.update(purchase_uuid, updates);
+      if (!updated) {
+        res.status(404).json({ error: 'Purchase not found' });
+        return;
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error('Update purchase error:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   };
 }

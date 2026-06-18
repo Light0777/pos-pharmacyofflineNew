@@ -10,5 +10,6 @@ router.use(authenticate);
 // Match PHP routes exactly
 router.post('/', PurchaseController.store);
 router.get('/', PurchaseController.index);
+router.put('/:purchase_uuid', PurchaseController.update);
 
 export default router;

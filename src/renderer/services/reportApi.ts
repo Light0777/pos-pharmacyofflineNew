@@ -194,6 +194,18 @@ export async function getGSTReport(month: string) {
   }
 }
 
+export async function getCustomerTrend(): Promise<Array<{ date: string; total: number }>> {
+  try {
+    const response: any = await apiGet("/reports/customer-trend");
+    if (Array.isArray(response)) return response;
+    if (response?.data && Array.isArray(response.data)) return response.data;
+    return [];
+  } catch (error) {
+    console.error("Customer trend API error:", error);
+    return [];
+  }
+}
+
 export async function getGSTReportByRange(startDate: string, endDate: string) {
   try {
     const response: any = await apiGet(`/reports/gst-report-range?startDate=${startDate}&endDate=${endDate}`);

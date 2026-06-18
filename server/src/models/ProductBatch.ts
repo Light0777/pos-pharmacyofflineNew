@@ -247,6 +247,14 @@ export class ProductBatchModel {
     return consumed;
   }
 
+  static consumeStock(batch_uuid: string, quantity: number): { batch_uuid: string; quantity: number } {
+    const batch = db.prepare(`SELECT * FROM product_batches WHERE batch_uuid = ?`).get(batch_uuid) as ProductBatch | undefined;
+    if (!batch) throw new Error('Batch not found');
+    if (batch.quantity < quantity) throw new Error(`Insufficient stock in batch ${batch.batch_number}. Available: ${batch.quantity}, requested: ${quantity}`);
+    this.updateQuantity(batch_uuid, quantity, 'subtract');
+    return { batch_uuid, quantity };
+  }
+
   // =========================
   // DELETE BATCH
   // =========================
@@ -282,7 +290,7 @@ export class ProductBatchModel {
       FROM product_batches pb
       INNER JOIN products p ON p.product_uuid = pb.product_uuid
       WHERE
-        pb.expiry_date BETWEEN DATE('now') AND DATE('now', '+' || ? || ' day')
+        pb.expiry_date <= DATE('now', '+' || ? || ' day')
         AND pb.quantity > 0
         AND pb.is_quarantined = 0
       ORDER BY pb.expiry_date ASC
@@ -293,6 +301,21 @@ export class ProductBatchModel {
   // =========================
   // QUARANTINE EXPIRED
   // =========================
+
+  // =========================
+  // SEARCH BY BATCH NUMBER (across all products)
+  // =========================
+
+  static searchByBatchNumber(query: string): { batch_uuid: string; product_uuid: string; batch_number: string }[] {
+    const stmt = db.prepare(`
+      SELECT batch_uuid, product_uuid, batch_number
+      FROM product_batches
+      WHERE batch_number LIKE ?
+      GROUP BY product_uuid
+      ORDER BY batch_number ASC
+    `);
+    return stmt.all(`%${query}%`) as { batch_uuid: string; product_uuid: string; batch_number: string }[];
+  }
 
   static quarantineExpired(): number {
     const expiredBatches = db.prepare(`

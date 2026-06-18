@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { IonIcon } from "@ionic/react";
-import { eyeOutline, returnUpBackOutline, checkmarkCircle, searchOutline, funnelOutline } from "ionicons/icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  EyeIcon,
+  UndoIcon,
+  CheckmarkCircle01Icon,
+  Search01Icon,
+  FunnelIcon,
+} from "@hugeicons/core-free-icons";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import SimpleDatePicker from "../../../components/SimpleDatePicker";
@@ -212,7 +218,7 @@ export default function SalesModal({ sales, onClose, onViewInvoice, onRefresh }:
   return (
     <>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[calc(100vw-2rem)] sm:max-w-xl lg:max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
             <div>
@@ -236,7 +242,7 @@ export default function SalesModal({ sales, onClose, onViewInvoice, onRefresh }:
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <div className="absolute left-3 inset-y-0 flex items-center text-slate-400 pointer-events-none">
-                  <IonIcon icon={searchOutline} className="text-base" />
+                  <HugeiconsIcon icon={Search01Icon} className="text-base"  />
                 </div>
                 <input
                   type="text"
@@ -261,7 +267,7 @@ export default function SalesModal({ sales, onClose, onViewInvoice, onRefresh }:
                 }`}
                 title="Filters"
               >
-                <IonIcon icon={funnelOutline} className="text-lg" />
+                <HugeiconsIcon icon={FunnelIcon} className="text-lg"  />
                 {hasActiveFilters && (
                   <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-blue-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                     {(filters.dateFrom ? 1 : 0) + (filters.dateTo ? 1 : 0) + (filters.minAmount ? 1 : 0) + (filters.maxAmount ? 1 : 0)}
@@ -437,7 +443,7 @@ export default function SalesModal({ sales, onClose, onViewInvoice, onRefresh }:
                           className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md p-1.5 transition-colors"
                           title="View invoice"
                         >
-                          <IonIcon icon={eyeOutline} className="text-lg" />
+                          <HugeiconsIcon icon={EyeIcon} className="text-lg"  />
                         </button>
                       </td>
                       <td className="px-5 py-3.5 text-center">
@@ -587,7 +593,7 @@ export default function SalesModal({ sales, onClose, onViewInvoice, onRefresh }:
                                   isSelected ? "border-amber-500 bg-amber-500" : "border-slate-300"
                                 }`}>
                                   {isSelected && (
-                                    <IonIcon icon={checkmarkCircle} className="text-white text-sm" />
+                                    <HugeiconsIcon icon={CheckmarkCircle01Icon} className="text-white text-sm"  />
                                   )}
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -675,7 +681,7 @@ export default function SalesModal({ sales, onClose, onViewInvoice, onRefresh }:
                       </>
                     ) : (
                       <>
-                        <IonIcon icon={returnUpBackOutline} className="text-lg" />
+                        <HugeiconsIcon icon={UndoIcon} className="text-lg"  />
                         Process Return
                       </>
                     )}

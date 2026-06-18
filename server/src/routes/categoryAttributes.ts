@@ -32,4 +32,10 @@ router.get(
   CategoryAttributeController.getByCategory
 );
 
+// REMOVE ATTRIBUTE FROM CATEGORY
+router.delete(
+  '/',
+  CategoryAttributeController.remove
+);
+
 export default router;

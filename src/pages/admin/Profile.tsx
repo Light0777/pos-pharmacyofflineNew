@@ -2,29 +2,28 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getProfile, type UserProfile, type ShopProfile } from "../../renderer/services/profileApi";
 import { useAuth } from "../../context/AuthContext";
-import { IonIcon } from "@ionic/react";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  mailOutline,
-  keyOutline,
-  businessOutline,
-  cardOutline,
-  calendarOutline,
-  warningOutline,
-  timeOutline,
-  callOutline,
-  locationOutline,
-  lockClosedOutline,
-  logOutOutline,
-  globeOutline,
-  cashOutline,
-  alertCircleOutline,
-  documentTextOutline,
-  medkitOutline,
-  copyOutline,
-  checkmarkOutline,
-  shieldCheckmarkOutline,
-  refreshOutline,
-} from "ionicons/icons";
+  Mail01Icon,
+  Key01Icon,
+  Building01Icon,
+  CreditCardIcon,
+  Calendar01Icon,
+  Alert01Icon,
+  Time01Icon,
+  CallIcon,
+  Location01Icon,
+  LockIcon,
+  Logout01Icon,
+  GlobeIcon,
+  AlertCircleIcon,
+  File01Icon,
+  Medicine01Icon,
+  CopyIcon,
+  CheckIcon,
+  Shield01Icon,
+  RefreshIcon,
+} from "@hugeicons/core-free-icons";
 
 export default function Profile() {
   const { t } = useTranslation();
@@ -88,9 +87,9 @@ export default function Profile() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
-        <div className=" rounded-3xl shadow-2xl w-[480px] p-8 text-center">
+        <div className=" rounded-3xl shadow-2xl w-full max-w-[480px] p-6 sm:p-8 text-center">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
-            <IonIcon icon={warningOutline} className="text-2xl text-red-500" />
+            <HugeiconsIcon icon={Alert01Icon} className="text-2xl text-red-500"  />
           </div>
           <p className="text-sm text-gray-600">{error}</p>
           <button
@@ -181,18 +180,18 @@ export default function Profile() {
 
               <div className="bg-white/70 backdrop-blur-sm rounded-xl px-3.5 py-2.5">
                 <div className="flex items-center gap-2">
-                  <IonIcon icon={locationOutline} className="text-gray-400 text-sm shrink-0" />
+                  <HugeiconsIcon icon={Location01Icon} className="text-gray-400 text-sm shrink-0"  />
                   <p className="text-gray-600 text-sm truncate">123, Green Avenue, Pharma City, Tamil Nadu 600001</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 bg-white/70 backdrop-blur-sm rounded-lg px-2.5 py-1">
-                  <IonIcon icon={callOutline} className="text-gray-400 text-xs" />
+                  <HugeiconsIcon icon={CallIcon} className="text-gray-400 text-xs"  />
                   <span className="text-gray-700 text-sm font-medium">+91 98765 43210</span>
                 </div>
                 <div className="flex items-center gap-1.5 bg-white/70 backdrop-blur-sm rounded-lg px-2.5 py-1">
-                  <IonIcon icon={mailOutline} className="text-gray-400 text-xs" />
+                  <HugeiconsIcon icon={Mail01Icon} className="text-gray-400 text-xs"  />
                   <span className="text-gray-700 text-sm font-medium">contact@mypharma.com</span>
                 </div>
               </div>
@@ -214,7 +213,7 @@ export default function Profile() {
                 className="w-8 h-8 flex items-center justify-center rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition"
                 title="Refresh"
               >
-                <IonIcon icon={refreshOutline} className="text-base" />
+                <HugeiconsIcon icon={RefreshIcon} className="text-base"  />
               </button>
             </div>
 
@@ -237,19 +236,19 @@ export default function Profile() {
             {/* Email + User ID */}
             <div className="space-y-2 z-10">
               <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl px-3.5 py-2 flex items-center gap-2.5">
-                <IonIcon icon={mailOutline} className="text-green-400 text-sm shrink-0" />
+                <HugeiconsIcon icon={Mail01Icon} className="text-green-400 text-sm shrink-0"  />
                 <span className="text-white/90 text-sm truncate">{user?.email || "N/A"}</span>
               </div>
               {user?.user_uuid && (
                 <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl px-3.5 py-2 flex items-center gap-2.5">
-                  <IonIcon icon={keyOutline} className="text-green-400 text-sm shrink-0" />
+                  <HugeiconsIcon icon={Key01Icon} className="text-green-400 text-sm shrink-0"  />
                   <span className="text-white/70 text-xs font-mono truncate flex-1">{user.user_uuid}</span>
                   <button
                     onClick={() => copyToClipboard(user.user_uuid!)}
                     className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition"
                     title="Copy User ID"
                   >
-                    <IonIcon icon={copied ? checkmarkOutline : copyOutline} className={`text-xs ${copied ? "text-green-400" : "text-white/60"}`} />
+                    <HugeiconsIcon icon={copied ? CheckIcon : CopyIcon} className={`text-xs ${copied ? "text-green-400" : "text-white/60"}`}  />
                   </button>
                 </div>
               )}
@@ -312,20 +311,20 @@ export default function Profile() {
               <div className="flex items-stretch gap-4 w-full h-full">
                 <button className="flex-1 flex flex-col items-center h-40 justify-center gap-3 bg-white/80 backdrop-blur-sm rounded-xl p-2 hover:bg-white transition shadow-sm">
                   <div className="w-12 h-12 rounded-full bg-lime-100 flex items-center justify-center">
-                    <IonIcon icon={lockClosedOutline} className="text-lime-700 text-xl" />
+                    <HugeiconsIcon icon={LockIcon} className="text-lime-700 text-xl"  />
                   </div>
                   <span className="text-lime-950 text-sm font-semibold">Change Password</span>
                 </button>
                 <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white/40 backdrop-blur-sm rounded-xl p-2 opacity-60 cursor-not-allowed relative">
                   <div className="w-12 h-12 rounded-full bg-lime-100/50 flex items-center justify-center">
-                    <IonIcon icon={shieldCheckmarkOutline} className="text-lime-700 text-xl" />
+                    <HugeiconsIcon icon={Shield01Icon} className="text-lime-700 text-xl"  />
                   </div>
                   <span className="text-lime-950 text-sm font-semibold">Two-Factor Auth</span>
                   <span className="absolute -top-2 -right-2 text-[10px] font-bold text-white bg-lime-700 px-2 py-0.5 rounded-full shadow-sm">Soon</span>
                 </div>
                 <button className="flex-1 flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-sm rounded-xl p-2 hover:bg-white transition shadow-sm">
                   <div className="w-12 h-12 rounded-full bg-lime-100 flex items-center justify-center">
-                    <IonIcon icon={logOutOutline} className="text-lime-700 text-xl" />
+                    <HugeiconsIcon icon={Logout01Icon} className="text-lime-700 text-xl"  />
                   </div>
                   <span className="text-lime-950 text-sm font-semibold">Logout All</span>
                 </button>

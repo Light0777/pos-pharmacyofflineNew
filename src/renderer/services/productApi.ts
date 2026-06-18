@@ -130,6 +130,11 @@ export async function getNearExpiryBatches() {
   }
 }
 
+export async function updateProductBatch(batch_uuid: string, data: any) {
+  const response = await apiPut(`/product-batches/${batch_uuid}`, data);
+  return response.data || response;
+}
+
 export async function deleteBatch(batch_uuid: string) {
   const response = await apiDelete(`/product-batches/${batch_uuid}`);
   return response.data || response;
@@ -181,6 +186,17 @@ export async function consumeFefo(data: {
   } catch (error) {
     console.error("FEFO consumption failed:", error);
     return { success: false, error: "FEFO consumption failed" };
+  }
+}
+
+export async function searchBatches(q: string): Promise<{ batch_uuid: string; product_uuid: string; batch_number: string }[]> {
+  try {
+    const response = await apiGet(`/product-batches/search?q=${encodeURIComponent(q)}`);
+    if (response?.success && Array.isArray(response.data)) return response.data;
+    return [];
+  } catch (error) {
+    console.error("Failed to search batches:", error);
+    return [];
   }
 }
 

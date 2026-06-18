@@ -10,11 +10,11 @@ import {
 } from "../../renderer/services/saleApi";
 import { deleteSale } from "../../renderer/services/saleApi";
 import { useAuth } from "../../context/AuthContext";
-import { IonIcon } from "@ionic/react";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  eyeOutline,
-  closeOutline,
-} from "ionicons/icons";
+  EyeIcon,
+  Cancel01Icon,
+} from "@hugeicons/core-free-icons";
 import InvoiceReceipt from "../pos/components/InvoiceReceipt";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -286,11 +286,11 @@ export default function Sales() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Total Sales</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('sales.statistics')}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('sales.totalSales')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none mb-2">₹{formatCompactNumber(Math.round(totalSales))}</p>
             <div className="flex items-center gap-1">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#3b82f6", color: "#fff" }}>Overall Revenue</span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#3b82f6", color: "#fff" }}>{t('sales.overallRevenue')}</span>
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -306,11 +306,11 @@ export default function Sales() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Average Sale</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('sales.statistics')}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('sales.averageSale')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none mb-2">₹{formatCompactNumber(Math.round(averageSale))}</p>
             <div className="flex items-center gap-1">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#10b981", color: "#fff" }}>Per Transaction</span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#10b981", color: "#fff" }}>{t('sales.perTransaction')}</span>
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -326,11 +326,11 @@ export default function Sales() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Today's Sales</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('sales.statistics')}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('sales.todaySales')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none mb-2">₹{formatCompactNumber(Math.round(todaySales))}</p>
             <div className="flex items-center gap-1">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#8b5cf6", color: "#fff" }}>Last 24 Hours</span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#8b5cf6", color: "#fff" }}>{t('sales.last24Hours')}</span>
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -346,11 +346,11 @@ export default function Sales() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Transactions</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('sales.statistics')}</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('sales.transactions')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none mb-2">{formatCompactNumber(sales.length)}</p>
             <div className="flex items-center gap-1">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#f59e0b", color: "#fff" }}>Total Invoices</span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-none" style={{ backgroundColor: "#f59e0b", color: "#fff" }}>{t('sales.totalInvoices')}</span>
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -378,7 +378,7 @@ export default function Sales() {
               onClick={() => setSearchTerm("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
             >
-              <IonIcon icon={closeOutline} className="text-lg" />
+              <HugeiconsIcon icon={Cancel01Icon} className="text-lg"  />
             </button>
           )}
         </div>
@@ -391,7 +391,7 @@ export default function Sales() {
             className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400"
           >
             <CalendarIcon className="w-4 h-4 text-slate-400" />
-            <span>{filterDate ? formatDate(new Date(filterDate), "dd MMM yyyy") : "Filter by date"}</span>
+            <span>{filterDate ? formatDate(new Date(filterDate), "dd MMM yyyy") : "{t('sales.filterByDate')}"}</span>
           </button>
           {filterDate && (
             <button
@@ -423,14 +423,15 @@ export default function Sales() {
 
       {/* Sales Table */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="table-scroll">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Invoice</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Customer</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Amount</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Date</th>
-              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Action</th>
+              {t('sales.tableInvoice')}
+              {t('sales.tableCustomer')}
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('sales.tableAmount')}</th>
+              {t('sales.tableDate')}
+              {t('sales.tableAction')}
             </tr>
           </thead>
           <tbody>
@@ -453,8 +454,8 @@ export default function Sales() {
               paginatedSales.map((sale) => (
                 <tr key={sale.sale_uuid} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-3.5 text-center font-medium text-blue-600">
-                    <span title={sale.invoice_number || "N/A"}>
-                      {sale.invoice_number || "N/A"}
+                    <span title={sale.invoice_number || t('dashboard.na')}>
+{sale.invoice_number || t('dashboard.na')}
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-center text-gray-700">
@@ -472,8 +473,8 @@ export default function Sales() {
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
                       title={t('sales.viewButton')}
                     >
-                      <IonIcon icon={eyeOutline} className="text-sm" />
-                      View
+                      <HugeiconsIcon icon={EyeIcon} className="text-sm"  />
+                      {t('sales.viewButton')}
                     </button>
                   </td>
                 </tr>
@@ -481,11 +482,12 @@ export default function Sales() {
             )}
           </tbody>
         </table>
+        </div>
 
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50">
             <p className="text-xs text-slate-500">
-              Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredSales.length)} of {filteredSales.length}
+              {t('sales.showing', { start: (page - 1) * pageSize + 1, end: Math.min(page * pageSize, filteredSales.length), total: filteredSales.length })}
             </p>
             <div className="flex items-center gap-1">
               <button
@@ -493,7 +495,7 @@ export default function Sales() {
                 disabled={page === 1}
                 className="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                Prev
+                {t('sales.prev')}
               </button>
               {(() => {
                 const pages: (number | string)[] = [];
@@ -528,7 +530,7 @@ export default function Sales() {
                 disabled={page === totalPages}
                 className="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                Next
+                {t('sales.next')}
               </button>
             </div>
           </div>
@@ -547,14 +549,14 @@ export default function Sales() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Invoice</h3>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">{t('sales.deleteInvoice')}</h3>
             <p className="text-sm text-slate-500 mb-2">
-              Are you sure you want to delete invoice <span className="font-semibold text-slate-700">{deleteConfirm.invoice_number}</span>?
+              {t('sales.deleteConfirm', { invoice: deleteConfirm.invoice_number })}
             </p>
-            <p className="text-xs text-amber-600 mb-6">Stock will be restored automatically.</p>
+            <p className="text-xs text-amber-600 mb-6">{t('sales.stockRestored')}</p>
             <div className="flex gap-3">
               <Button onClick={() => setDeleteConfirm(null)} variant="outline" className="flex-1">
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={() => handleDelete(deleteConfirm)}
@@ -564,7 +566,7 @@ export default function Sales() {
                 {deleting === deleteConfirm.sale_uuid ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                 ) : (
-                  'Delete'
+                  t('sales.deleteButton')
                 )}
               </Button>
             </div>
@@ -584,22 +586,22 @@ export default function Sales() {
 
       {selectedStat && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedStat(null)}>
-          <div className="w-[400px] h-[500px] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
+          <div className="w-[min(90vw,400px)] h-[min(80vh,500px)] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-end mb-1">
               <button onClick={() => setSelectedStat(null)} className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: "#dc2626", color: "#fff" }}>
-                Close
+{t('common.close')}
               </button>
             </div>
 
             {selectedStat === 'totalSales' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Total Sales</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('sales.totalSales')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">
                     ₹{Math.round(totalSales).toLocaleString('en-IN')}
                   </p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#3b82f6", color: "#fff" }}>
-                    Overall Revenue
+                    {t('sales.overallRevenue')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -611,12 +613,12 @@ export default function Sales() {
             {selectedStat === 'avgSale' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Average Sale</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('sales.averageSale')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">
                     ₹{Math.round(avgSale).toLocaleString('en-IN')}
                   </p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#10b981", color: "#fff" }}>
-                    Per Transaction
+                    {t('sales.perTransaction')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -628,12 +630,12 @@ export default function Sales() {
             {selectedStat === 'todaySales' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Today's Sales</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('sales.todaySales')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">
                     ₹{Math.round(todayTotal).toLocaleString('en-IN')}
                   </p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#8b5cf6", color: "#fff" }}>
-                    Last 24 Hours
+                    {t('sales.last24Hours')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -645,12 +647,12 @@ export default function Sales() {
             {selectedStat === 'transactions' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Transactions</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('sales.transactions')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">
                     {sales.length.toLocaleString('en-IN')}
                   </p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#f59e0b", color: "#fff" }}>
-                    Total Invoices
+                    {t('sales.totalInvoices')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>

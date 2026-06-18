@@ -343,11 +343,12 @@ export class SaleModel {
           normalizedQuantity
         } = prepared;
 
-        const consumedBatches =
-          ProductBatchModel.consumeStockFEFO(
-            item.product_uuid,
-            normalizedQuantity
-          );
+        const consumedBatches = item.batch_uuid
+          ? [ProductBatchModel.consumeStock(item.batch_uuid, normalizedQuantity)]
+          : ProductBatchModel.consumeStockFEFO(
+              item.product_uuid,
+              normalizedQuantity
+            );
 
         for (const consumed of consumedBatches) {
 
@@ -408,11 +409,12 @@ export class SaleModel {
             );
 
           // =========================
-          // H1 REGISTER
+          // SCHEDULED DRUG REGISTER (H, H1, X)
           // =========================
 
           if (
-            product.schedule_type === 'H1'
+            prescription &&
+            ['H', 'H1', 'X'].includes(product.schedule_type)
           ) {
 
             const settings = db.prepare(`
@@ -466,6 +468,9 @@ export class SaleModel {
               quantity:
                 consumed.quantity,
 
+              schedule_type:
+                product.schedule_type,
+
               pharmacist_name:
                 settings
                   .pharmacist_name
@@ -474,7 +479,7 @@ export class SaleModel {
             AuditLogModel.create({
 
               action_type:
-                'schedule_h1_sale',
+                'schedule_drug_sale',
 
               entity_type:
                 'sale_item',

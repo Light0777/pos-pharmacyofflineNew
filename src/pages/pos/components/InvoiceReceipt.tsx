@@ -1,5 +1,10 @@
-import { IonIcon } from '@ionic/react';
-import { printOutline, closeOutline, logoWhatsapp, trashOutline } from 'ionicons/icons';
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  PrinterIcon,
+  Cancel01Icon,
+  WhatsappIcon,
+  Delete01Icon,
+} from "@hugeicons/core-free-icons";
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -518,17 +523,17 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
       {/* Buttons - fixed at bottom */}
       <div className="print:hidden fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 z-50">
         <button onClick={handlePrint} className="px-5 py-2.5 bg-white text-gray-800 rounded-xl flex items-center gap-2 shadow-lg hover:bg-gray-100 transition-colors text-sm font-medium border border-gray-200">
-          <IonIcon icon={printOutline} className="text-base" /> Print
+          <HugeiconsIcon icon={PrinterIcon} className="text-base"  /> Print
         </button>
         <button onClick={handleWhatsApp} className="px-5 py-2.5 bg-green-500 text-white rounded-xl flex items-center gap-2 shadow-lg hover:bg-green-600 transition-colors text-sm font-medium">
-          <IonIcon icon={logoWhatsapp} className="text-base" /> WhatsApp
+          <HugeiconsIcon icon={WhatsappIcon} className="text-base"  /> WhatsApp
         </button>
         <button onClick={onClose} className="px-5 py-2.5 bg-black text-white rounded-xl flex items-center gap-2 shadow-lg hover:bg-gray-900 transition-colors text-sm font-medium border border-white/30">
-          <IonIcon icon={closeOutline} className="text-base" /> Close
+          <HugeiconsIcon icon={Cancel01Icon} className="text-base"  /> Close
         </button>
         {onDelete && (
           <button onClick={onDelete} className="px-5 py-2.5 bg-red-500 text-white rounded-xl flex items-center gap-2 shadow-lg hover:bg-red-600 transition-colors text-sm font-medium">
-            <IonIcon icon={trashOutline} className="text-base" /> Delete
+            <HugeiconsIcon icon={Delete01Icon} className="text-base"  /> Delete
           </button>
         )}
       </div>

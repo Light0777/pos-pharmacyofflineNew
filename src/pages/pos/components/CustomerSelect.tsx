@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { IonIcon } from '@ionic/react';
-import { chevronDownOutline, personOutline, addCircleOutline, searchOutline, closeCircleOutline } from 'ionicons/icons';
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  ChevronDownIcon,
+  UserIcon,
+  AddCircleIcon,
+  Search01Icon,
+  CancelCircleIcon,
+} from "@hugeicons/core-free-icons";
 import { useTranslation } from 'react-i18next';
 
 interface CustomerSelectProps {
@@ -58,7 +64,7 @@ export default function CustomerSelect({
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-2">
-          <IonIcon icon={personOutline} className="text-gray-400 text-lg" />
+          <HugeiconsIcon icon={UserIcon} className="text-gray-400 text-lg"  />
           <span>
             {selectedCustomer
               ? `${selectedCustomer.name}${
@@ -69,10 +75,9 @@ export default function CustomerSelect({
               : t('pos.walkInCustomer')}
           </span>
         </div>
-        <IonIcon
-          icon={chevronDownOutline}
+        <HugeiconsIcon icon={ChevronDownIcon}
           className={`text-gray-400 text-xl transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-        />
+         />
       </div>
 
       {/* Dropdown Menu */}
@@ -82,7 +87,7 @@ export default function CustomerSelect({
           {/* Search Input */}
           <div className="p-2 border-b border-gray-700 bg-[#1a1a1a]">
             <div className="flex items-center gap-2 bg-[#2a2a2a] rounded-lg px-3 py-2">
-              <IonIcon icon={searchOutline} className="text-gray-400 text-lg shrink-0" />
+              <HugeiconsIcon icon={Search01Icon} className="text-gray-400 text-lg shrink-0"  />
               <input
                 ref={searchInputRef}
                 type="tel"
@@ -94,11 +99,11 @@ export default function CustomerSelect({
                 className="flex-1 bg-transparent text-white text-sm outline-none placeholder-gray-500"
               />
               {searchQuery.length > 0 && (
-                <IonIcon
-                  icon={closeCircleOutline}
+                <HugeiconsIcon
+                  icon={CancelCircleIcon}
                   className="text-gray-400 text-lg cursor-pointer hover:text-gray-200 shrink-0"
                   onClick={() => setSearchQuery('')}
-                />
+                 />
               )}
             </div>
           </div>
@@ -112,7 +117,7 @@ export default function CustomerSelect({
                 setIsOpen(false);
               }}
             >
-              <IonIcon icon={personOutline} className="text-gray-400 text-2xl" />
+              <HugeiconsIcon icon={UserIcon} className="text-gray-400 text-2xl"  />
               <div className="text-start">
                 <div className="text-white font-medium">{t('pos.walkInCustomer')}</div>
                 <div className="text-xs text-gray-400">{t('pos.noCreditAccountNeeded')}</div>
@@ -164,7 +169,7 @@ export default function CustomerSelect({
                 setIsOpen(false);
               }}
             >
-              <IonIcon icon={addCircleOutline} className="text-lg" />
+              <HugeiconsIcon icon={AddCircleIcon} className="text-lg"  />
               <span>{t('pos.addNewCustomer')}</span>
             </button>
           </div>

@@ -57,7 +57,8 @@ export class CartController {
       const {
         product_uuid,
         unit_uuid,
-        quantity
+        quantity,
+        batch_uuid
       } = req.body;
 
       // Validation
@@ -118,7 +119,8 @@ export class CartController {
         String(unit_uuid),
         qty,
         product.price,
-        product.gst_percent || 0
+        product.gst_percent || 0,
+        batch_uuid
       );
 
       res.status(201).json({

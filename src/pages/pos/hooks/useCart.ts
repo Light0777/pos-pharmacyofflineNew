@@ -9,6 +9,7 @@ import {
   removeItem,
   applyDiscount as applyDiscountApi,
   checkoutCart,
+  clearCart,
 } from "../../../renderer/services/cartApi";
 import { getProductUnits } from "../../../renderer/services/productApi";
 
@@ -173,12 +174,22 @@ export function useCart() {
     return newCartUuid;
   };
 
+  // ─── Clear cart ───────────────────────────────────────────────────────────
+
+  const clearCartHandler = async () => {
+    if (!cartUUID) return;
+    try {
+      await clearCart(cartUUID);
+    } catch (e) {
+      console.error("Error clearing cart:", e);
+    }
+    await createFreshCart();
+  };
+
   // ─── Add item to cart ─────────────────────────────────────────────────────
 
-  const addItemToCart = async (product: any, unitUuid?: string, quantity?: number, unitName?: string) => {
+  const addItemToCart = async (product: any, unitUuid?: string, quantity?: number, unitName?: string, batchUuid?: string) => {
     console.log("🟢 addItemToCart called for:", product?.name);
-    console.log("🟢 Unit UUID:", unitUuid);
-    console.log("🟢 Quantity:", quantity);
 
     if (isCartInitializing) {
       alert("Cart is initializing, please wait a moment...");
@@ -199,14 +210,7 @@ export function useCart() {
 
       const finalQuantity = quantity || 1;
 
-      console.log("🟢 Adding to cart with:", {
-        product_uuid: product.product_uuid,
-        unit_uuid: finalUnitUuid,
-        quantity: finalQuantity
-      });
-
-      const result = await addItem(cartUUID, product.product_uuid, finalUnitUuid, finalQuantity);
-      console.log("🟢 Add item result:", result);
+      const result = await addItem(cartUUID, product.product_uuid, finalUnitUuid, finalQuantity, batchUuid);
 
       await refreshCart();
       console.log("🟢 Cart refreshed successfully");
@@ -502,6 +506,7 @@ export function useCart() {
     applyDiscount,
     checkout,
     refreshCart,
+    clearCart: clearCartHandler,
     getCartItems,
     getCartSummary,
     currentMethodRef,

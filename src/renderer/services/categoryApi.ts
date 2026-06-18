@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiDelete } from "./api";
+import { apiGet, apiPost, apiPut, apiDelete } from "./api";
 
 // ── Categories ─────────────────────────────────────────────────────────────
 
@@ -18,8 +18,18 @@ export async function getCategories() {
 export async function createCategory(data: {
   name: string;
   parent_uuid?: string;
+  description?: string;
 }) {
   const response = await apiPost("/categories", data);
+  return response.data || response;
+}
+
+export async function updateCategory(uuid: string, data: {
+  name?: string;
+  parent_uuid?: string;
+  description?: string;
+}) {
+  const response = await apiPut(`/categories/${uuid}`, data);
   return response.data || response;
 }
 
@@ -92,5 +102,10 @@ export async function assignAttributeToCategory(data: {
   sort_order?: number;
 }) {
   const response = await apiPost("/category-attributes", data);
+  return response.data || response;
+}
+
+export async function removeAttributeFromCategory(category_uuid: string, attribute_uuid: string) {
+  const response = await apiDelete(`/category-attributes?category_uuid=${category_uuid}&attribute_uuid=${attribute_uuid}`);
   return response.data || response;
 }

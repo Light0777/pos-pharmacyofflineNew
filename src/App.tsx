@@ -25,6 +25,7 @@ import RequireRole from "./components/RequireRole";
 
 import AuthGate from "./context/AuthGate";
 import SignupPage from "./pages/SignUpPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ProtectedRoute from "./context/ProtectedRoute";
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
       {/* LOGIN */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
       {/* ROOT */}
       <Route

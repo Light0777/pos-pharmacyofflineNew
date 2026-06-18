@@ -1458,6 +1458,26 @@ POST /products
 
 No change.
 
+---
+
+## Backend Changelog
+
+### 📅 2026-06-10 — Category `description` field support
+
+**Files changed:**
+
+| File | Change |
+|------|--------|
+| `server/src/database/migrations/001_initial.ts` | Added `description TEXT` column to `categories` table |
+| `server/src/models/Category.ts` | Added `description` to `Category` and `CategoryCreateInput` interfaces; added `CategoryUpdateInput` interface; added `description` to INSERT; added `update()` static method |
+| `server/src/controllers/categoryController.ts` | Added `description` to create payload; added `update` static method for PUT endpoint |
+| `server/src/routes/categories.ts` | Added `PUT /:uuid` route for category update |
+| `server/src/controllers/categoryAttributeController.ts` | Added `remove` static method for DELETE /category-attributes endpoint |
+| `server/src/routes/categoryAttributes.ts` | Added `DELETE /` route for removing attribute from category |
+| `src/renderer/services/categoryApi.ts` | Added `description` to `createCategory` payload; added `updateCategory()` and `removeAttributeFromCategory()` functions
+
+---
+
 Product Unit Step
 
 After product creation:

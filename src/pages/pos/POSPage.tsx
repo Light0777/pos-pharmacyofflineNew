@@ -12,8 +12,10 @@ import SalesModal from "./modals/SalesModal";
 import { useCart } from "./hooks/useCart";
 import { useProducts } from "./hooks/useProducts";
 import { useCustomers } from "./hooks/useCustomers";
-import { IonIcon } from '@ionic/react';
-import { storefrontOutline } from 'ionicons/icons';
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Store01Icon,
+} from "@hugeicons/core-free-icons";
 import InvoiceReceipt from "./components/InvoiceReceipt";
 import { getSettings } from "../../renderer/services/settingsApi";
 import { getInvoice } from "../../renderer/services/saleApi";
@@ -50,6 +52,7 @@ function POSpage() {
     applyDiscount,
     checkout,
     refreshCart,
+    clearCart,
     discount,
     setDiscount,
     payments,
@@ -377,10 +380,10 @@ function POSpage() {
         }}
       />
 
-      <div className="flex flex-1 overflow-hidden gap-3 p-3">
+      <div className="flex flex-1 overflow-hidden gap-3 p-3 flex-col lg:flex-row">
 
         {/* COLUMN 1: PRODUCTS */}
-        <div className="w-1/2 flex flex-col min-h-0">
+        <div className="w-full lg:w-1/2 flex flex-col min-h-0">
           <div className="px-3 font-bold text-white text-start">
             Products
           </div>
@@ -395,16 +398,15 @@ function POSpage() {
               page={page}
               totalPages={totalPages}
               onPageChange={goToPage}
-              onAddItem={(product, unitUuid, quantity, unitName) => {
-                // Add to cart with specific unit and quantity
-                addItem(product, unitUuid, quantity, unitName);
+              onAddItem={(product, unitUuid, quantity, unitName, batchUuid) => {
+                addItem(product, unitUuid, quantity, unitName, batchUuid);
               }}
             />
           </div>
         </div>
 
         {/* COLUMN 2: CART ITEMS */}
-        <div className="w-1/4 flex flex-col bg-[#1a1a1a] rounded-2xl overflow-hidden">
+        <div className="w-full lg:w-1/4 flex flex-col bg-[#1a1a1a] rounded-2xl overflow-hidden">
           <div className="p-4 font-bold text-white text-start border-b border-gray-800 flex justify-between items-center">
             <span>Cart Items</span>
             <div className="flex items-center gap-2">
@@ -417,7 +419,7 @@ function POSpage() {
           <div className="m-3 p-3 bg-[#212121] rounded-xl flex-shrink-0">
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-black p-2">
-                <IonIcon icon={storefrontOutline} className="text-2xl text-gray-300" />
+                <HugeiconsIcon icon={Store01Icon} className="text-2xl text-gray-300"  />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -452,10 +454,19 @@ function POSpage() {
               />
             )}
           </div>
+
+          {(cartData?.cart?.items?.length || 0) > 0 && (
+            <button
+              onClick={clearCart}
+              className="mx-3 mb-3 py-2 text-sm text-red-400 hover:text-white hover:bg-red-500/20 border border-red-500/30 rounded-xl transition-all"
+            >
+              Clear All
+            </button>
+          )}
         </div>
 
         {/* COLUMN 3: PAYMENT SUMMARY */}
-        <div className="w-1/4 flex flex-col bg-[#1a1a1a] rounded-2xl overflow-hidden">
+        <div className="w-full lg:w-1/4 flex flex-col bg-[#1a1a1a] rounded-2xl overflow-hidden">
           <div className="p-4 font-bold text-white text-start border-b border-gray-800 flex-shrink-0">
             Payment Summary
           </div>

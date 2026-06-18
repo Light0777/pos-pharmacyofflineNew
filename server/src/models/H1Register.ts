@@ -48,11 +48,13 @@ export class H1RegisterModel {
 
         quantity,
 
+        schedule_type,
+
         pharmacist_name
 
       ) VALUES (
 
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
       )
     `).run(
 
@@ -79,6 +81,8 @@ export class H1RegisterModel {
       input.patient_gender || null,
 
       input.quantity,
+
+      input.schedule_type,
 
       input.pharmacist_name || null
     );

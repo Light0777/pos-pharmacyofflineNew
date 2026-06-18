@@ -8,16 +8,16 @@ import {
 } from "../../renderer/services/customerApi";
 import CustomerLedgerModal from "./CustomerLedgerPage";
 import { apiGet } from "../../renderer/services/api";
-import { IonIcon } from "@ionic/react";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  personAddOutline,
-  createOutline,
-  eyeOutline,
-  closeOutline,
-  alertCircleOutline,
-  checkmarkCircleOutline,
-  searchOutline,
-} from "ionicons/icons";
+  UserAdd01Icon,
+  Edit01Icon,
+  EyeIcon,
+  Cancel01Icon,
+  AlertCircleIcon,
+  CheckmarkCircle01Icon,
+  Search01Icon,
+} from "@hugeicons/core-free-icons";
 
 // shadcn/ui components
 import { Button } from "@/components/ui/button";
@@ -406,7 +406,7 @@ export default function CustomerPage() {
         {/* Search + Add Customer */}
         <div className="p-4 border-b border-slate-100 flex items-center gap-3">
           <div className="relative flex-1">
-            <IonIcon icon={searchOutline} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg" />
+            <HugeiconsIcon icon={Search01Icon} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"  />
             <Input
               placeholder={t('customers.searchPlaceholder')}
               value={searchTerm}
@@ -418,12 +418,12 @@ export default function CustomerPage() {
                 onClick={() => setSearchTerm("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
               >
-                <IonIcon icon={closeOutline} className="text-lg" />
+                <HugeiconsIcon icon={Cancel01Icon} className="text-lg"  />
               </button>
             )}
           </div>
           <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="gap-2 bg-green-500 text-white shrink-0">
-            <IonIcon icon={personAddOutline} className="text-xl" />
+            <HugeiconsIcon icon={UserAdd01Icon} className="text-xl"  />
             {t('customers.addCustomer')}
           </Button>
         </div>
@@ -432,6 +432,7 @@ export default function CustomerPage() {
         {activeTab === "customers" && (
           <>
             {/* Table */}
+            <div className="table-scroll">
             <table className="w-full text-sm table-fixed">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
@@ -506,6 +507,7 @@ export default function CustomerPage() {
                 )}
               </tbody>
             </table>
+            </div>
 
             {/* Pagination */}
             {totalPages > 1 && (
@@ -638,7 +640,7 @@ export default function CustomerPage() {
             <div className="overflow-x-auto">
               {filteredReminders.length === 0 ? (
                 <div className="text-center py-12 text-emerald-600 text-sm flex items-center justify-center gap-2">
-                  <IonIcon icon={checkmarkCircleOutline} className="text-lg" />
+                  <HugeiconsIcon icon={CheckmarkCircle01Icon} className="text-lg"  />
                   {reminders.length === 0 ? t('customers.noPendingDues') : t('customers.noSearchResults')}
                 </div>
               ) : (
@@ -730,7 +732,7 @@ export default function CustomerPage() {
                 {editing ? t('customers.editCustomer') : t('customers.addNewCustomer')}
               </h2>
               <button onClick={resetForm} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <IonIcon icon={closeOutline} className="text-2xl" />
+                <HugeiconsIcon icon={Cancel01Icon} className="text-2xl"  />
               </button>
             </div>
             <div className="p-6 space-y-5">
@@ -794,7 +796,7 @@ export default function CustomerPage() {
               {editing && (
                 <div className="border-2 border-dashed border-red-300 rounded-xl p-4 bg-red-50">
                   <div className="flex items-center gap-2 mb-2">
-                    <IonIcon icon={alertCircleOutline} className="text-lg text-red-500 shrink-0" />
+                    <HugeiconsIcon icon={AlertCircleIcon} className="text-lg text-red-500 shrink-0"  />
                     <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Danger Zone</p>
                   </div>
                   <p className="text-xs text-red-500 mb-3">Deleting this customer will remove them permanently. This action cannot be undone.</p>
@@ -833,7 +835,7 @@ export default function CustomerPage() {
 
       {selectedStat && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedStat(null)}>
-          <div className="w-[400px] h-[500px] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
+          <div className="w-[min(90vw,400px)] h-[min(80vh,500px)] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-end mb-1">
               <button onClick={() => setSelectedStat(null)} className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: "#dc2626", color: "#fff" }}>
                 Close

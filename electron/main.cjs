@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut } = require('electron');
+const { app, BrowserWindow, globalShortcut, Menu } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -121,6 +121,7 @@ function createWindow() {
     show: false,
     title: 'POS Pharmacy',
     icon: path.join(__dirname, '../assets/icon.ico'),
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -128,6 +129,7 @@ function createWindow() {
     }
   });
 
+  mainWindow.setMenu(null);
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
@@ -185,6 +187,10 @@ function createWindow() {
     globalShortcut.register('CommandOrControl+Shift+C', () => { });
   }
 
+  globalShortcut.register('CommandOrControl+R', () => {
+    if (mainWindow) mainWindow.webContents.reload();
+  });
+
   mainWindow.webContents.on('context-menu', (e) => e.preventDefault());
   mainWindow.on('closed', () => { mainWindow = null; });
 }
@@ -208,6 +214,8 @@ app.whenReady().then(() => {
   });
 
   startBackend();
+  const emptyMenu = Menu.buildFromTemplate([]);
+  Menu.setApplicationMenu(emptyMenu);
   createWindow();
 });
 

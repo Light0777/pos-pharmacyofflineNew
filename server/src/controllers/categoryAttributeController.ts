@@ -123,4 +123,50 @@ export class CategoryAttributeController {
       });
     }
   };
+
+  // REMOVE ATTRIBUTE FROM CATEGORY
+
+  static remove = (
+    req: Request,
+    res: Response
+  ): void => {
+
+    try {
+
+      const category_uuid =
+        String(req.query.category_uuid);
+
+      const attribute_uuid =
+        String(req.query.attribute_uuid);
+
+      if (!category_uuid || !attribute_uuid) {
+
+        res.status(400).json({
+          success: false,
+          error: 'category_uuid and attribute_uuid query params required'
+        });
+
+        return;
+      }
+
+      CategoryAttributeModel.remove(
+        category_uuid,
+        attribute_uuid
+      );
+
+      res.json({
+        success: true,
+        message: 'Attribute removed from category'
+      });
+
+    } catch (error) {
+
+      console.error(error);
+
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  };
 }

@@ -2,8 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { getH1Register, getH1RegisterByDateRange } from "../../renderer/services/h1RegisterApi";
-import { IonIcon } from "@ionic/react";
-import { calendarOutline, searchOutline, closeOutline } from "ionicons/icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Calendar01Icon,
+  Search01Icon,
+  Cancel01Icon,
+} from "@hugeicons/core-free-icons";
 import { CalendarIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +26,8 @@ export default function H1Register() {
   const [showToPicker, setShowToPicker] = useState(false);
   const [page, setPage] = useState(1);
   const perPage = 10;
+  const SCHEDULE_TABS = ["All", "H", "H1", "X"];
+  const [scheduleTab, setScheduleTab] = useState("All");
   const [fromPickPos, setFromPickPos] = useState({ top: 0, right: 0 });
   const [toPickPos, setToPickPos] = useState({ top: 0, right: 0 });
   const fromBtnRef = useRef<HTMLButtonElement>(null);
@@ -87,7 +93,7 @@ export default function H1Register() {
   const filtered = records.filter((r) =>
     [r.patient_name, r.doctor_name, r.prescription_number, r.product_name]
       .some((f) => f?.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  ).filter((r) => scheduleTab === "All" || r.schedule_type === scheduleTab);
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const safePage = Math.min(page, totalPages);
   const start = (safePage - 1) * perPage;
@@ -95,7 +101,7 @@ export default function H1Register() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, fromDate, toDate]);
+  }, [searchTerm, fromDate, toDate, scheduleTab]);
 
   const clearFilters = () => {
     setFromDate(undefined);
@@ -106,14 +112,29 @@ export default function H1Register() {
   return (
     <div className="min-h-screen bg-[#F8F9FC] p-6 space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight text-left">Track all the Schedule H1 narcotics register here</h1>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight text-left">{t('h1Register.title')}</h1>
+        <div className="flex gap-1 bg-slate-100 rounded-full p-1 mt-3 w-fit">
+          {SCHEDULE_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => { setScheduleTab(tab); setPage(1); }}
+              className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all ${
+                scheduleTab === tab
+                  ? "bg-white text-slate-900 shadow-sm border border-slate-200"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {tab === "All" ? "All" : `Schedule ${tab}`}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <IonIcon icon={searchOutline} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg" />
+          <HugeiconsIcon icon={Search01Icon} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"  />
           <Input
-            placeholder="Search by patient, doctor, prescription..."
+            placeholder={t('h1Register.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-11 pr-10 py-2.5 bg-white border-slate-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition-all"
@@ -123,7 +144,7 @@ export default function H1Register() {
               onClick={() => setSearchTerm("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
             >
-              <IonIcon icon={closeOutline} className="text-lg" />
+              <HugeiconsIcon icon={Cancel01Icon} className="text-lg"  />
             </button>
           )}
         </div>
@@ -135,7 +156,7 @@ export default function H1Register() {
             className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors"
           >
             <CalendarIcon className="w-4 h-4 text-slate-400" />
-            <span>{fromDate ? format(fromDate, "dd MMM yyyy") : "From"}</span>
+            <span>{fromDate ? format(fromDate, "dd MMM yyyy") : t('h1Register.from')}</span>
           </button>
           {fromDate && (
             <button
@@ -164,7 +185,7 @@ export default function H1Register() {
             className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors"
           >
             <CalendarIcon className="w-4 h-4 text-slate-400" />
-            <span>{toDate ? format(toDate, "dd MMM yyyy") : "To"}</span>
+            <span>{toDate ? format(toDate, "dd MMM yyyy") : t('h1Register.to')}</span>
           </button>
           {toDate && (
             <button
@@ -187,7 +208,7 @@ export default function H1Register() {
         </div>
         {(fromDate || toDate) && (
           <Button variant="ghost" onClick={clearFilters} className="text-slate-500 shrink-0">
-            Clear
+            {t('h1Register.clear')}
           </Button>
         )}
       </div>
@@ -198,22 +219,22 @@ export default function H1Register() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center text-slate-400 py-12">
-          {searchTerm ? `No results found for "${searchTerm}"` : "No H1 register entries found"}
+          {searchTerm ? t('h1Register.noResults', { term: searchTerm }) : t('h1Register.noEntries')}
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm table-fixed">
+          <div className="table-scroll"><table className="w-full text-sm table-fixed">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Date</th>
-                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Patient</th>
-                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Age</th>
-                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Gender</th>
-                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Doctor</th>
-                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">License</th>
-                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Prescription #</th>
-                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Qty</th>
-                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">Pharmacist</th>
+                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('h1Register.date')}</th>
+                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('h1Register.patient')}</th>
+                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('h1Register.age')}</th>
+                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('h1Register.gender')}</th>
+                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('h1Register.doctor')}</th>
+                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('h1Register.license')}</th>
+                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('h1Register.prescription')}</th>
+                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('h1Register.qty')}</th>
+                <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('h1Register.pharmacist')}</th>
               </tr>
             </thead>
             <tbody>
@@ -240,6 +261,7 @@ export default function H1Register() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
       {totalPages > 1 && (

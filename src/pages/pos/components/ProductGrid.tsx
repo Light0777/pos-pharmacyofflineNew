@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Product } from "../../../renderer/types/product";
-import { getProductBatches, getProductUnits } from "../../../renderer/services/productApi";
-import { IonIcon } from "@ionic/react";
-import { alertCircleOutline, timeOutline, medkit, searchOutline } from "ionicons/icons";
+import { getProductBatches, getProductUnits, getAvailableBatches } from "../../../renderer/services/productApi";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  AlertCircleIcon,
+  Time01Icon,
+  Medicine01Icon,
+  Search01Icon,
+} from "@hugeicons/core-free-icons";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +21,7 @@ interface ProductGridProps {
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
-  onAddItem: (product: Product, unitUuid: string, quantity: number, unitName: string) => void;
+  onAddItem: (product: Product, unitUuid: string, quantity: number, unitName: string, batchUuid?: string) => void;
 }
 
 interface BatchInfo {
@@ -53,18 +58,21 @@ function UnitSelectionModal({
   isOpen, 
   product, 
   units, 
+  batches,
   onClose, 
   onConfirm 
 }: { 
   isOpen: boolean; 
   product: Product | null; 
   units: ProductUnit[];
+  batches: BatchInfo[];
   onClose: () => void;
-  onConfirm: (unitUuid: string, quantity: number, unitName: string, price: number) => void;
+  onConfirm: (unitUuid: string, quantity: number, unitName: string, price: number, batchUuid?: string) => void;
 }) {
   const [selectedUnitUuid, setSelectedUnitUuid] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
   const [selectedUnit, setSelectedUnit] = useState<ProductUnit | null>(null);
+  const [selectedBatchUuid, setSelectedBatchUuid] = useState<string>("");
 
   useEffect(() => {
     if (units.length > 0 && !selectedUnitUuid) {
@@ -79,12 +87,25 @@ function UnitSelectionModal({
     setSelectedUnit(unit || null);
   }, [selectedUnitUuid, units]);
 
+  useEffect(() => {
+    if (batches.length > 0 && !selectedBatchUuid) {
+      setSelectedBatchUuid(batches[0].batch_uuid);
+    }
+  }, [batches]);
+
   const getUnitPrice = (unit: ProductUnit | null) => {
     if (!unit) return product?.price || 0;
     return unit.price || product?.price || 0;
   };
 
   const totalPrice = selectedUnit ? (getUnitPrice(selectedUnit) * quantity).toFixed(2) : "0.00";
+  const getDaysUntilExpiry = (expiryDate: string): number => {
+    const today = new Date();
+    const expiry = new Date(expiryDate);
+    const diffTime = expiry.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -117,6 +138,67 @@ function UnitSelectionModal({
             </Select>
           </div>
 
+          {/* Batch Selection */}
+          {batches.length > 1 && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Select Batch
+              </label>
+              <div className="max-h-52 overflow-y-auto space-y-2 border border-gray-200 rounded-xl p-2.5 bg-gray-50/50">
+                {batches.map((batch) => {
+                  const daysLeft = getDaysUntilExpiry(batch.expiry_date);
+                  const isExpiringSoon = daysLeft <= 90 && daysLeft > 0;
+                  const isExpired = daysLeft <= 0;
+                  const barWidth = daysLeft > 365 ? 100 : Math.max(5, Math.round((daysLeft / 365) * 100));
+                  const barColor = isExpired ? 'bg-red-500' : isExpiringSoon ? 'bg-amber-400' : 'bg-green-500';
+                  const qty = (batch as any).quantity ?? 0;
+                  return (
+                    <div
+                      key={batch.batch_uuid}
+                      onClick={() => setSelectedBatchUuid(batch.batch_uuid)}
+                      className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all ${
+                        selectedBatchUuid === batch.batch_uuid
+                          ? 'bg-white ring-2 ring-green-500 shadow-sm'
+                          : 'bg-white hover:ring-1 hover:ring-gray-300'
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-sm text-gray-900">{batch.batch_number}</span>
+                          {!isExpired && (
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                              isExpiringSoon
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-green-100 text-green-700'
+                            }`}>
+                              {daysLeft} days left
+                            </span>
+                          )}
+                          {isExpired && (
+                            <span className="text-xs font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                              Expired
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                          <span>Qty: <span className="font-medium text-gray-700">{qty}</span></span>
+                          <span className="text-gray-300">|</span>
+                          <span>Exp: {new Date(batch.expiry_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                        {/* Expiry progress bar */}
+                        {!isExpired && (
+                          <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${barWidth}%` }} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Quantity Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-2">
@@ -135,9 +217,18 @@ function UnitSelectionModal({
               <Input
                 type="number"
                 min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-20 text-center bg-white border-gray-300 text-gray-900"
+                value={quantity || ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "") {
+                    setQuantity(0);
+                    return;
+                  }
+                  const parsed = parseInt(val);
+                  if (!isNaN(parsed) && parsed >= 1) setQuantity(parsed);
+                }}
+                onBlur={() => { if (quantity < 1) setQuantity(1); }}
+                className="w-20 text-center bg-white border-gray-300 text-gray-900 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
               <Button
                 type="button"
@@ -185,7 +276,8 @@ function UnitSelectionModal({
                     selectedUnitUuid,
                     quantity,
                     selectedUnit.unit_name,
-                    getUnitPrice(selectedUnit)
+                    getUnitPrice(selectedUnit),
+                    selectedBatchUuid || undefined
                   );
                 }
               }}
@@ -212,6 +304,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
   const [showUnitModal, setShowUnitModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productUnits, setProductUnits] = useState<ProductUnit[]>([]);
+  const [productBatches, setProductBatches] = useState<BatchInfo[]>([]);
 
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: "", visible: false });
@@ -293,18 +386,18 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
       return;
     }
     
+    const batches = await getAvailableBatches(product.product_uuid);
+    
     setSelectedProduct(product);
     setProductUnits(units);
+    setProductBatches(batches);
     setShowUnitModal(true);
   };
 
   // Handle unit selection confirmation
-  const handleUnitConfirm = (unitUuid: string, quantity: number, unitName: string, price: number) => {
+  const handleUnitConfirm = (unitUuid: string, quantity: number, unitName: string, price: number, batchUuid?: string) => {
     if (selectedProduct) {
-      // Pass the product, unit UUID, quantity, and unit name to the parent
-      onAddItem(selectedProduct, unitUuid, quantity, unitName);
-      
-      // Update recent products
+      onAddItem(selectedProduct, unitUuid, quantity, unitName, batchUuid);
       setRecentUUIDs(prev => {
         const filtered = prev.filter(id => id !== selectedProduct.product_uuid);
         return [selectedProduct.product_uuid, ...filtered].slice(0, 20);
@@ -313,6 +406,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
     setShowUnitModal(false);
     setSelectedProduct(null);
     setProductUnits([]);
+    setProductBatches([]);
   };
 
   // Load batch info for visible products
@@ -475,7 +569,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
         }`}
       >
         <div className="bg-red-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium">
-          <IonIcon icon={alertCircleOutline} className="text-lg shrink-0" />
+          <HugeiconsIcon icon={AlertCircleIcon} className="text-lg shrink-0"  />
           <span>{toast.message}</span>
         </div>
       </div>
@@ -484,7 +578,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
       <div className="p-3 sticky top-0 z-10 bg-[#141414]">
         <div className="relative">
           <div className="absolute left-4 inset-y-0 flex items-center text-gray-400 pointer-events-none">
-            <IonIcon icon={searchOutline} className="text-lg" />
+            <HugeiconsIcon icon={Search01Icon} className="text-lg"  />
           </div>
           <input
             ref={searchRef}
@@ -568,7 +662,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#83df1a' }}>
-                          <IonIcon icon={medkit} className="text-xl text-white" />
+                          <HugeiconsIcon icon={Medicine01Icon} className="text-xl text-white"  />
                       </div>
                     )}
                   </div>
@@ -591,7 +685,6 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                     <div className="flex flex-wrap gap-x-2">
                       {batchCount > 0 && (
                         <div className="text-[10px] flex items-center gap-0.5 text-gray-500">
-                          <IonIcon icon={alertCircleOutline} className="text-[10px]" />
                           <span>{batchCount} batch{batchCount > 1 ? 'es' : ''}</span>
                         </div>
                       )}
@@ -599,7 +692,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                         <div className={`text-[10px] flex items-center gap-0.5 ${isExpiringSoon ? 'text-orange-600' : 'text-gray-500'}`}>
                           {isExpiringSoon ? (
                             <>
-                              <IonIcon icon={timeOutline} className="text-[10px]" />
+                              <HugeiconsIcon icon={Time01Icon} className="text-[8px]"  />
                               <span>{daysUntilExpiry}d expiry</span>
                             </>
                           ) : nearestExpiry ? (
@@ -710,10 +803,12 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
         isOpen={showUnitModal}
         product={selectedProduct}
         units={productUnits}
+        batches={productBatches}
         onClose={() => {
           setShowUnitModal(false);
           setSelectedProduct(null);
           setProductUnits([]);
+          setProductBatches([]);
         }}
         onConfirm={handleUnitConfirm}
       />

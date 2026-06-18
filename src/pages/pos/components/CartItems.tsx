@@ -1,5 +1,10 @@
-import { IonIcon } from '@ionic/react';
-import { addOutline, removeOutline, trashOutline, medkit } from 'ionicons/icons';
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Add01Icon,
+  Remove01Icon,
+  Delete01Icon,
+  Medicine01Icon,
+} from "@hugeicons/core-free-icons";
 import { useTranslation } from 'react-i18next';
 import { useEffect } from 'react';
 
@@ -75,7 +80,7 @@ export default function CartItems({
           >
             <div className="flex-shrink-0 self-center overflow-hidden rounded-xl aspect-square mx-[1.3%]" style={{ width: '27%' }}>
               <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#83df1a' }}>
-                <IonIcon icon={medkit} className="text-2xl text-white" />
+                <HugeiconsIcon icon={Medicine01Icon} className="text-2xl text-white"  />
               </div>
             </div>
 
@@ -115,7 +120,7 @@ export default function CartItems({
                     }}
                     className="w-5 h-5 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded-l-lg transition-colors"
                   >
-                    <IonIcon icon={removeOutline} className="text-[10px]" />
+                    <HugeiconsIcon icon={Remove01Icon} className="text-[10px]"  />
                   </button>
 
                   <span className="text-gray-900 text-xs font-medium min-w-[16px] text-center">
@@ -129,7 +134,7 @@ export default function CartItems({
                     }}
                     className="w-5 h-5 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded-r-lg transition-colors"
                   >
-                    <IonIcon icon={addOutline} className="text-[10px]" />
+                    <HugeiconsIcon icon={Add01Icon} className="text-[10px]"  />
                   </button>
                 </div>
 
@@ -141,7 +146,7 @@ export default function CartItems({
                     }}
                     className="text-red-400 hover:text-red-500 transition-colors p-0.5 shrink-0"
                   >
-                    <IonIcon icon={trashOutline} className="text-sm" />
+                    <HugeiconsIcon icon={Delete01Icon} className="text-sm"  />
                   </button>
                 )}
               </div>

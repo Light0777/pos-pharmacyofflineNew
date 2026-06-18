@@ -110,6 +110,17 @@ export class ReportController {
     }
   };
 
+  // Customer trend (last 7 days)
+  static customerTrend = (req: AuthRequest, res: Response): void => {
+    try {
+      const trend = ReportModel.getCustomerTrend();
+      res.json(trend);
+    } catch (error) {
+      console.error('Customer trend error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
+
   // Customer purchase report
   static customerPurchases = (req: AuthRequest, res: Response): void => {
     try {

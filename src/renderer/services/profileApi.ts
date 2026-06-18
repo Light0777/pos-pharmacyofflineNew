@@ -7,6 +7,7 @@ export interface UserProfile {
   name: string;
   email: string;
   role: string;
+  security_question?: string | null;
   [key: string]: any;
 }
 

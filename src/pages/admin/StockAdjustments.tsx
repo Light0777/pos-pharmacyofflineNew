@@ -1,17 +1,17 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getStockAdjustments, createStockAdjustment } from "../../renderer/services/stockAdjustmentApi";
-import { IonIcon } from "@ionic/react";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  refreshOutline,
-  addOutline,
-  closeOutline,
-  checkmarkCircleOutline,
-  warningOutline,
-  trendingUpOutline,
-  trendingDownOutline,
-  searchOutline,
-} from "ionicons/icons";
+  RefreshIcon,
+  Add01Icon,
+  Cancel01Icon,
+  CheckmarkCircle01Icon,
+  Alert01Icon,
+  ChartUpIcon,
+  ChartDownIcon,
+  Search01Icon,
+} from "@hugeicons/core-free-icons";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -92,10 +92,10 @@ export default function StockAdjustments() {
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={loadAdjustments} className="bg-white border-slate-200">
-            <IonIcon icon={refreshOutline} className="text-slate-600 text-xl" />
+            <HugeiconsIcon icon={RefreshIcon} className="text-slate-600 text-xl"  />
           </Button>
           <Button onClick={() => setModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
-            <IonIcon icon={addOutline} className="text-lg" />
+            <HugeiconsIcon icon={Add01Icon} className="text-lg"  />
             New Adjustment
           </Button>
         </div>
@@ -104,7 +104,7 @@ export default function StockAdjustments() {
       <Card>
         <CardContent className="p-4">
           <div className="relative mb-4">
-            <IonIcon icon={searchOutline} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <HugeiconsIcon icon={Search01Icon} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"  />
             <Input
               placeholder="Search adjustments..."
               value={searchTerm}
@@ -140,7 +140,7 @@ export default function StockAdjustments() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={a.adjustment_type === "increase" ? "success" : "danger"} className="gap-1">
-                          <IonIcon icon={a.adjustment_type === "increase" ? trendingUpOutline : trendingDownOutline} className="text-xs" />
+                          <HugeiconsIcon icon={a.adjustment_type === "increase" ? ChartUpIcon : ChartDownIcon} className="text-xs"  />
                           {a.adjustment_type}
                         </Badge>
                       </TableCell>
@@ -163,14 +163,14 @@ export default function StockAdjustments() {
             <div className="sticky top-0 bg-[#171717] border-b border-gray-700 px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-bold text-white">New Stock Adjustment</h2>
               <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-200 transition-colors">
-                <IonIcon icon={closeOutline} className="text-2xl" />
+                <HugeiconsIcon icon={Cancel01Icon} className="text-2xl"  />
               </button>
             </div>
 
             <div className="p-6 space-y-5">
               {error && (
                 <div className="p-3 bg-red-900/50 border border-red-700 rounded-xl flex items-center gap-2 text-red-200 text-sm">
-                  <IonIcon icon={warningOutline} className="text-lg flex-shrink-0" />
+                  <HugeiconsIcon icon={Alert01Icon} className="text-lg flex-shrink-0"  />
                   {error}
                 </div>
               )}
@@ -206,7 +206,7 @@ export default function StockAdjustments() {
                         : "border-gray-600 text-gray-400 hover:border-gray-500"
                     }`}
                   >
-                    <IonIcon icon={trendingUpOutline} className="mr-1" />
+                    <HugeiconsIcon icon={ChartUpIcon} className="mr-1"  />
                     Increase
                   </button>
                   <button
@@ -217,7 +217,7 @@ export default function StockAdjustments() {
                         : "border-gray-600 text-gray-400 hover:border-gray-500"
                     }`}
                   >
-                    <IonIcon icon={trendingDownOutline} className="mr-1" />
+                    <HugeiconsIcon icon={ChartDownIcon} className="mr-1"  />
                     Decrease
                   </button>
                 </div>
@@ -258,7 +258,7 @@ export default function StockAdjustments() {
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
-                    <IonIcon icon={checkmarkCircleOutline} className="text-lg" />
+                    <HugeiconsIcon icon={CheckmarkCircle01Icon} className="text-lg"  />
                     Save Adjustment
                   </span>
                 )}

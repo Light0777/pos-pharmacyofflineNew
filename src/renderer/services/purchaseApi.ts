@@ -1,5 +1,5 @@
 // purchaseApi.ts
-import { apiGet, apiPost } from "./api";
+import { apiGet, apiPost, apiPut } from "./api";
 
 export async function createPurchase(data: any) {
   console.log("🔵 createPurchase - Starting...");
@@ -14,6 +14,11 @@ export async function createPurchase(data: any) {
     console.error("🔴 Error message:", error.message);
     throw error;
   }
+}
+
+export async function updatePurchase(purchase_uuid: string, data: any) {
+  const response = await apiPut(`/purchases/${purchase_uuid}`, data);
+  return response;
 }
 
 export async function getPurchases() {

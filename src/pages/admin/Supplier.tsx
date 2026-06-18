@@ -7,18 +7,18 @@ import {
   deleteSupplier,
   type Supplier,
 } from "../../renderer/services/supplierApi";
-import { IonIcon } from "@ionic/react";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  addOutline,
-  trashOutline,
-  searchOutline,
-  closeOutline,
-  peopleOutline,
-  callOutline,
-  mailOutline,
-  locationOutline,
-  checkmarkCircleOutline,
-} from "ionicons/icons";
+  Add01Icon,
+  Delete01Icon,
+  Search01Icon,
+  Cancel01Icon,
+  UserGroupIcon,
+  CallIcon,
+  Mail01Icon,
+  Location01Icon,
+  CheckmarkCircle01Icon,
+} from "@hugeicons/core-free-icons";
 
 // shadcn/ui components
 import { Card, CardContent } from "@/components/ui/card";
@@ -230,7 +230,7 @@ export default function SupplierPage() {
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-bold text-slate-800">{t('suppliers.addNewSupplier')}</h2>
               <button onClick={() => setAddDialogOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <IonIcon icon={closeOutline} className="text-2xl" />
+                <HugeiconsIcon icon={Cancel01Icon} className="text-2xl"  />
               </button>
             </div>
             <div className="p-6 space-y-5">
@@ -250,7 +250,7 @@ export default function SupplierPage() {
                   {t('suppliers.phoneLabel')}
                 </label>
                 <Input
-                  placeholder="+91 98765 43210"
+                  placeholder={t('suppliers.phonePlaceholder')}
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 transition-all outline-none"
@@ -262,7 +262,7 @@ export default function SupplierPage() {
                 </label>
                 <Input
                   type="email"
-                  placeholder="supplier@example.com"
+                  placeholder={t('suppliers.emailPlaceholder')}
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 transition-all outline-none"
@@ -283,7 +283,7 @@ export default function SupplierPage() {
             </div>
             <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3 bg-white">
               <Button variant="outline" onClick={() => setAddDialogOpen(false)} className="border-slate-300 text-slate-700 hover:bg-slate-100">
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={handleCreate} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-900/20">
                 {loading ? t('suppliers.adding') : t('suppliers.addSupplier')}
@@ -302,7 +302,7 @@ export default function SupplierPage() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('suppliers.statistics')}</p>
             <p className="text-sm font-semibold text-gray-700 mb-3">{t('suppliers.totalSuppliers')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none">{totalSuppliers.toLocaleString()}</p>
           </div>
@@ -314,7 +314,7 @@ export default function SupplierPage() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('suppliers.statistics')}</p>
             <p className="text-sm font-semibold text-gray-700 mb-3">{t('suppliers.withEmail')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none">{suppliersWithEmail.toLocaleString()}</p>
           </div>
@@ -326,7 +326,7 @@ export default function SupplierPage() {
             </svg>
           </button>
           <div className="flex-shrink-0">
-            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
+            <p className="text-xs text-gray-400 mb-0.5">{t('suppliers.statistics')}</p>
             <p className="text-sm font-semibold text-gray-700 mb-3">{t('suppliers.withPhone')}</p>
             <p className="text-5xl font-bold text-gray-900 leading-none">{suppliersWithPhone.toLocaleString()}</p>
           </div>
@@ -336,7 +336,7 @@ export default function SupplierPage() {
       {/* Search Bar + Add Button */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <IonIcon icon={searchOutline} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg" />
+          <HugeiconsIcon icon={Search01Icon} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"  />
           <Input
             placeholder={t('suppliers.searchPlaceholder')}
             value={searchTerm}
@@ -348,12 +348,12 @@ export default function SupplierPage() {
               onClick={() => setSearchTerm("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
             >
-              <IonIcon icon={closeOutline} className="text-lg" />
+              <HugeiconsIcon icon={Cancel01Icon} className="text-lg"  />
             </button>
           )}
         </div>
         <Button onClick={() => setAddDialogOpen(true)} className="gap-2 bg-green-500 text-white shrink-0">
-          <IonIcon icon={addOutline} className="text-xl" />
+          <HugeiconsIcon icon={Add01Icon} className="text-xl"  />
           {t('suppliers.addSupplier')}
         </Button>
       </div>
@@ -364,7 +364,7 @@ export default function SupplierPage() {
           <CardContent className="p-4 flex justify-between items-center">
             <p className="text-sm text-red-700">{error}</p>
             <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
-              <IonIcon icon={closeOutline} className="text-lg" />
+              <HugeiconsIcon icon={Cancel01Icon} className="text-lg"  />
             </button>
           </CardContent>
         </Card>
@@ -372,6 +372,7 @@ export default function SupplierPage() {
 
       {/* Suppliers Table */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="table-scroll">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
@@ -409,13 +410,13 @@ export default function SupplierPage() {
                     <div className="space-y-1">
                       {s.phone && (
                         <div className="flex items-center gap-1 text-sm text-gray-600">
-                          <IonIcon icon={callOutline} className="text-xs shrink-0" />
+                          <HugeiconsIcon icon={CallIcon} className="text-xs shrink-0"  />
                           <span>{s.phone}</span>
                         </div>
                       )}
                       {s.email && (
                         <div className="flex items-center gap-1 text-sm text-gray-600">
-                          <IonIcon icon={mailOutline} className="text-xs shrink-0" />
+                          <HugeiconsIcon icon={Mail01Icon} className="text-xs shrink-0"  />
                           <span className="truncate max-w-[180px]">{s.email}</span>
                         </div>
                       )}
@@ -427,7 +428,7 @@ export default function SupplierPage() {
                   <td className="px-5 py-3.5">
                     {s.address ? (
                       <div className="flex items-start gap-1 text-sm text-gray-600">
-                        <IonIcon icon={locationOutline} className="text-xs mt-0.5 shrink-0" />
+                        <HugeiconsIcon icon={Location01Icon} className="text-xs mt-0.5 shrink-0"  />
                         <span className="line-clamp-2 break-words">{s.address}</span>
                       </div>
                     ) : (
@@ -440,7 +441,7 @@ export default function SupplierPage() {
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
-                      Edit
+                      {t('suppliers.editTitle')}
                     </button>
                   </td>
                 </tr>
@@ -448,10 +449,11 @@ export default function SupplierPage() {
             )}
           </tbody>
         </table>
+        </div>
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
             <p className="text-xs text-slate-500">
-              Showing {(pageS - 1) * pageSize + 1}–{Math.min(pageS * pageSize, filteredSuppliers.length)} of {filteredSuppliers.length}
+              {t('suppliers.showing', { start: (pageS - 1) * pageSize + 1, end: Math.min(pageS * pageSize, filteredSuppliers.length), total: filteredSuppliers.length })}
             </p>
             <div className="flex items-center gap-1">
               <button
@@ -459,7 +461,7 @@ export default function SupplierPage() {
                 disabled={pageS === 1}
                 className="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                Prev
+                {t('suppliers.prev')}
               </button>
               {(() => {
                 const pages: (number | string)[] = [];
@@ -494,7 +496,7 @@ export default function SupplierPage() {
                 disabled={pageS === totalPages}
                 className="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                Next
+                {t('suppliers.next')}
               </button>
             </div>
           </div>
@@ -508,7 +510,7 @@ export default function SupplierPage() {
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-bold text-slate-800">{t('suppliers.editSupplier')}</h2>
               <button onClick={() => setEditingId(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <IonIcon icon={closeOutline} className="text-2xl" />
+                <HugeiconsIcon icon={Cancel01Icon} className="text-2xl"  />
               </button>
             </div>
             <div className="p-6 space-y-5">
@@ -528,7 +530,7 @@ export default function SupplierPage() {
                   {t('suppliers.phoneLabel')}
                 </label>
                 <Input
-                  placeholder="+91 98765 43210"
+                  placeholder={t('suppliers.phonePlaceholder')}
                   value={editForm.phone || ""}
                   onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                   className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 transition-all outline-none"
@@ -540,7 +542,7 @@ export default function SupplierPage() {
                 </label>
                 <Input
                   type="email"
-                  placeholder="supplier@example.com"
+                  placeholder={t('suppliers.emailPlaceholder')}
                   value={editForm.email || ""}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                   className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 transition-all outline-none"
@@ -561,11 +563,11 @@ export default function SupplierPage() {
             </div>
             <div className="border-t border-slate-200 px-6 py-4 flex justify-between gap-3 bg-white">
               <Button variant="outline" onClick={() => editingId && handleDelete(editingId)} className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
-                <IonIcon icon={trashOutline} className="text-lg mr-1" />
+                <HugeiconsIcon icon={Delete01Icon} className="text-lg mr-1"  />
                 {t('suppliers.deleteTitle')}
               </Button>
               <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setEditingId(null)} className="border-slate-300 text-slate-700 hover:bg-slate-100">Cancel</Button>
+                <Button variant="outline" onClick={() => setEditingId(null)} className="border-slate-300 text-slate-700 hover:bg-slate-100">{t('common.cancel')}</Button>
                 <Button onClick={() => editingId && handleUpdate(editingId)} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-900/20">
                   {loading ? t('suppliers.saving') : t('suppliers.saveChanges')}
                 </Button>
@@ -577,20 +579,20 @@ export default function SupplierPage() {
 
       {selectedStat && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedStat(null)}>
-          <div className="w-[400px] h-[500px] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
+          <div className="w-[min(90vw,400px)] h-[min(80vh,500px)] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-end mb-1">
               <button onClick={() => setSelectedStat(null)} className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: "#dc2626", color: "#fff" }}>
-                Close
+                {t('common.close')}
               </button>
             </div>
 
             {selectedStat === 'total' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>Total Suppliers</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('suppliers.totalSuppliers')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">{totalSuppliers.toLocaleString()}</p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#8b5cf6", color: "#fff" }}>
-                    All Suppliers
+                    {t('suppliers.allSuppliers')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -602,10 +604,10 @@ export default function SupplierPage() {
             {selectedStat === 'email' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>With Email</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('suppliers.withEmail')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">{suppliersWithEmail.toLocaleString()}</p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#10b981", color: "#fff" }}>
-                    Email Registered
+                    {t('suppliers.emailRegistered')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
@@ -617,10 +619,10 @@ export default function SupplierPage() {
             {selectedStat === 'phone' && (
               <>
                 <div className="flex-1 flex flex-col justify-center text-center px-4">
-                  <p className="text-base" style={{ color: "#888888" }}>With Phone</p>
+                  <p className="text-base" style={{ color: "#888888" }}>{t('suppliers.withPhone')}</p>
                   <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">{suppliersWithPhone.toLocaleString()}</p>
                   <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#3b82f6", color: "#fff" }}>
-                    Phone Registered
+                    {t('suppliers.phoneRegistered')}
                   </span>
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>

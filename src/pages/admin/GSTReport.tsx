@@ -2,8 +2,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, differenceInCalendarDays } from "date-fns";
 import { getDailyReport, getGSTReport, getGSTReportByRange } from "../../renderer/services/reportApi";
-import { IonIcon } from "@ionic/react";
-import { cloudDownloadOutline, printOutline } from "ionicons/icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  CloudDownloadIcon,
+  PrinterIcon,
+} from "@hugeicons/core-free-icons";
 import * as XLSX from "xlsx";
 import DateRangePicker from "@/components/DateRangePicker";
 import { Chart, ArcElement, Tooltip, Legend, DoughnutController } from "chart.js";
@@ -682,11 +685,11 @@ export default function GSTReport() {
                         </div>
                         <div className="flex items-center gap-2 print:hidden shrink-0">
                             <Button onClick={handleExcelDownload} disabled={!report} className="text-white gap-2 px-4 py-2 text-sm" style={{ background: "linear-gradient(145deg, #22c55e 0%, #16a34a 40%, #15803d 100%)" }}>
-                                <IonIcon icon={cloudDownloadOutline} className="text-lg" />
+                                <HugeiconsIcon icon={CloudDownloadIcon} className="text-lg"  />
                                 {t("gstReport.downloadExcel")}
                             </Button>
                             <Button onClick={() => window.print()} disabled={!report} className="text-white gap-2 px-4 py-2 text-sm" style={{ background: "linear-gradient(145deg, #6b68e0 0%, #5b5bc8 40%, #4a4ab0 100%)" }}>
-                                <IonIcon icon={printOutline} className="text-lg" />
+                                <HugeiconsIcon icon={PrinterIcon} className="text-lg"  />
                                 {t("gstReport.printButton")}
                             </Button>
                         </div>

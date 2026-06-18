@@ -8,6 +8,17 @@ import { useAuth } from "../context/AuthContext";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import logo from "../../assets/icon.png";
 
+const SECURITY_QUESTIONS = [
+  "What is your pet's name?",
+  "What city were you born in?",
+  "What is your mother's maiden name?",
+  "What was the name of your first school?",
+  "What is your favorite book?",
+  "What is your favorite movie?",
+  "What was the model of your first car?",
+  "What is your favorite food?",
+];
+
 const signupSchema = z
   .object({
     shop_name: z.string().min(1, "Shop name is required"),
@@ -15,6 +26,8 @@ const signupSchema = z
     email: z.string().email("Enter a valid email address"),
     password: z.string().min(6, "Password must be at least 6 characters"),
     confirmPassword: z.string().min(1, "Please confirm your password"),
+    security_question: z.string().min(1, "Please select a security question"),
+    security_answer: z.string().min(1, "Please provide an answer"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -40,6 +53,8 @@ export default function SignupPage() {
       email: "",
       password: "",
       confirmPassword: "",
+      security_question: "",
+      security_answer: "",
     },
   });
 
@@ -52,6 +67,8 @@ export default function SignupPage() {
         name: values.name,
         email: values.email,
         password: values.password,
+        security_question: values.security_question,
+        security_answer: values.security_answer,
       });
 
       const token = res?.token || res?.data?.token;
@@ -78,8 +95,8 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "linear-gradient(180deg, #00e060 0%, #00b84a 15%, #007a30 35%, #003a16 55%, #000e05 75%, #000000 100%)" }}>
-      <div className="w-full max-w-6xl bg-white rounded-2xl overflow-hidden flex shadow-2xl">
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "#f5f5f5" }}>
+      <div className="w-full max-w-[calc(100vw-2rem)] lg:max-w-4xl xl:max-w-6xl bg-white rounded-2xl overflow-hidden flex shadow-2xl">
         {/* LEFT: Green gradient panel */}
         <div
           className="w-[45%] hidden sm:flex flex-col justify-between p-8 relative min-h-[560px]"
@@ -194,6 +211,46 @@ export default function SignupPage() {
               {form.formState.errors.confirmPassword && (
                 <p className="text-xs text-red-500 mt-1">{form.formState.errors.confirmPassword.message}</p>
               )}
+            </div>
+
+            <div className="border-t border-gray-100 pt-4 mt-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Security Question (for password reset)</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1.5" htmlFor="security_question">Choose a question</label>
+                  <div className="relative">
+                    <select
+                      id="security_question"
+                      {...form.register("security_question")}
+                      className="h-11 w-full appearance-none rounded-xl border border-gray-200 bg-white pl-4 pr-10 text-sm text-gray-800 shadow-sm transition-all outline-none hover:border-gray-300 focus:border-[#16a34a] focus:shadow-[0_0_0_3px_rgba(22,163,74,0.15)] cursor-pointer"
+                    >
+                      <option value="" disabled>Select a security question</option>
+                      {SECURITY_QUESTIONS.map((q) => (
+                        <option key={q} value={q}>{q}</option>
+                      ))}
+                    </select>
+                    <svg className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  {form.formState.errors.security_question && (
+                    <p className="text-xs text-red-500 mt-1">{form.formState.errors.security_question.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1.5" htmlFor="security_answer">Your answer</label>
+                  <input
+                    id="security_answer"
+                    type="text"
+                    {...form.register("security_answer")}
+                    className="input-field w-full border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#16a34a] focus:shadow-[0_0_0_3px_rgba(22,163,74,0.15)]"
+                    placeholder="Enter your answer"
+                  />
+                  {form.formState.errors.security_answer && (
+                    <p className="text-xs text-red-500 mt-1">{form.formState.errors.security_answer.message}</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             {error && (

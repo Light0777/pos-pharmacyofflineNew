@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { IonIcon } from "@ionic/react";
-import { closeOutline, printOutline, addOutline, removeOutline } from "ionicons/icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Cancel01Icon,
+  PrinterIcon,
+  Add01Icon,
+  Remove01Icon,
+} from "@hugeicons/core-free-icons";
 
 interface Product {
   product_uuid: string;
@@ -86,7 +91,7 @@ export default function PrintLabelsModal({ products, onClose }: {
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" />
 
       <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 print:hidden">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[calc(100vw-2rem)] sm:max-w-xl lg:max-w-4xl max-h-[90vh] flex flex-col">
 
           {/* Header */}
           <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-6 text-white rounded-t-2xl flex justify-between items-center flex-shrink-0">
@@ -99,7 +104,7 @@ export default function PrintLabelsModal({ products, onClose }: {
               </p>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full">
-              <IonIcon icon={closeOutline} className="text-2xl" />
+              <HugeiconsIcon icon={Cancel01Icon} className="text-2xl"  />
             </button>
           </div>
 
@@ -157,7 +162,7 @@ export default function PrintLabelsModal({ products, onClose }: {
                             onClick={() => updateQty(item.product.product_uuid, item.quantity - 1)}
                             className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 rounded-l-lg"
                           >
-                            <IonIcon icon={removeOutline} className="text-sm" />
+                            <HugeiconsIcon icon={Remove01Icon} className="text-sm"  />
                           </button>
                           <input
                             type="number"
@@ -170,7 +175,7 @@ export default function PrintLabelsModal({ products, onClose }: {
                             onClick={() => updateQty(item.product.product_uuid, item.quantity + 1)}
                             className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 rounded-r-lg"
                           >
-                            <IonIcon icon={addOutline} className="text-sm" />
+                            <HugeiconsIcon icon={Add01Icon} className="text-sm"  />
                           </button>
                         </div>
                         <button
@@ -201,7 +206,7 @@ export default function PrintLabelsModal({ products, onClose }: {
                   onClick={handlePrint}
                   className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-xl font-semibold"
                 >
-                  <IonIcon icon={printOutline} />
+                  <HugeiconsIcon icon={PrinterIcon}  />
                   Print Labels
                 </button>
               </div>

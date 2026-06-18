@@ -444,6 +444,34 @@ export class ReportModel {
     `).all();
   }
 
+  // Daily new customer registrations (last 7 days)
+  static getCustomerTrend() {
+    const dates: string[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      dates.push(date.toISOString().split('T')[0]);
+    }
+
+    const customerData = db.prepare(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as total
+      FROM customers
+      WHERE created_at >= ?
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+    `).all(dates[0]) as Array<{ date: string; total: number }>;
+
+    const dataMap = new Map(customerData.map((d: any) => [d.date, Number(d.total)]));
+
+    return dates.map(date => ({
+      date,
+      total: dataMap.get(date) || 0,
+    }));
+  }
+
   // Add to ReportModel class
   static getDailyReport(date: string): any {
     const startDate = `${date} 00:00:00`;

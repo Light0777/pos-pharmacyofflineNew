@@ -18,83 +18,56 @@ export class ProductModel {
   static create(input: ProductCreateInput): Product {
     const productUuid = uuidv4();
 
-    const transaction = db.transaction(() => {
+    const productStmt = db.prepare(`
+      INSERT INTO products (
+        product_uuid,
+        name,
+        category_uuid,
+        barcode,
+        sku,
+        manufacturer,
+        composition,
+        description,
+        schedule_type,
+        prescription_required,
+        rack_location,
+        unit,
+        price,
+        purchase_price,
+        gst_percent,
+        stock,
+        hsn_code,
+        image,
+        discount
+      ) VALUES (
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, ?
+      )
+    `);
 
-      // INSERT PRODUCT
-      const productStmt = db.prepare(`
-        INSERT INTO products (
-          product_uuid,
-          name,
-          category_uuid,
-          subcategory,
-          barcode,
-          sku,
-          product_type,
-          manufacturer,
-          composition,
-          schedule_type,
-          prescription_required,
-          medicine_type,
-          rack_location,
-          unit,
-          price,
-          purchase_price,
-          gst_percent,
-          stock,
-          hsn_code,
-          image
-        ) VALUES (
-          ?, ?, ?, ?, ?, ?,
-          ?, ?, ?, ?, ?, ?, ?,
-          ?, ?, ?, ?, ?, ?, ?
-        )
-      `);
-
-      productStmt.run(
-        productUuid,
-        input.name,
-        input.category_uuid || null,
-        input.subcategory || null,
-        input.barcode || null,
-        input.sku || null,
-        input.product_type || 'medicine',
-        input.manufacturer || null,
-        input.composition || null,
-        input.schedule_type || 'NONE',
-        input.prescription_required || 0,
-        input.medicine_type || null,
-        input.rack_location || null,
-        input.unit || 'piece',
-        input.price,
-        input.purchase_price || 0,
-        input.gst_percent || 0,
-        input.stock || 0,
-        input.hsn_code || null,
-        input.image || null
-      );
-
-      // INSERT ATTRIBUTES
-      if (input.attributes?.length) {
-
-        const attrStmt = db.prepare(`
-          INSERT INTO product_attributes (
-            product_uuid,
-            attribute_uuid,
-            value
-          ) VALUES (?, ?, ?)
-        `);
-
-        for (const attr of input.attributes) {
-          attrStmt.run(
-            productUuid,
-            attr.attribute_uuid,
-            attr.value
-          );
-        }
-      }
-    });
-
-    transaction();
+    productStmt.run(
+      productUuid,
+      input.name,
+      input.category_uuid || null,
+      input.barcode || null,
+      input.sku || null,
+      input.manufacturer || null,
+      input.composition || null,
+      input.description || null,
+      input.schedule_type || 'NONE',
+      input.prescription_required ? 1 : 0,
+      input.rack_location || null,
+      input.unit || 'piece',
+      input.price,
+      input.purchase_price || 0,
+      input.gst_percent || 0,
+      input.stock || 0,
+      input.hsn_code || null,
+      input.image || null,
+      input.discount || 0
+    );
 
     return this.findById(productUuid)!;
   }
@@ -111,10 +84,6 @@ export class ProductModel {
     `);
 
     const product = productStmt.get(uuid) as Product | undefined;
-
-    if (!product) return undefined;
-
-    product.attributes = this.getAttributes(uuid);
 
     return product;
   }
@@ -231,10 +200,6 @@ export class ProductModel {
 
     const products = stmt.all(limit, offset) as Product[];
 
-    for (const product of products) {
-      product.attributes = this.getAttributes(product.product_uuid);
-    }
-
     const total = (
       db.prepare(`
         SELECT COUNT(*) as count
@@ -255,21 +220,15 @@ export class ProductModel {
   static search(query: string, limit: number = 20): Product[] {
 
     const stmt = db.prepare(`
-      SELECT DISTINCT p.*
-      FROM products p
-      LEFT JOIN product_attributes pa
-      ON p.product_uuid = pa.product_uuid
-
+      SELECT * FROM products
       WHERE
-        p.name LIKE ?
-        OR p.sku LIKE ?
-        OR p.barcode LIKE ?
-        OR p.composition LIKE ?
-        OR p.manufacturer LIKE ?
-        OR p.rack_location LIKE ?
-        OR pa.value LIKE ?
-
-      ORDER BY p.name ASC
+        name LIKE ?
+        OR sku LIKE ?
+        OR barcode LIKE ?
+        OR composition LIKE ?
+        OR manufacturer LIKE ?
+        OR rack_location LIKE ?
+      ORDER BY name ASC
       LIMIT ?
     `);
 
@@ -280,13 +239,8 @@ export class ProductModel {
       `%${query}%`,
       `%${query}%`,
       `%${query}%`,
-      `%${query}%`,
       limit
     ) as Product[];
-
-    for (const product of products) {
-      product.attributes = this.getAttributes(product.product_uuid);
-    }
 
     return products;
   }
@@ -304,89 +258,48 @@ export class ProductModel {
 
     if (!existing) return undefined;
 
-    const transaction = db.transaction(() => {
+    const allowedFields = [
+      'name',
+      'category_uuid',
+      'barcode',
+      'sku',
+      'manufacturer',
+      'composition',
+      'description',
+      'schedule_type',
+      'prescription_required',
+      'rack_location',
+      'unit',
+      'price',
+      'purchase_price',
+      'gst_percent',
+      'stock',
+      'hsn_code',
+      'image',
+      'discount'
+    ];
 
-      const allowedFields = [
-        'name',
-        'category_uuid',
-        'subcategory',
-        'barcode',
-        'sku',
-        'product_type',
-        'manufacturer',
-        'composition',
-        'schedule_type',
-        'prescription_required',
-        'medicine_type',
-        'rack_location',
-        'unit',
-        'price',
-        'purchase_price',
-        'gst_percent',
-        'stock',
-        'hsn_code',
-        'image'
-      ];
+    const updateFields: string[] = [];
+    const values: any[] = [];
 
-      const updateFields: string[] = [];
-      const values: any[] = [];
-
-      for (const [key, value] of Object.entries(updates)) {
-
-        if (
-          allowedFields.includes(key) &&
-          value !== undefined
-        ) {
-          updateFields.push(`${key} = ?`);
-          values.push(value);
-        }
+    for (const [key, value] of Object.entries(updates)) {
+      if (allowedFields.includes(key) && value !== undefined) {
+        updateFields.push(`${key} = ?`);
+        values.push(value);
       }
+    }
 
-      if (updateFields.length) {
+    if (updateFields.length) {
+      updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(uuid);
 
-        updateFields.push(`
-          updated_at = CURRENT_TIMESTAMP
-        `);
-
-        values.push(uuid);
-
-        const stmt = db.prepare(`
-          UPDATE products
-          SET ${updateFields.join(', ')}
-          WHERE product_uuid = ?
-        `);
-
-        stmt.run(...values);
-      }
-
-      // UPDATE ATTRIBUTES
-
-      if (updates.attributes) {
-
-        db.prepare(`
-          DELETE FROM product_attributes
-          WHERE product_uuid = ?
-        `).run(uuid);
-
-        const attrStmt = db.prepare(`
-          INSERT INTO product_attributes (
-            product_uuid,
-            attribute_uuid,
-            value
-          ) VALUES (?, ?, ?)
-        `);
-
-        for (const attr of updates.attributes) {
-          attrStmt.run(
-            uuid,
-            attr.attribute_uuid,
-            attr.value
-          );
-        }
-      }
-    });
-
-    transaction();
+      const stmt = db.prepare(`
+        UPDATE products
+        SET ${updateFields.join(', ')}
+        WHERE product_uuid = ?
+      `);
+      stmt.run(...values);
+    }
 
     return this.findById(uuid);
   }

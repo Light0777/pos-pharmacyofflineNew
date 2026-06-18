@@ -49,6 +49,8 @@ export class CartModel {
 
       ci.unit_uuid,
 
+      ci.batch_uuid,
+
       ci.quantity,
 
       ci.price,
@@ -110,6 +112,8 @@ export class CartModel {
 
       unit_uuid: string;
 
+      batch_uuid: string | null;
+
       quantity: number;
 
       price: number;
@@ -160,7 +164,7 @@ export class CartModel {
     // =========================
 
     const summary = this.calculateSummary(
-      items,
+      items as CartItem[],
       cart.discount
     );
 
@@ -203,6 +207,9 @@ export class CartModel {
 
         unit_uuid:
           item.unit_uuid,
+
+        batch_uuid:
+          item.batch_uuid || undefined,
 
         quantity:
           item.quantity,
@@ -344,7 +351,8 @@ export class CartModel {
     unitUuid: string,
     quantity: number,
     price: number,
-    taxPercent: number
+    taxPercent: number,
+    batchUuid?: string
   ): CartItem {
     // Debug: show cart_items table columns
     console.log('cart_items columns:', db.prepare('PRAGMA table_info(cart_items)').all());
@@ -355,10 +363,13 @@ export class CartModel {
       WHERE cart_uuid = ?
       AND product_uuid = ?
       AND unit_uuid = ?
+      AND (batch_uuid IS NULL AND ? IS NULL OR batch_uuid = ?)
     `).get(
       cartUuid,
       productUuid,
-      unitUuid
+      unitUuid,
+      batchUuid || null,
+      batchUuid || null
     ) as CartItem | undefined;
 
     if (existingItem) {
@@ -383,6 +394,7 @@ export class CartModel {
           cart_uuid,
           product_uuid,
           unit_uuid,
+          batch_uuid,
           quantity,
           price,
           discount,
@@ -390,7 +402,7 @@ export class CartModel {
 
         ) VALUES (
 
-          ?, ?, ?, ?, ?, ?, ?
+          ?, ?, ?, ?, ?, ?, ?, ?
 
         )
 
@@ -419,6 +431,8 @@ export class CartModel {
         productUuid,
 
         unitUuid || null,
+
+        batchUuid || null,
 
         Number(quantity),
 

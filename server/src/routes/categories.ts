@@ -32,4 +32,10 @@ router.delete(
   CategoryController.destroy
 );
 
+// UPDATE
+router.put(
+  '/:uuid',
+  CategoryController.update
+);
+
 export default router;

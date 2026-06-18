@@ -82,6 +82,8 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
+    "@hugeicons/core-free-icons": "^4.2.0",
+    "@hugeicons/react": "^1.1.6",
     "@ionic/react": "^8.8.4",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -106,7 +108,6 @@
     "esc-pos-encoder": "^3.0.0",
     "express": "^5.2.1",
     "i18next": "^26.1.0",
-    "ionicons": "^8.0.13",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.17.0",
     "next-themes": "^0.4.6",
