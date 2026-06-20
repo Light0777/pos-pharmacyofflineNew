@@ -29,6 +29,7 @@ export class PurchaseModel {
     items: Array<{
       product_uuid: string;
       batch_number: string;
+      batch_uuid?: string;
       unit_uuid?: string;
       expiry_date: string;
       manufacture_date?: string;
@@ -41,6 +42,7 @@ export class PurchaseModel {
       selling_price?: number;
       gst_percent?: number;
       discount?: number;
+      strips?: number;
     }>;
   }): PurchaseWithRelations {
 
@@ -287,53 +289,30 @@ export class PurchaseModel {
         );
 
         // =========================
-        // CREATE PRODUCT BATCH
+        // CREATE OR LINK PRODUCT BATCH
         // =========================
 
-        ProductBatchModel.create({
-
-          product_uuid:
-            item.product_uuid,
-
-          batch_number:
-            item.batch_number,
-
-          expiry_date:
-            item.expiry_date,
-
-          manufacture_date:
-            item.manufacture_date,
-
-          mrp:
-            Number(item.mrp),
-
-          ptr:
-            ptr,
-
-          rate:
-            rate,
-
-          purchase_price:
-            costPrice,
-
-          selling_price:
-            sellingPrice,
-
-          gst_percent:
-            gstPercent,
-
-          quantity:
-            normalizedQuantity,
-
-          free_quantity:
-            normalizedFreeQuantity,
-
-          supplier_uuid:
-            data.supplier_uuid,
-
-          purchase_uuid:
-            purchaseUuid
+        if (item.batch_uuid) {
+          ProductBatchModel.update(item.batch_uuid, { purchase_uuid: purchaseUuid, supplier_uuid: data.supplier_uuid });
+        } else {
+          ProductBatchModel.create({
+          product_uuid: item.product_uuid,
+          batch_number: item.batch_number,
+          expiry_date: item.expiry_date,
+          manufacture_date: item.manufacture_date,
+          mrp: Number(item.mrp),
+          ptr: ptr,
+          rate: rate,
+          purchase_price: costPrice,
+          selling_price: sellingPrice,
+          gst_percent: gstPercent,
+          quantity: normalizedQuantity,
+          free_quantity: normalizedFreeQuantity,
+          supplier_uuid: data.supplier_uuid,
+          purchase_uuid: purchaseUuid,
+          strips: item.strips || 0
         });
+        }
 
         // =========================
         // INSERT STOCK LEDGER

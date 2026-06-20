@@ -11,47 +11,33 @@ export interface User {
 }
 
 export interface Product {
-
   product_uuid: string;
-
   name: string;
-
   category_uuid?: string;
-
   barcode?: string;
-
   sku?: string;
-
   manufacturer?: string;
-
   composition?: string;
-
   description?: string;
-
   schedule_type?: string;
-
   prescription_required?: number;
-
   rack_location?: string;
-
   unit: string;
-
   price: number;
-
   purchase_price?: number;
-
   gst_percent: number;
-
   stock: number;
-
   hsn_code?: string;
-
   image?: string;
-
   discount?: number;
-
+  boxes?: number;
+  strips_per_box?: number;
+  tablets_per_strip?: number;
+  extra_tablets?: number;
+  price_per_box?: number;
+  price_per_strip?: number;
+  price_per_tablet?: number;
   created_at: string;
-
   updated_at: string;
 }
 
@@ -102,153 +88,100 @@ export interface ProductAttribute {
 }
 
 export interface ProductCreateInput {
-
   name: string;
-
   category_uuid?: string;
-
   barcode?: string;
-
   sku?: string;
-
   manufacturer?: string;
-
   composition?: string;
-
   description?: string;
-
   schedule_type?: string;
-
   prescription_required?: number;
-
   rack_location?: string;
-
   unit?: string;
-
   price: number;
-
   purchase_price?: number;
-
   gst_percent?: number;
-
   stock?: number;
-
   hsn_code?: string;
-
   image?: string;
-
   discount?: number;
+  boxes?: number;
+  strips_per_box?: number;
+  tablets_per_strip?: number;
+  extra_tablets?: number;
+  price_per_box?: number;
+  price_per_strip?: number;
+  price_per_tablet?: number;
 }
 
 export interface ProductUpdateInput {
-
   name?: string;
-
   category_uuid?: string;
-
   barcode?: string;
-
   sku?: string;
-
   manufacturer?: string;
-
   composition?: string;
-
   description?: string;
-
   schedule_type?: string;
-
   prescription_required?: number;
-
   rack_location?: string;
-
   unit?: string;
-
   price?: number;
-
   purchase_price?: number;
-
   gst_percent?: number;
-
   stock?: number;
-
   hsn_code?: string;
-
   image?: string;
-
   discount?: number;
+  boxes?: number;
+  strips_per_box?: number;
+  tablets_per_strip?: number;
+  extra_tablets?: number;
+  price_per_box?: number;
+  price_per_strip?: number;
+  price_per_tablet?: number;
 }
 
 export interface ProductBatch {
-
   batch_uuid: string;
-
   product_uuid: string;
-
   batch_number: string;
-
   expiry_date: string;
-
   manufacture_date?: string | null;
-
   mrp: number;
-
   ptr: number;
-
   rate: number;
-
   purchase_price: number;
-
   selling_price: number;
-
   gst_percent: number;
-
   quantity: number;
-
   sold_quantity: number;
-
   free_quantity: number;
-
   is_quarantined: number;
-
   supplier_uuid?: string | null;
-
   purchase_uuid?: string | null;
-
+  strips?: number;
   created_at: string;
-
   updated_at: string;
 }
 
 export interface ProductBatchCreateInput {
-
   product_uuid: string;
-
   batch_number: string;
-
   expiry_date: string;
-
   manufacture_date?: string;
-
   mrp: number;
-
   ptr?: number;
-
   rate?: number;
-
   purchase_price?: number;
-
   selling_price?: number;
-
   gst_percent?: number;
-
   quantity: number;
-
   free_quantity?: number;
-
   supplier_uuid?: string;
-
   purchase_uuid?: string;
+  strips?: number;
 }
 
 export interface ProductSearchParams {

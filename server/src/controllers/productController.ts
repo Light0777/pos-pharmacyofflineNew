@@ -25,6 +25,13 @@ export class ProductController {
         hsn_code,
         image,
         discount,
+        boxes,
+        strips_per_box,
+        tablets_per_strip,
+        extra_tablets,
+        price_per_box,
+        price_per_strip,
+        price_per_tablet,
       } = req.body;
 
       if (!name || price === undefined) {
@@ -59,6 +66,13 @@ export class ProductController {
         hsn_code,
         image,
         discount: discount !== undefined ? Number(discount) : undefined,
+        boxes: boxes !== undefined ? Number(boxes) : undefined,
+        strips_per_box: strips_per_box !== undefined ? Number(strips_per_box) : undefined,
+        tablets_per_strip: tablets_per_strip !== undefined ? Number(tablets_per_strip) : undefined,
+        extra_tablets: extra_tablets !== undefined ? Number(extra_tablets) : undefined,
+        price_per_box: price_per_box !== undefined ? Number(price_per_box) : undefined,
+        price_per_strip: price_per_strip !== undefined ? Number(price_per_strip) : undefined,
+        price_per_tablet: price_per_tablet !== undefined ? Number(price_per_tablet) : undefined,
       });
 
       res.status(201).json({ success: true, data: product });

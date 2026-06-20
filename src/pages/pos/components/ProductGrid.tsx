@@ -74,18 +74,20 @@ function UnitSelectionModal({
   const [selectedUnit, setSelectedUnit] = useState<ProductUnit | null>(null);
   const [selectedBatchUuid, setSelectedBatchUuid] = useState<string>("");
 
+  const availableUnits = units.filter(u => !(u.unit_name === "Box" && product && !(Number((product as any).boxes) > 0)));
+
   useEffect(() => {
-    if (units.length > 0 && !selectedUnitUuid) {
-      const defaultUnit = units.find(u => u.is_base_unit) || units[0];
+    if (availableUnits.length > 0 && (!selectedUnitUuid || !availableUnits.find(u => u.unit_uuid === selectedUnitUuid))) {
+      const defaultUnit = availableUnits.find(u => u.is_base_unit) || availableUnits[0];
       setSelectedUnitUuid(defaultUnit.unit_uuid);
       setSelectedUnit(defaultUnit);
     }
-  }, [units]);
+  }, [availableUnits, selectedUnitUuid]);
 
   useEffect(() => {
-    const unit = units.find(u => u.unit_uuid === selectedUnitUuid);
+    const unit = availableUnits.find(u => u.unit_uuid === selectedUnitUuid);
     setSelectedUnit(unit || null);
-  }, [selectedUnitUuid, units]);
+  }, [selectedUnitUuid, availableUnits]);
 
   useEffect(() => {
     if (batches.length > 0 && !selectedBatchUuid) {
@@ -97,7 +99,6 @@ function UnitSelectionModal({
     if (!unit) return product?.price || 0;
     return unit.price || product?.price || 0;
   };
-
   const totalPrice = selectedUnit ? (getUnitPrice(selectedUnit) * quantity).toFixed(2) : "0.00";
   const getDaysUntilExpiry = (expiryDate: string): number => {
     const today = new Date();
@@ -128,7 +129,7 @@ function UnitSelectionModal({
                 <SelectValue placeholder="Select unit type" />
               </SelectTrigger>
               <SelectContent className="bg-white border-gray-300 text-gray-900">
-                {units.map((unit) => (
+                {availableUnits.map((unit) => (
                   <SelectItem key={unit.unit_uuid} value={unit.unit_uuid}>
                     {unit.unit_name} {unit.is_base_unit && "(Base)"}
                     {unit.price && ` - ₹${unit.price}`}

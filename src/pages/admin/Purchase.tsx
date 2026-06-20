@@ -19,7 +19,7 @@ export default function PurchasePage() {
   const [error, setError] = useState<string | null>(null);
   const [batchModalPurchase, setBatchModalPurchase] = useState<any>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const pageSize = 5;
+  const pageSize = 10;
 
   useEffect(() => {
     loadData();

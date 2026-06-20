@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from "react";
+﻿import React, { useEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
@@ -98,9 +98,11 @@ interface BatchRow {
   id: string;
   batch_uuid?: string;
   batch_number: string;
-  quantity: string;
+  strips: string;
+  total_tablets: string;
   manufacture_date: string;
   expiry_date: string;
+  ptr: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────
@@ -142,11 +144,10 @@ const CATEGORY_DEFAULTS: Record<string, { schedule: string; prescription: boolea
   "cat-cosmetic":  { schedule: "NONE", prescription: false },
 };
 
-const UNIT_OPTIONS = ["Tablet", "Capsule", "Piece", "g", "ml"];
+const UNIT_OPTIONS = ["Tablets / Capsules", "Liquids", "Creams / Ointments", "Devices", "Bottle Medicine", "Piece"];
 
 const EMPTY_FORM = {
   name: "",
-  price: "",
   purchase_price: "",
   sku: "",
   barcode: "",
@@ -162,10 +163,19 @@ const EMPTY_FORM = {
   prescription_required: false,
   rack_location: "",
   discount: "",
+  boxes: "",
+  strips_per_box: "",
+  tablets_per_strip: "",
+  extra_tablets: "",
+  price_per_box: "",
+  price_per_strip: "",
+  price_per_tablet: "",
   batch_number: "",
   manufacture_date: "",
   expiry_date: "",
-  quantity: "",
+  strips: "",
+  total_tablets: "",
+  ptr: "",
   supplier_uuid: "",
   invoice_number: "",
   invoice_date: "",
@@ -864,9 +874,15 @@ export default function Products() {
 
   const handleEdit = (p: any) => {
     setEditing(p);
+    setSupplierSearch("");
+    setShowNewPurchase(false);
+    setNewSupplierSearch("");
+    setNewInvoiceNumber("");
+    setNewInvoiceDate("");
+    setNewPurchaseDiscount("");
+    setNewManualSubtotal(null);
     setForm({
       name: p.name || "",
-      price: String(p.price ?? ""),
       purchase_price: String(p.purchase_price || ""),
       sku: p.sku || "",
       barcode: p.barcode || "",
@@ -882,7 +898,14 @@ export default function Products() {
       prescription_required: Boolean(p.prescription_required),
       rack_location: p.rack_location || "",
       discount: p.discount ? String(p.discount) : "",
-      batch_number: "", quantity: "", manufacture_date: "", expiry_date: "",
+      boxes: String(p.boxes ?? ""),
+      strips_per_box: String(p.strips_per_box ?? ""),
+      tablets_per_strip: String(p.tablets_per_strip ?? ""),
+      extra_tablets: String(p.extra_tablets ?? ""),
+      price_per_box: String(p.price_per_box ?? ""),
+      price_per_strip: String(p.price_per_strip ?? ""),
+      price_per_tablet: String(p.price_per_tablet ?? ""),
+      batch_number: "", strips: "", total_tablets: "", manufacture_date: "", expiry_date: "", ptr: "",
       purchase_discount: "", supplier_uuid: "", invoice_number: "", invoice_date: "",
     });
     // Load batch data into form & store active batch UUID
@@ -892,11 +915,16 @@ export default function Products() {
       setEditingBatchUuid(active.length > 0 ? active[0].batch_uuid : null);
       setEditingPurchaseUuid(all[0]?.purchase_uuid || null);
       setOriginalBatchUuids(all.map((b: any) => b.batch_uuid).filter(Boolean));
+      const tsp = Number(p.tablets_per_strip) || 1;
       if (active.length > 0) {
         const b = active[0];
+        const stripVal = String(b.strips || (b.quantity ? Math.round(b.quantity / tsp) : 0) || 0);
+        const tabletVal = String((Number(stripVal) || 0) * (Number(p.tablets_per_strip) || 0) + (Number(p.extra_tablets) || 0));
         const updates: any = {
           batch_number: b.batch_number || "",
-          quantity: String(b.quantity || 0),
+          strips: stripVal,
+          total_tablets: tabletVal,
+          ptr: String(b.ptr ?? b.purchase_price ?? ""),
           manufacture_date: b.manufacture_date || "",
           expiry_date: b.expiry_date || "",
         };
@@ -908,7 +936,9 @@ export default function Products() {
         id: `batch-edit-${i}`,
         batch_uuid: b.batch_uuid,
         batch_number: b.batch_number || "",
-        quantity: String(b.quantity || 0),
+        strips: String(b.strips || (b.quantity ? Math.round(b.quantity / tsp) : 0) || 0),
+        total_tablets: String(b.quantity || 0),
+        ptr: String(b.ptr ?? b.purchase_price ?? ""),
         manufacture_date: b.manufacture_date || "",
         expiry_date: b.expiry_date || "",
       }));
@@ -1000,7 +1030,9 @@ export default function Products() {
     setBatchRows((prev) => [...prev, {
       id: `batch-${Date.now()}`,
       batch_number: "",
-      quantity: "",
+      strips: "",
+      total_tablets: "",
+      ptr: "",
       manufacture_date: "",
       expiry_date: "",
     }]);
@@ -1011,7 +1043,14 @@ export default function Products() {
   };
 
   const updateBatchRow = (id: string, field: string, value: string) => {
-    setBatchRows((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r));
+    setBatchRows((prev) => prev.map((r) => {
+      if (r.id !== id) return r;
+      const updated = { ...r, [field]: value };
+      if (field === "total_tablets") {
+        updated.strips = String(Math.round((Number(value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1)));
+      }
+      return updated;
+    }));
   };
 
   const handleBulkSubmit = async () => {
@@ -1110,16 +1149,14 @@ export default function Products() {
       setError("Product name is required.");
       return;
     }
-    if (form.price === "" || form.price === undefined) {
-      setError("Selling price is required. Enter 0 if not yet known.");
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
+      const isSimple = ["Liquids", "Creams / Ointments", "Devices"].includes(form.unit);
+      const tsp = Number(form.tablets_per_strip) || (isSimple ? 1 : 0);
       const payload: any = {
         name: form.name,
-        price: Number(form.price),
+        price: Number(form.price_per_tablet) || 0,
         sku: form.sku || undefined,
         barcode: form.barcode || undefined,
         gst_percent: Number(form.gst_percent) || 0,
@@ -1136,51 +1173,77 @@ export default function Products() {
       };
       if (form.purchase_price) payload.purchase_price = Number(form.purchase_price);
       if (form.discount) payload.discount = Number(form.discount);
-        const createSingleBatch = (puuid: string, bn: string, qty: number, mfg: string | undefined, exp: string | undefined) =>
-          createProductBatch({ product_uuid: puuid, batch_number: bn, manufacture_date: mfg, expiry_date: exp || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: qty, mrp: Number(form.price) || 0 });
+      if (isSimple) {
+        payload.boxes = 0; payload.strips_per_box = 0; payload.tablets_per_strip = 0; payload.extra_tablets = 0;
+        payload.price_per_box = 0; payload.price_per_strip = 0; payload.price_per_tablet = Number(form.price_per_tablet) || 0;
+      } else {
+        if (form.boxes) payload.boxes = Number(form.boxes);
+        if (form.strips_per_box) payload.strips_per_box = Number(form.strips_per_box);
+        if (form.tablets_per_strip) payload.tablets_per_strip = Number(form.tablets_per_strip);
+        if (form.extra_tablets) payload.extra_tablets = Number(form.extra_tablets);
+        if (form.price_per_box) payload.price_per_box = Number(form.price_per_box);
+        if (form.price_per_strip) payload.price_per_strip = Number(form.price_per_strip);
+        if (form.price_per_tablet) payload.price_per_tablet = Number(form.price_per_tablet);
+      }
+        const computeBatchQty = (strips: string) => (Number(strips) || 0) * tsp;
+        const batchPtr = (ptr: string) => Number(ptr) || 0;
+        const createSingleBatch = (puuid: string, bn: string, strips: string, ptr: string, mfg: string | undefined, exp: string | undefined) =>
+          createProductBatch({ product_uuid: puuid, batch_number: bn, manufacture_date: mfg, expiry_date: exp || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: computeBatchQty(strips), ptr: batchPtr(ptr), purchase_price: batchPtr(ptr), mrp: Number(form.price_per_tablet) || 0 });
 
         if (editing) {
           await updateProduct(editing.product_uuid, payload);
-          // Sync base product_unit name if unit changed
+          // Sync product_units — delete all and recreate with current prices
           const existingUnits = await getProductUnits(editing.product_uuid);
-          const baseUnit = existingUnits.find((u: any) => u.is_base_unit === 1);
-          if (baseUnit && baseUnit.unit_name !== form.unit) {
-            await deleteProductUnit(baseUnit.unit_uuid);
-            await createProductUnit({ product_uuid: editing.product_uuid, unit_name: form.unit || "Tablet", conversion_factor: 1, is_base_unit: true });
+          for (const u of existingUnits) await deleteProductUnit(u.unit_uuid);
+          const baseUnitName = form.unit || "Tablet";
+          const spb = Number(form.strips_per_box) || 0;
+          const tps = Number(form.tablets_per_strip) || (isSimple ? 1 : 0);
+          const ppb = Number(form.price_per_box) || 0;
+          const pps = Number(form.price_per_strip) || 0;
+          const ppt = Number(form.price_per_tablet) || 0;
+          await createProductUnit({ product_uuid: editing.product_uuid, unit_name: baseUnitName, conversion_factor: 1, is_base_unit: true, price: ppt || undefined });
+          if (!isSimple && tps > 0) {
+            await createProductUnit({ product_uuid: editing.product_uuid, unit_name: "Strip", conversion_factor: tps, is_base_unit: false, price: pps || undefined });
           }
-          // If new purchase details were added, create a purchase for new batches
+          if (!isSimple && Number(form.boxes) > 0 && spb > 0 && tps > 0) {
+            await createProductUnit({ product_uuid: editing.product_uuid, unit_name: "Box", conversion_factor: spb * tps, is_base_unit: false, price: ppb || undefined });
+          }
+          // If new purchase details were added, create a purchase linking all batches
           if (showNewPurchase && form.supplier_uuid) {
-            const newBatches: Array<{ batch_number: string; quantity: number; manufacture_date: string | undefined; expiry_date: string | undefined }> = [];
-            if (!editingBatchUuid && (form.batch_number || form.quantity)) {
-              newBatches.push({ batch_number: form.batch_number || "BATCH-" + Date.now(), quantity: Number(form.quantity) || 0, manufacture_date: form.manufacture_date || undefined, expiry_date: form.expiry_date || undefined });
+            const purchaseBatches: Array<{ batch_number: string; batch_uuid?: string; strips: string; ptr: string; manufacture_date: string | undefined; expiry_date: string | undefined }> = [];
+            if (form.batch_number || form.strips) {
+              purchaseBatches.push({ batch_number: form.batch_number || "BATCH-" + Date.now(), batch_uuid: editingBatchUuid || undefined, strips: form.strips, ptr: form.ptr, manufacture_date: form.manufacture_date || undefined, expiry_date: form.expiry_date || undefined });
             }
             for (const row of batchRows) {
-              if (!row.batch_uuid && row.batch_number) {
-                newBatches.push({ batch_number: row.batch_number, quantity: Number(row.quantity) || 0, manufacture_date: row.manufacture_date || undefined, expiry_date: row.expiry_date || undefined });
+              if (row.batch_number) {
+                purchaseBatches.push({ batch_number: row.batch_number, batch_uuid: row.batch_uuid || undefined, strips: row.strips, ptr: row.ptr, manufacture_date: row.manufacture_date || undefined, expiry_date: row.expiry_date || undefined });
               }
             }
-            if (newBatches.length > 0) {
+            if (purchaseBatches.length > 0) {
               await createPurchase({
                 supplier_uuid: form.supplier_uuid,
                 invoice_number: newInvoiceNumber || undefined,
                 invoice_date: newInvoiceDate || undefined,
                 discount: Number(newPurchaseDiscount) || 0,
-                items: newBatches.map(b => ({ product_uuid: editing.product_uuid, batch_number: b.batch_number, manufacture_date: b.manufacture_date, expiry_date: b.expiry_date || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: b.quantity, mrp: Number(form.price) || 0, cost_price: Number(form.purchase_price) || Number(form.price) || 0 })),
+                items: purchaseBatches.map(b => ({ product_uuid: editing.product_uuid, batch_uuid: b.batch_uuid, batch_number: b.batch_number, manufacture_date: b.manufacture_date, expiry_date: b.expiry_date || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: computeBatchQty(b.strips), strips: Number(b.strips) || 0, ptr: batchPtr(b.ptr), cost_price: batchPtr(b.ptr), mrp: Number(form.price_per_tablet) || 0 })),
               });
             }
           }
           // Update/create first batch (skip standalone creation if handled by new purchase above)
-          if (form.batch_number || form.quantity || form.manufacture_date || form.expiry_date || form.supplier_uuid) {
+          if (form.batch_number || form.strips || form.manufacture_date || form.expiry_date || form.supplier_uuid) {
             if (editingBatchUuid) {
               const batchUpdates: Record<string, any> = {};
               if (form.batch_number) batchUpdates.batch_number = form.batch_number;
-              if (form.quantity) batchUpdates.quantity = Number(form.quantity);
+              if (form.strips) batchUpdates.strips = Number(form.strips);
+              if (form.strips) batchUpdates.quantity = computeBatchQty(form.strips);
+              if (form.ptr) batchUpdates.ptr = batchPtr(form.ptr);
+              if (form.ptr) batchUpdates.purchase_price = batchPtr(form.ptr);
               if (form.manufacture_date) batchUpdates.manufacture_date = form.manufacture_date;
               if (form.expiry_date) batchUpdates.expiry_date = form.expiry_date;
               if (form.supplier_uuid) batchUpdates.supplier_uuid = form.supplier_uuid;
               await updateProductBatch(editingBatchUuid, batchUpdates);
-            } else if ((form.batch_number || form.quantity) && !(showNewPurchase && form.supplier_uuid)) {
-              await createSingleBatch(editing.product_uuid, form.batch_number || "BATCH-" + Date.now(), Number(form.quantity) || 0, form.manufacture_date || undefined, form.expiry_date || undefined);
+            } else if ((form.batch_number || form.strips) && !(showNewPurchase && form.supplier_uuid)) {
+              await createSingleBatch(editing.product_uuid, form.batch_number || "BATCH-" + Date.now(), form.strips, form.ptr, form.manufacture_date || undefined, form.expiry_date || undefined);
             }
           }
           // Create/update additional batches (skip standalone creation if handled by new purchase above)
@@ -1189,13 +1252,16 @@ export default function Products() {
             if (row.batch_uuid) {
               await updateProductBatch(row.batch_uuid, {
                 batch_number: row.batch_number,
-                quantity: Number(row.quantity) || 0,
+                strips: Number(row.strips) || 0,
+                quantity: computeBatchQty(row.strips),
+                ptr: batchPtr(row.ptr),
+                purchase_price: batchPtr(row.ptr),
                 manufacture_date: row.manufacture_date || undefined,
                 expiry_date: row.expiry_date || undefined,
-                mrp: Number(form.price) || 0,
+                mrp: Number(form.price_per_tablet) || 0,
               });
             } else if (!(showNewPurchase && form.supplier_uuid)) {
-              await createSingleBatch(editing.product_uuid, row.batch_number, Number(row.quantity) || 0, row.manufacture_date || undefined, row.expiry_date || undefined);
+              await createSingleBatch(editing.product_uuid, row.batch_number, row.strips, row.ptr, row.manufacture_date || undefined, row.expiry_date || undefined);
             }
           }
           // Delete batches removed from UI
@@ -1216,12 +1282,23 @@ export default function Products() {
           }
         } else {
           const created = await createProduct(payload);
-          // Auto-create base product_unit with conversion_factor=1
-          await createProductUnit({ product_uuid: created.product_uuid, unit_name: form.unit || "Tablet", conversion_factor: 1, is_base_unit: true });
+          const baseUnitName = form.unit || "Tablet";
+          const spb = Number(form.strips_per_box) || 0;
+          const tps = Number(form.tablets_per_strip) || (isSimple ? 1 : 0);
+          const ppb = Number(form.price_per_box) || 0;
+          const pps = Number(form.price_per_strip) || 0;
+          const ppt = Number(form.price_per_tablet) || 0;
+          await createProductUnit({ product_uuid: created.product_uuid, unit_name: baseUnitName, conversion_factor: 1, is_base_unit: true, price: ppt || undefined });
+          if (!isSimple && tps > 0) {
+            await createProductUnit({ product_uuid: created.product_uuid, unit_name: "Strip", conversion_factor: tps, is_base_unit: false, price: pps || undefined });
+          }
+          if (!isSimple && Number(form.boxes) > 0 && spb > 0 && tps > 0) {
+            await createProductUnit({ product_uuid: created.product_uuid, unit_name: "Box", conversion_factor: spb * tps, is_base_unit: false, price: ppb || undefined });
+          }
           // Collect all batch rows (first form batch + additional)
           const allBatches = [
-            { bn: form.batch_number, qty: Number(form.quantity) || 0, mfg: form.manufacture_date || undefined, exp: form.expiry_date || undefined },
-            ...batchRows.filter(r => r.batch_number).map(r => ({ bn: r.batch_number, qty: Number(r.quantity) || 0, mfg: r.manufacture_date || undefined, exp: r.expiry_date || undefined })),
+            { bn: form.batch_number, strips: form.strips, ptr: form.ptr, mfg: form.manufacture_date || undefined, exp: form.expiry_date || undefined },
+            ...batchRows.filter(r => r.batch_number).map(r => ({ bn: r.batch_number, strips: r.strips, ptr: r.ptr, mfg: r.manufacture_date || undefined, exp: r.expiry_date || undefined })),
           ].filter(b => b.bn);
           // Create purchase if supplier is selected (purchase model creates the batch)
           if (form.supplier_uuid && allBatches.length > 0) {
@@ -1230,11 +1307,11 @@ export default function Products() {
               invoice_number: form.invoice_number || undefined,
               invoice_date: form.invoice_date || undefined,
               discount: Number(form.purchase_discount) || 0,
-              items: allBatches.map(b => ({ product_uuid: created.product_uuid, batch_number: b.bn, manufacture_date: b.mfg, expiry_date: b.exp, quantity: b.qty, mrp: Number(form.price) || 0, cost_price: Number(form.purchase_price) || Number(form.price) || 0 })),
+              items: allBatches.map(b => ({ product_uuid: created.product_uuid, batch_number: b.bn, manufacture_date: b.mfg, expiry_date: b.exp, quantity: computeBatchQty(b.strips), strips: Number(b.strips) || 0, ptr: batchPtr(b.ptr), cost_price: batchPtr(b.ptr), mrp: Number(form.price_per_tablet) || 0 })),
             });
           } else {
             for (const b of allBatches) {
-              await createSingleBatch(created.product_uuid, b.bn, b.qty, b.mfg, b.exp);
+              await createSingleBatch(created.product_uuid, b.bn, b.strips, b.ptr, b.mfg, b.exp);
             }
           }
         }
@@ -1300,6 +1377,8 @@ export default function Products() {
     );
   }
 
+  const isSimpleType = ["Liquids", "Creams / Ointments", "Devices", "Piece"].includes(form.unit);
+  const isBottleMedicine = form.unit === "Bottle Medicine";
   return (
     <div className="min-h-screen bg-[#F8F9FC] p-6 space-y-5">
 
@@ -1874,15 +1953,26 @@ export default function Products() {
                   <Input label={t('products.medicineName')} required value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder={t('products.nameExample')} />
                 </div>
                 <div className="col-span-2">
+                  <Dropdown label="Category" options={CATEGORY_OPTIONS.map(c => ({ value: c.uuid, label: c.name }))} value={form.category_uuid} onChange={(uuid: string) => {
+                    setForm({ ...form, category_uuid: uuid });
+                    const dflt = CATEGORY_DEFAULTS[uuid];
+                    if (dflt) {
+                      setForm((prev) => ({
+                        ...prev,
+                        category_uuid: uuid,
+                        schedule_type: prev.schedule_type || dflt.schedule,
+                        prescription_required: prev.prescription_required ?? dflt.prescription,
+                      }));
+                    }
+                  }} />
+                </div>
+                <div className="col-span-2">
                   <Input label={t('products.composition')} value={form.composition} onChange={(e: any) => setForm({ ...form, composition: e.target.value })} placeholder={t('products.compositionExample')} />
                 </div>
                 <div className="col-span-2">
                   <Input label="Description" value={form.description || ""} onChange={(e: any) => setForm({ ...form, description: e.target.value })} placeholder="Optional description" />
                 </div>
                 <Input label={t('products.manufacturer')} value={form.manufacturer} onChange={(e: any) => setForm({ ...form, manufacturer: e.target.value })} placeholder={t('products.manufacturerExample')} />
-                <Input label={t('products.sellingPriceMrp')} required prefix="₹" type="number" value={form.price} onChange={(e: any) => setForm({ ...form, price: e.target.value })} placeholder="0.00" />
-                <Input label={t('products.purchasePricePtr')} prefix="₹" type="number" value={form.purchase_price} onChange={(e: any) => setForm({ ...form, purchase_price: e.target.value })} placeholder="0.00" />
-                <Input label="Discount (%)" prefix="%" type="number" value={form.discount || ""} onChange={(e: any) => setForm({ ...form, discount: e.target.value })} placeholder="0" />
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.gstRate')}</label>
                   <Select value={form.gst_percent} onChange={(v: string) => setForm({ ...form, gst_percent: v })} options={GST_OPTIONS} placeholder={t('products.selectGst')} />
@@ -1895,22 +1985,67 @@ export default function Products() {
                 <Input label={t('products.barcode')} value={form.barcode} onChange={(e: any) => setForm({ ...form, barcode: e.target.value })} placeholder={t('products.barcodeExample')} />
                 <Input label={t('products.sku')} value={form.sku} onChange={(e: any) => setForm({ ...form, sku: e.target.value })} placeholder={t('products.skuOptional')} />
                 <Input label={t('products.rackLocation')} value={form.rack_location} onChange={(e: any) => setForm({ ...form, rack_location: e.target.value })} placeholder={t('products.rackExample')} />
-                <Dropdown label="Unit" options={UNIT_OPTIONS.map(u => ({ value: u, label: u }))} value={form.unit} onChange={(v: string) => setForm({ ...form, unit: v })} />
-                <Dropdown label="Category" options={CATEGORY_OPTIONS.map(c => ({ value: c.uuid, label: c.name }))} value={form.category_uuid} onChange={(uuid: string) => {
-                  setForm({ ...form, category_uuid: uuid });
-                  const dflt = CATEGORY_DEFAULTS[uuid];
-                  if (dflt) {
-                    setForm((prev) => ({
-                      ...prev,
-                      category_uuid: uuid,
-                      schedule_type: prev.schedule_type || dflt.schedule,
-                      prescription_required: prev.prescription_required ?? dflt.prescription,
-                    }));
-                  }
-                }} />
                 <div className="flex items-end pb-1">
                   <Toggle checked={form.prescription_required} onChange={(v: boolean) => setForm({ ...form, prescription_required: v })} label={t('products.prescriptionRequired')} />
                 </div>
+
+                {/* ─── Package Section (Tablets / Capsules / Bottle Medicine only) ─── */}
+                {!isSimpleType && (
+                <div className="col-span-2">
+                  <hr className="border-slate-200 my-4" />
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Package</div>
+                  <div className="mb-4">
+                    <Dropdown label="Product Type" options={UNIT_OPTIONS.map(u => ({ value: u, label: u }))} value={form.unit} onChange={(v: string) => setForm({ ...form, unit: v })} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                    <Input label="Box =" type="number" value={form.boxes} onChange={(e: any) => setForm({ ...form, boxes: e.target.value })} placeholder="0" />
+                    <Input label={isBottleMedicine ? "1 box = bottles" : "1 box = strips"} type="number" value={form.strips_per_box} onChange={(e: any) => setForm({ ...form, strips_per_box: e.target.value })} placeholder="0" />
+                    <Input label={isBottleMedicine ? "1 bottle = tablets" : "1 strip = tablets"} type="number" value={form.tablets_per_strip} onChange={(e: any) => setForm({ ...form, tablets_per_strip: e.target.value })} placeholder="0" />
+                    <Input label="Extra tablets" type="number" value={form.extra_tablets} onChange={(e: any) => setForm({ ...form, extra_tablets: e.target.value })} placeholder="0" />
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <div className="px-4 py-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
+                      <span className="text-sm font-medium text-slate-600">Total Strips</span>
+                      <span className="text-lg font-bold text-blue-600">
+                        {(Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0)}
+                      </span>
+                    </div>
+                    <div className="px-4 py-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
+                      <span className="text-sm font-medium text-slate-600">Total Tablets</span>
+                      <span className="text-lg font-bold text-emerald-600">
+                        {(Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                )}
+
+                {/* ─── Simple type fields (Liquids / Creams / Devices) ─── */}
+                {isSimpleType && (
+                <div className="col-span-2">
+                  <hr className="border-slate-200 my-4" />
+                  <div className="mb-4">
+                    <Dropdown label="Product Type" options={UNIT_OPTIONS.map(u => ({ value: u, label: u }))} value={form.unit} onChange={(v: string) => setForm({ ...form, unit: v })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <Input label="Price per product" prefix="₹" type="number" value={form.price_per_tablet} onChange={(e: any) => setForm({ ...form, price_per_tablet: e.target.value })} placeholder="0" />
+                    <Input label="Total stock" type="number" value={form.total_tablets} onChange={(e: any) => { setForm({ ...form, total_tablets: e.target.value }); }} placeholder="0" />
+                  </div>
+                </div>
+                )}
+
+                {/* ─── Pricing Section (Tablets / Capsules / Bottle Medicine only) ─── */}
+                {!isSimpleType && (
+                <div className="col-span-2">
+                  <hr className="border-slate-200 my-4" />
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Pricing</div>
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                    <Input label="Price per box" prefix="₹" type="number" value={form.price_per_box} onChange={(e: any) => setForm({ ...form, price_per_box: e.target.value })} placeholder="0" />
+                    <Input label={isBottleMedicine ? "Price per bottle" : "Price per strip"} prefix="₹" type="number" value={form.price_per_strip} onChange={(e: any) => setForm({ ...form, price_per_strip: e.target.value })} placeholder="0" />
+                    <Input label="Price per tablet" prefix="₹" type="number" value={form.price_per_tablet} onChange={(e: any) => setForm({ ...form, price_per_tablet: e.target.value })} placeholder="0" />
+                  </div>
+                </div>
+                )}
 
                 <div className="col-span-2">
                   <hr className="border-slate-200 my-4" />
@@ -1919,7 +2054,9 @@ export default function Products() {
                     <div className="border border-slate-200 rounded-xl p-4 bg-white">
                       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                         <Input label="Batch No" value={form.batch_number} onChange={(e: any) => setForm({ ...form, batch_number: e.target.value })} placeholder="e.g. B001" />
-                        <Input label="Quantity" type="number" value={form.quantity} onChange={(e: any) => setForm({ ...form, quantity: e.target.value })} placeholder="0" />
+                        <Input label={isSimpleType ? "Total products" : "Total Tablets"} type="number" value={form.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.reduce((s, r) => s + (Number(r.total_tablets) || 0), 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => { setForm({ ...form, total_tablets: e.target.value, strips: String(Math.round((Number(e.target.value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))) }); }} placeholder="0" />
+                        <Input label="PTR" type="number" step="0.01" value={form.ptr} onChange={(e: any) => setForm({ ...form, ptr: e.target.value })} placeholder="0.00" />
+                        
                         <div>
                           <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Mfg Date</label>
                           <div className="relative">
@@ -1960,7 +2097,7 @@ export default function Products() {
                         </div>
                       </div>
                     </div>
-                    {batchRows.map((row) => (
+                    {batchRows.map((row, idx) => (
                       <div key={row.id} className="border border-slate-200 rounded-xl p-4 bg-white relative">
                         <button
                           type="button"
@@ -1971,7 +2108,8 @@ export default function Products() {
                         </button>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                           <Input label="Batch No" value={row.batch_number} onChange={(e: any) => updateBatchRow(row.id, "batch_number", e.target.value)} placeholder="e.g. B002" />
-                          <Input label="Quantity" type="number" value={row.quantity} onChange={(e: any) => updateBatchRow(row.id, "quantity", e.target.value)} placeholder="0" />
+                          <Input label={isSimpleType ? "Total products" : "Total Tablets"} type="number" value={row.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.slice(0, idx).reduce((s, r) => s + (Number(r.total_tablets) || 0), 0) + (Number(row.total_tablets) || 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => updateBatchRow(row.id, "total_tablets", e.target.value)} placeholder="0" />
+                          <Input label="PTR" type="number" step="0.01" value={row.ptr} onChange={(e: any) => updateBatchRow(row.id, "ptr", e.target.value)} placeholder="0.00" />
                           <div>
                             <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Mfg Date</label>
                             <input type="date" value={row.manufacture_date} onChange={(e: any) => updateBatchRow(row.id, "manufacture_date", e.target.value)} className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
@@ -2074,7 +2212,7 @@ export default function Products() {
                       <div className="flex justify-between"><span className="text-slate-500">Invoice No</span><span>{form.invoice_number || "-"}</span></div>
                       <div className="flex justify-between"><span className="text-slate-500">Invoice Date</span><span>{form.invoice_date ? format(new Date(form.invoice_date + "T00:00:00"), "dd MMM yyyy") : "-"}</span></div>
                       <div className="flex justify-between"><span className="text-slate-500">Discount</span><span>₹{Number(form.purchase_discount || 0).toFixed(2)}</span></div>
-                      <div className="flex justify-between border-t border-slate-200 pt-2 mt-1"><span className="font-medium">Subtotal</span><span className="font-bold text-emerald-600">₹{(() => { const q = (Number(form.quantity) || 0) + batchRows.reduce((s, r) => s + (Number(r.quantity) || 0), 0); const c = Number(form.purchase_price) || 0; const d = Number(form.purchase_discount) || 0; return Math.max(0, q * c - d).toFixed(2); })()}</span></div>
+                      <div className="flex justify-between border-t border-slate-200 pt-2 mt-1"><span className="font-medium">Subtotal</span><span className="font-bold text-emerald-600">₹{(() => { const q = ((Number(form.strips) || 0) + batchRows.reduce((s, r) => s + (Number(r.strips) || 0), 0)) * (Number(form.tablets_per_strip) || 0); const c = Number(form.purchase_price) || 0; const d = Number(form.purchase_discount) || 0; return Math.max(0, q * c - d).toFixed(2); })()}</span></div>
                     </div>
                     {showNewPurchase && (
                       <>
@@ -2210,7 +2348,7 @@ export default function Products() {
                         </div>
                         {/* Subtotal */}
                         {(() => {
-                          const qty = (Number(form.quantity) || 0) + batchRows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+                          const qty = ((Number(form.strips) || 0) + batchRows.reduce((sum, r) => sum + (Number(r.strips) || 0), 0)) * (Number(form.tablets_per_strip) || 0);
                           const cost = Number(form.purchase_price) || 0;
                           const disc = Number(newPurchaseDiscount) || 0;
                           const autoSubtotal = Math.max(0, qty * cost - disc);
@@ -2251,9 +2389,8 @@ export default function Products() {
                 ) : (
                 <>
                 <hr className="border-slate-200 my-4" />
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Purchase Details (Optional)</div>
-
-
+                  <div className="border border-slate-200 rounded-xl p-5 bg-white">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">Purchase Details (Optional)</div>
 
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                     {/* Supplier Combobox */}
@@ -2352,10 +2489,9 @@ export default function Products() {
                     <Input label="Supplier Discount (₹)" type="number" value={form.purchase_discount} onChange={(e: any) => { setForm({ ...form, purchase_discount: e.target.value }); setManualSubtotal(null); }} placeholder="0" />
                   </div>
 
-
                   {/* Subtotal */}
                   {(() => {
-                    const qty = (Number(form.quantity) || 0) + batchRows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+                    const qty = ((Number(form.strips) || 0) + batchRows.reduce((sum, r) => sum + (Number(r.strips) || 0), 0)) * (Number(form.tablets_per_strip) || 0);
                     const cost = Number(form.purchase_price) || 0;
                     const disc = Number(form.purchase_discount) || 0;
                     const autoSubtotal = Math.max(0, qty * cost - disc);
@@ -2376,9 +2512,9 @@ export default function Products() {
                       </div>
                     );
                   })()}
+                  </div>
                 </>
                 )}
-
               {editing && (
                 <div className="border-2 border-dashed border-red-300 rounded-xl p-4 bg-red-50/50 mt-5">
                   <div className="flex items-center gap-2 mb-2">

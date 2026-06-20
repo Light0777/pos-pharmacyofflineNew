@@ -25,12 +25,12 @@ export class ProductBatchModel {
         batch_uuid, product_uuid, batch_number, expiry_date, manufacture_date,
         mrp, ptr, rate, purchase_price, selling_price, gst_percent,
         quantity, sold_quantity, free_quantity, is_quarantined,
-        supplier_uuid, purchase_uuid
+        supplier_uuid, purchase_uuid, strips
       ) VALUES (
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?,
-        ?, ?
+        ?, ?, ?
       )
     `);
 
@@ -51,7 +51,8 @@ export class ProductBatchModel {
       input.free_quantity || 0,
       0,
       input.supplier_uuid || null,
-      input.purchase_uuid || null
+      input.purchase_uuid || null,
+      input.strips || 0
     );
 
     this.recalculateProductStock(input.product_uuid);

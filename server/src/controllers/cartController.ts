@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { CartModel } from '../models/Cart';
 import { ProductModel } from '../models/Product';
+import { ProductUnitModel } from '../models/ProductUnit';
 import type { AuthRequest } from '../middleware/auth';
 
 export class CartController {
@@ -112,13 +113,17 @@ export class CartController {
         return;
       }
 
+      // Look up unit price from product_unit, fall back to product.price
+      const productUnit = ProductUnitModel.findById(String(unit_uuid));
+      const unitPrice = productUnit?.price ?? product.price;
+
       // Add item to cart
       const item = CartModel.addItem(
         cartUuid,
         product.product_uuid,
         String(unit_uuid),
         qty,
-        product.price,
+        unitPrice,
         product.gst_percent || 0,
         batch_uuid
       );

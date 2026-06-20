@@ -572,6 +572,14 @@ export function runMigrations(): void {
     { table: 'purchases', column: 'invoice_number', def: 'TEXT' },
     { table: 'purchases', column: 'invoice_date', def: 'TEXT' },
     { table: 'cart_items', column: 'batch_uuid', def: 'TEXT' },
+    { table: 'products', column: 'boxes', def: 'INTEGER DEFAULT 0' },
+    { table: 'products', column: 'strips_per_box', def: 'INTEGER DEFAULT 0' },
+    { table: 'products', column: 'tablets_per_strip', def: 'INTEGER DEFAULT 0' },
+    { table: 'products', column: 'extra_tablets', def: 'INTEGER DEFAULT 0' },
+    { table: 'products', column: 'price_per_box', def: 'REAL DEFAULT 0' },
+    { table: 'products', column: 'price_per_strip', def: 'REAL DEFAULT 0' },
+    { table: 'products', column: 'price_per_tablet', def: 'REAL DEFAULT 0' },
+    { table: 'product_batches', column: 'strips', def: 'REAL DEFAULT 0' },
   ];
   for (const fix of fixColumns) {
     try {

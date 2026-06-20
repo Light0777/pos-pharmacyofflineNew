@@ -160,10 +160,12 @@ export class ReportModel {
         p.price,
         p.stock,
         SUM(si.quantity) as total_qty,
-        SUM(si.price * si.quantity) as total_revenue
+        SUM(si.price * si.quantity) as total_revenue,
+        COALESCE(SUM(si.quantity * COALESCE(pb.ptr, 0)), 0) as total_cost
       FROM sale_items si
       JOIN sales s ON si.sale_uuid = s.sale_uuid
       LEFT JOIN products p ON si.product_uuid = p.product_uuid
+      LEFT JOIN product_batches pb ON si.batch_uuid = pb.batch_uuid
       GROUP BY si.product_uuid
       ORDER BY total_qty DESC
       LIMIT 5
@@ -178,7 +180,9 @@ export class ReportModel {
       price: item.price,
       stock: item.stock,
       total_qty: item.total_qty,
-      total_revenue: Math.round(item.total_revenue * 100) / 100
+      total_revenue: Math.round(item.total_revenue * 100) / 100,
+      total_cost: Math.round(item.total_cost * 100) / 100,
+      total_profit: Math.round((item.total_revenue - item.total_cost) * 100) / 100
     }));
   }
 
@@ -206,11 +210,11 @@ export class ReportModel {
       WHERE return_type = 'customer_return'
     `).get() as any).total;
 
-    // Calculate total cost from purchases
+    // Calculate COGS from sale items × batch PTR
     const cost = (db.prepare(`
-      SELECT COALESCE(SUM(pi.cost_price * pi.quantity), 0) as total
-      FROM purchase_items pi
-      JOIN purchases p ON pi.purchase_uuid = p.purchase_uuid
+      SELECT COALESCE(SUM(si.quantity * COALESCE(pb.ptr, 0)), 0) as total
+      FROM sale_items si
+      LEFT JOIN product_batches pb ON si.batch_uuid = pb.batch_uuid
     `).get() as any).total;
 
     const revenueNum = Number(revenue) || 0;
@@ -310,15 +314,16 @@ export class ReportModel {
       GROUP BY DATE(created_at)
     `).all(startDateStr) as Array<{ date: string; total: number }>;
 
-    // Get purchases per day
+    // Get COGS per day from sale items × batch PTR
     const purchasesByDay = db.prepare(`
       SELECT 
-        DATE(p.created_at) as date,
-        COALESCE(SUM(pi.cost_price * pi.quantity), 0) as cost
-      FROM purchases p
-      JOIN purchase_items pi ON p.purchase_uuid = pi.purchase_uuid
-      WHERE p.created_at >= ?
-      GROUP BY DATE(p.created_at)
+        DATE(s.created_at) as date,
+        COALESCE(SUM(si.quantity * COALESCE(pb.ptr, 0)), 0) as cost
+      FROM sale_items si
+      JOIN sales s ON si.sale_uuid = s.sale_uuid
+      LEFT JOIN product_batches pb ON si.batch_uuid = pb.batch_uuid
+      WHERE s.created_at >= ?
+      GROUP BY DATE(s.created_at)
     `).all(startDateStr) as Array<{ date: string; cost: number }>;
 
     // Create maps for quick lookup
@@ -402,10 +407,12 @@ export class ReportModel {
         COUNT(DISTINCT si.sale_uuid) as order_count,
         COALESCE(SUM(si.quantity), 0) as total_qty,
         COALESCE(SUM(si.price * si.quantity), 0) as total_revenue,
-        COALESCE(SUM(si.tax_amount), 0) as total_tax
+        COALESCE(SUM(si.tax_amount), 0) as total_tax,
+        COALESCE(SUM(si.quantity * COALESCE(pb.ptr, 0)), 0) as total_cost
       FROM sale_items si
       JOIN sales s ON si.sale_uuid = s.sale_uuid
       JOIN products p ON si.product_uuid = p.product_uuid
+      LEFT JOIN product_batches pb ON si.batch_uuid = pb.batch_uuid
       WHERE 1=1
     `;
     const params: any[] = [];
@@ -489,10 +496,11 @@ export class ReportModel {
       COALESCE(SUM(total), 0) as subtotal,
       COALESCE(SUM(tax), 0) as total_tax,
       COALESCE(SUM(grand_total), 0) as grand_total,
-      COALESCE((SELECT SUM(refund_amount) FROM medicine_returns WHERE return_type = 'customer_return' AND created_at BETWEEN ? AND ?), 0) as total_refunds
+      COALESCE((SELECT SUM(refund_amount) FROM medicine_returns WHERE return_type = 'customer_return' AND created_at BETWEEN ? AND ?), 0) as total_refunds,
+      COALESCE((SELECT SUM(si.quantity * COALESCE(pb.ptr, 0)) FROM sale_items si JOIN product_batches pb ON si.batch_uuid = pb.batch_uuid JOIN sales s2 ON si.sale_uuid = s2.sale_uuid WHERE s2.created_at BETWEEN ? AND ?), 0) as total_cost
     FROM sales
     WHERE created_at BETWEEN ? AND ?
-  `).get(startDate, endDate, startDate, endDate) as any;
+  `).get(startDate, endDate, startDate, endDate, startDate, endDate, startDate, endDate) as any;
 
     // Payment breakdown
     const payments = db.prepare(`
@@ -525,10 +533,12 @@ export class ReportModel {
     SELECT
       p.name,
       SUM(si.quantity) as qty_sold,
-      COALESCE(SUM(si.total), 0) as revenue
+      COALESCE(SUM(si.total), 0) as revenue,
+      COALESCE(SUM(si.quantity * COALESCE(pb.ptr, 0)), 0) as cost
     FROM sale_items si
     JOIN sales s ON si.sale_uuid = s.sale_uuid
     JOIN products p ON si.product_uuid = p.product_uuid
+    LEFT JOIN product_batches pb ON si.batch_uuid = pb.batch_uuid
     WHERE s.created_at BETWEEN ? AND ?
     GROUP BY si.product_uuid
     ORDER BY qty_sold DESC
@@ -537,6 +547,7 @@ export class ReportModel {
       name: string;
       qty_sold: number;
       revenue: number;
+      cost: number;
     }>;
 
     // List of bills

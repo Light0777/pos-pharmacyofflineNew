@@ -153,6 +153,11 @@ export class PurchaseController {
           unit_uuid:
             String(item.unit_uuid),
 
+          batch_uuid:
+            item.batch_uuid
+              ? String(item.batch_uuid)
+              : undefined,
+
           batch_number:
             String(item.batch_number),
 
@@ -201,6 +206,11 @@ export class PurchaseController {
           discount:
             item.discount !== undefined
               ? Number(item.discount)
+              : 0,
+
+          strips:
+            item.strips !== undefined
+              ? Number(item.strips)
               : 0
         }));
 

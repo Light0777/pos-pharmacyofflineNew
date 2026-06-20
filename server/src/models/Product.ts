@@ -38,12 +38,21 @@ export class ProductModel {
         stock,
         hsn_code,
         image,
-        discount
+        discount,
+        boxes,
+        strips_per_box,
+        tablets_per_strip,
+        extra_tablets,
+        price_per_box,
+        price_per_strip,
+        price_per_tablet
       ) VALUES (
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?,
-        ?, ?, ?, ?
+        ?, ?, ?, ?,
+        ?, ?, ?, ?,
+        ?, ?, ?
       )
     `);
 
@@ -66,7 +75,14 @@ export class ProductModel {
       input.stock || 0,
       input.hsn_code || null,
       input.image || null,
-      input.discount || 0
+      input.discount || 0,
+      input.boxes || 0,
+      input.strips_per_box || 0,
+      input.tablets_per_strip || 0,
+      input.extra_tablets || 0,
+      input.price_per_box || 0,
+      input.price_per_strip || 0,
+      input.price_per_tablet || 0
     );
 
     return this.findById(productUuid)!;
@@ -276,7 +292,14 @@ export class ProductModel {
       'stock',
       'hsn_code',
       'image',
-      'discount'
+      'discount',
+      'boxes',
+      'strips_per_box',
+      'tablets_per_strip',
+      'extra_tablets',
+      'price_per_box',
+      'price_per_strip',
+      'price_per_tablet'
     ];
 
     const updateFields: string[] = [];
