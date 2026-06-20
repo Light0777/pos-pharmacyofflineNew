@@ -20,6 +20,9 @@ Manage product creation/editing with multi-batch system, unit/category dropdowns
 ## Progress
 
 ### Done
+- Product delete FK fix: moved `PRAGMA foreign_keys = OFF` outside the transaction (SQLite ignores it inside transactions) with `try/finally` to ensure FK checks are always re-enabled
+- POS UnitSelectionModal shows "Available: X [unit]" before Quantity input, computed from selected batch's tablet qty ÷ unit's `conversion_factor`
+- POS + button disabled when quantity reaches available stock; input also clamps to max on manual entry and on unit/batch change
 - Removed `form` field entirely from all files (types, migration, model, controller, Products.tsx)
 - Fixed edit page unit default from "Strip" to "Tablet" to match UNIT_OPTIONS
 - When editing product unit, the base `product_unit` record is now deleted/recreated to keep it in sync

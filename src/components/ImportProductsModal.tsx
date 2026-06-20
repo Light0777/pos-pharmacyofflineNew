@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -86,7 +87,7 @@ export default function ImportProductsModal({ onClose, onImported }: { onClose: 
   // Helper to truncate file name
   const displayFileName = fileName.length > 40 ? fileName.slice(0, 37) + '...' : fileName;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[calc(100vw-2rem)] sm:max-w-xl lg:max-w-3xl max-h-[90vh] flex flex-col">
 
@@ -265,6 +266,7 @@ export default function ImportProductsModal({ onClose, onImported }: { onClose: 
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

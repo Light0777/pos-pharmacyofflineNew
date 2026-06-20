@@ -6,6 +6,7 @@ import {
   Delete01Icon,
 } from "@hugeicons/core-free-icons";
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 interface InvoiceReceiptProps {
@@ -232,12 +233,13 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
   }, [formattedInvoice]);
 
   if (!formattedInvoice) {
-    return (
+    return createPortal(
       <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center">
         <div className="bg-white rounded-xl p-6">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
@@ -263,7 +265,7 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
   const totalCgst = hcgstTotal.reduce((s: number, g: any) => s + g.cgst, 0);
   const totalSgst = hcgstTotal.reduce((s: number, g: any) => s + g.sgst, 0);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}>
       <div className="absolute inset-0 overflow-y-auto flex flex-col items-center p-4">
       <div className="flex flex-col items-center gap-4 w-full max-w-[210mm] pb-20">
@@ -641,6 +643,7 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
           #receipt, #receipt * { visibility: visible; }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }

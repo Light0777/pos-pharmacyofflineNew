@@ -65,35 +65,6 @@ interface Product {
   discount?: number;
 }
 
-interface BulkRow {
-  uuid: string;
-  name: string;
-  composition: string;
-  description: string;
-  manufacturer: string;
-  price: string;
-  purchase_price: string;
-  discount: string;
-  gst_percent: string;
-  schedule_type: string;
-  hsn_code: string;
-  barcode: string;
-  sku: string;
-  rack_location: string;
-  category_uuid: string;
-  prescription_required: boolean;
-  unit: string;
-  batch_number: string;
-  quantity: string;
-  manufacture_date: string;
-  expiry_date: string;
-  supplier_name: string;
-  invoice_number: string;
-  invoice_date: string;
-  purchase_discount: string;
-  manual_subtotal: string | null;
-}
-
 interface BatchRow {
   id: string;
   batch_uuid?: string;
@@ -182,6 +153,7 @@ const EMPTY_FORM = {
   invoice_number: "",
   invoice_date: "",
   purchase_discount: "",
+  purchase_total: "",
 };
 
 // ─── Reusable UI Components ───────────────────────────────────────────────
@@ -364,6 +336,7 @@ export default function Products() {
   const [expiryPickPos, setExpiryPickPos] = useState({ top: 0, right: 0 });
   const mfgBtnRef = useRef<HTMLButtonElement>(null);
   const expiryBtnRef = useRef<HTMLButtonElement>(null);
+  const [batchDatePicker, setBatchDatePicker] = useState<{ id: string; field: 'mfg' | 'exp'; top: number; right: number } | null>(null);
   const [invoiceShowPicker, setInvoiceShowPicker] = useState(false);
   const invoiceBtnRef = useRef<HTMLButtonElement>(null);
   const [invoicePickPos, setInvoicePickPos] = useState({ top: 0, right: 0 });
@@ -400,6 +373,7 @@ export default function Products() {
   const [manualSubtotal, setManualSubtotal] = useState<string | null>(null);
   const [batchRows, setBatchRows] = useState<BatchRow[]>([]);
   const [originalBatchUuids, setOriginalBatchUuids] = useState<string[]>([]);
+  const [deleteBatchConfirm, setDeleteBatchConfirm] = useState<string | null>(null);
   const [showNewPurchase, setShowNewPurchase] = useState(false);
   const [newSupplierSearch, setNewSupplierSearch] = useState("");
   const [newSupplierDropdownOpen, setNewSupplierDropdownOpen] = useState(false);
@@ -410,14 +384,9 @@ export default function Products() {
   const [newInvoicePickPos, setNewInvoicePickPos] = useState({ top: 0, right: 0 });
   const newInvoiceBtnRef = useRef<HTMLButtonElement>(null);
   const [newManualSubtotal, setNewManualSubtotal] = useState<string | null>(null);
-  const [showBulkModal, setShowBulkModal] = useState(false);
-  const [bulkRows, setBulkRows] = useState<BulkRow[]>([]);
-  const [bulkSubmitting, setBulkSubmitting] = useState(false);
-  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
-  const [copyBuffer, setCopyBuffer] = useState<Partial<BulkRow> | null>(null);
-  const [ctxMenu, setCtxMenu] = useState<{ row: BulkRow; x: number; y: number } | null>(null);
-  const ctxMenuRef = useRef<HTMLDivElement>(null);
-  const bulkTableRef = useRef<HTMLDivElement>(null);
+  const [newPurchaseBatchIds, setNewPurchaseBatchIds] = useState<string[]>([]);
+  const [newPurchaseBatchOpen, setNewPurchaseBatchOpen] = useState(false);
+
 
   // Advanced filter state
   const [showFilters, setShowFilters] = useState(false);
@@ -567,6 +536,17 @@ export default function Products() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [expiryShowPicker]);
+
+  useEffect(() => {
+    if (!batchDatePicker) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('#batch-date-popup') || target.closest('.batch-date-btn')) return;
+      setBatchDatePicker(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [batchDatePicker]);
 
   useEffect(() => {
     if (!invoiceShowPicker || !invoiceBtnRef.current) return;
@@ -791,35 +771,6 @@ export default function Products() {
   }, [editing]);
 
   useEffect(() => {
-    if (!ctxMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (ctxMenuRef.current && !ctxMenuRef.current.contains(e.target as Node)) setCtxMenu(null);
-    };
-    const keyHandler = (e: KeyboardEvent) => { if (e.key === "Escape") setCtxMenu(null); };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("keydown", keyHandler);
-    return () => { document.removeEventListener("mousedown", handler); document.removeEventListener("keydown", keyHandler); };
-  }, [ctxMenu]);
-
-  useEffect(() => {
-    if (!showBulkModal) return;
-    const el = bulkTableRef.current;
-    if (!el) return;
-    const handler = (e: MouseEvent) => {
-      e.preventDefault();
-      const tr = (e.target as HTMLElement).closest("tr");
-      if (!tr) return;
-      const idx = Array.from(tr.parentElement!.children).indexOf(tr);
-      const row = bulkRows[idx];
-      if (!row) return;
-      const mx = e.clientX, my = e.clientY;
-      setCtxMenu({ row, x: Math.min(mx, window.innerWidth - 168), y: Math.min(my, window.innerHeight - 208) });
-    };
-    el.addEventListener("contextmenu", handler);
-    return () => el.removeEventListener("contextmenu", handler);
-  }, [showBulkModal, bulkRows]);
-
-  useEffect(() => {
     getSuppliers().then((data) => {
       const list = Array.isArray(data) ? data : [];
       setSuppliers(list);
@@ -963,6 +914,7 @@ export default function Products() {
               invoice_number: latest.invoice_number || "",
               invoice_date: latest.invoice_date || "",
               purchase_discount: latest.discount ? String(latest.discount) : "",
+              purchase_total: latest.total ? String(latest.total) : "",
             }));
             // Set supplierSearch for read-only display
             if (latest.supplier_uuid) {
@@ -1007,29 +959,6 @@ export default function Products() {
     }
   };
 
-  const createEmptyBulkRow = (): BulkRow => ({
-    uuid: crypto.randomUUID(),
-    name: "", composition: "", description: "", manufacturer: "",
-    price: "", purchase_price: "", discount: "", gst_percent: "12",
-    schedule_type: "NONE", hsn_code: "", barcode: "", sku: "",
-    rack_location: "", category_uuid: "", prescription_required: false,
-    unit: "Strip", batch_number: "", quantity: "", manufacture_date: "",
-    expiry_date: "", supplier_name: "", invoice_number: "", invoice_date: "",
-    purchase_discount: "", manual_subtotal: null,
-  });
-
-  const updateBulkRow = (uuid: string, updates: Partial<BulkRow>) => {
-    setBulkRows((prev) => prev.map((r) => (r.uuid === uuid ? { ...r, ...updates } : r)));
-  };
-
-  const removeBulkRow = (uuid: string) => {
-    setBulkRows((prev) => prev.filter((r) => r.uuid !== uuid));
-  };
-
-  const addBulkRow = () => {
-    setBulkRows((prev) => [...prev, createEmptyBulkRow()]);
-  };
-
   const addBatchRow = () => {
     setBatchRows((prev) => [...prev, {
       id: `batch-${Date.now()}`,
@@ -1045,6 +974,11 @@ export default function Products() {
 
   const removeBatchRow = (id: string) => {
     setBatchRows((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const confirmDeleteBatch = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setDeleteBatchConfirm(id);
   };
 
   const updateBatchRow = (id: string, field: string, value: string) => {
@@ -1066,81 +1000,6 @@ export default function Products() {
       return updated;
     }));
   };
-
-  const handleBulkSubmit = async () => {
-    const valid = bulkRows.filter((r) => r.name.trim());
-    if (valid.length === 0) { setError("At least one product needs a name."); return; }
-    setBulkSubmitting(true);
-    setBulkProgress({ current: 0, total: valid.length });
-    let successCount = 0;
-    for (let i = 0; i < valid.length; i++) {
-      const row = valid[i];
-      setBulkProgress({ current: i + 1, total: valid.length });
-      try {
-        const payload: any = {
-          name: row.name,
-          price: Number(row.price) || 0,
-          sku: row.sku || undefined,
-          barcode: row.barcode || undefined,
-          gst_percent: Number(row.gst_percent) || 0,
-          hsn_code: row.hsn_code || undefined,
-          unit: row.unit || "Tablet",
-          category_uuid: row.category_uuid || undefined,
-          manufacturer: row.manufacturer || undefined,
-          composition: row.composition || undefined,
-          description: row.description || undefined,
-          schedule_type: row.schedule_type || "NONE",
-          prescription_required: row.prescription_required ? 1 : 0,
-          rack_location: row.rack_location || undefined,
-        };
-        if (row.purchase_price) payload.purchase_price = Number(row.purchase_price);
-        if (row.discount) payload.discount = Number(row.discount);
-        const created = await createProduct(payload);
-        await createProductUnit({
-          product_uuid: created.product_uuid,
-          unit_name: row.unit || "Tablet",
-          conversion_factor: 1,
-          is_base_unit: true,
-        });
-        const matchedSupplier = row.supplier_name ? suppliers.find((s) => s.name.toLowerCase() === row.supplier_name.toLowerCase()) : null;
-        if (matchedSupplier) {
-          await createPurchase({
-            supplier_uuid: matchedSupplier.supplier_uuid,
-            invoice_number: row.invoice_number || undefined,
-            invoice_date: row.invoice_date || undefined,
-            discount: Number(row.purchase_discount) || 0,
-            items: [{
-              product_uuid: created.product_uuid,
-              batch_number: row.batch_number || "BATCH-001",
-              manufacture_date: row.manufacture_date || undefined,
-              expiry_date: row.expiry_date || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0],
-              quantity: Number(row.quantity) || 0,
-              mrp: Number(row.price) || 0,
-              cost_price: Number(row.purchase_price) || Number(row.price) || 0,
-            }],
-          });
-        } else if (row.batch_number) {
-          await createProductBatch({
-            product_uuid: created.product_uuid,
-            batch_number: row.batch_number,
-            manufacture_date: row.manufacture_date || undefined,
-            expiry_date: row.expiry_date,
-            quantity: Number(row.quantity) || 0,
-          });
-        }
-        successCount++;
-      } catch (err) {
-        console.error(`Bulk row ${i + 1} failed:`, err);
-      }
-    }
-    setBulkSubmitting(false);
-    setShowBulkModal(false);
-    await loadProducts();
-    window.dispatchEvent(new CustomEvent('stock-updated'));
-    setSuccess(`${successCount} of ${valid.length} products created successfully!`);
-    setTimeout(() => setSuccess(null), 5000);
-  };
-
   const resetForm = () => {
     setForm({ ...EMPTY_FORM });
     setEditing(null);
@@ -1156,6 +1015,7 @@ export default function Products() {
     setNewInvoiceDate("");
     setNewPurchaseDiscount("");
     setNewManualSubtotal(null);
+    setNewPurchaseBatchIds([]);
   };
 
   const handleSubmit = async () => {
@@ -1222,24 +1082,26 @@ export default function Products() {
           if (!isSimple && Number(form.boxes) > 0 && spb > 0 && tps > 0) {
             await createProductUnit({ product_uuid: editing.product_uuid, unit_name: "Box", conversion_factor: spb * tps, is_base_unit: false, price: ppb || undefined });
           }
-          // If new purchase details were added, create a purchase linking all batches
+          // If new purchase details were added, create a purchase linking selected batches only
           if (showNewPurchase && form.supplier_uuid) {
-            const purchaseBatches: Array<{ batch_number: string; batch_uuid?: string; strips: string; ptr: string; manufacture_date: string | undefined; expiry_date: string | undefined }> = [];
+            const purchaseBatches: Array<{ id: string; batch_number: string; batch_uuid?: string; strips: string; ptr: string; manufacture_date: string | undefined; expiry_date: string | undefined }> = [];
             if (form.batch_number || form.strips) {
-              purchaseBatches.push({ batch_number: form.batch_number || "BATCH-" + Date.now(), batch_uuid: editingBatchUuid || undefined, strips: form.strips, ptr: form.ptr, manufacture_date: form.manufacture_date || undefined, expiry_date: form.expiry_date || undefined });
+              purchaseBatches.push({ id: 'form-batch', batch_number: form.batch_number || "BATCH-" + Date.now(), batch_uuid: editingBatchUuid || undefined, strips: form.strips, ptr: form.ptr, manufacture_date: form.manufacture_date || undefined, expiry_date: form.expiry_date || undefined });
             }
             for (const row of batchRows) {
               if (row.batch_number) {
-                purchaseBatches.push({ batch_number: row.batch_number, batch_uuid: row.batch_uuid || undefined, strips: row.strips, ptr: row.ptr, manufacture_date: row.manufacture_date || undefined, expiry_date: row.expiry_date || undefined });
+                purchaseBatches.push({ id: row.id, batch_number: row.batch_number, batch_uuid: row.batch_uuid || undefined, strips: row.strips, ptr: row.ptr, manufacture_date: row.manufacture_date || undefined, expiry_date: row.expiry_date || undefined });
               }
             }
-            if (purchaseBatches.length > 0) {
+            const selectedBatches = purchaseBatches.filter(b => newPurchaseBatchIds.includes(b.id));
+            if (selectedBatches.length > 0 && newPurchaseBatchIds.length > 0) {
               await createPurchase({
                 supplier_uuid: form.supplier_uuid,
                 invoice_number: newInvoiceNumber || undefined,
                 invoice_date: newInvoiceDate || undefined,
                 discount: Number(newPurchaseDiscount) || 0,
-                items: purchaseBatches.map(b => ({ product_uuid: editing.product_uuid, batch_uuid: b.batch_uuid, batch_number: b.batch_number, manufacture_date: b.manufacture_date, expiry_date: b.expiry_date || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: computeBatchQty(b.strips), strips: Number(b.strips) || 0, ptr: batchPtr(b.ptr), cost_price: batchPtr(b.ptr), mrp: Number(form.price_per_tablet) || 0 })),
+                total: newManualSubtotal !== null ? Number(newManualSubtotal) : undefined,
+                items: selectedBatches.map(b => ({ product_uuid: editing.product_uuid, batch_uuid: b.batch_uuid, batch_number: b.batch_number, manufacture_date: b.manufacture_date, expiry_date: b.expiry_date || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: computeBatchQty(b.strips), strips: Number(b.strips) || 0, ptr: batchPtr(b.ptr), cost_price: batchPtr(b.ptr), mrp: Number(form.price_per_tablet) || 0 })),
               });
             }
           }
@@ -1321,6 +1183,7 @@ export default function Products() {
               invoice_number: form.invoice_number || undefined,
               invoice_date: form.invoice_date || undefined,
               discount: Number(form.purchase_discount) || 0,
+              total: manualSubtotal !== null ? Number(manualSubtotal) : undefined,
               items: allBatches.map(b => ({ product_uuid: created.product_uuid, batch_number: b.bn, manufacture_date: b.mfg, expiry_date: b.exp, quantity: computeBatchQty(b.strips), strips: Number(b.strips) || 0, ptr: batchPtr(b.ptr), cost_price: batchPtr(b.ptr), mrp: Number(form.price_per_tablet) || 0 })),
             });
           } else {
@@ -1534,15 +1397,6 @@ export default function Products() {
             </svg>
             {t("products.addProduct")}
           </button>
-          <button
-            onClick={() => { setBulkRows([createEmptyBulkRow()]); setShowBulkModal(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-sm font-semibold rounded-xl transition-all shadow-md shadow-blue-900/20 shrink-0"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2m-6 4v6m4-6v6" />
-            </svg>
-            Bulk Stocks Update
-          </button>
           <Tooltip label={t('products.quarantineExpired')}>
             <button
               onClick={handleQuarantineExpired}
@@ -1585,7 +1439,7 @@ export default function Products() {
                     className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
                   >
                     <CalendarIcon className="w-4 h-4 text-slate-400" />
-                    <span>{filterFromDate ? format(filterFromDate, "dd MMM yyyy") : "Pick a date"}</span>
+                    <span>{filterFromDate ? format(filterFromDate, "dd MMM yyyy") : t('products.pickDate')}</span>
                   </button>
                   {filterFromShowPicker && (
                     <div id="filter-from-cal-popup" className="fixed z-[70]" style={{ top: filterFromPickPos.top, right: filterFromPickPos.right }}>
@@ -1604,7 +1458,7 @@ export default function Products() {
                     className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
                   >
                     <CalendarIcon className="w-4 h-4 text-slate-400" />
-                    <span>{filterToDate ? format(filterToDate, "dd MMM yyyy") : "Pick a date"}</span>
+                    <span>{filterToDate ? format(filterToDate, "dd MMM yyyy") : t('products.pickDate')}</span>
                   </button>
                   {filterToShowPicker && (
                     <div id="filter-to-cal-popup" className="fixed z-[70]" style={{ top: filterToPickPos.top, right: filterToPickPos.right }}>
@@ -1619,8 +1473,8 @@ export default function Products() {
                   className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 placeholder:text-slate-400" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Batch</label>
-                <input type="text" value={filters.batch} onChange={(e) => setFilters(prev => ({ ...prev, batch: e.target.value }))} placeholder="e.g. BATCH-001"
+                <label className="block text-xs font-medium text-slate-500 mb-1">{t('products.batch')}</label>
+                <input type="text" value={filters.batch} onChange={(e) => setFilters(prev => ({ ...prev, batch: e.target.value }))} placeholder={t('products.batchPlaceholder')}
                   className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 placeholder:text-slate-400" />
               </div>
               <div>
@@ -1967,7 +1821,7 @@ export default function Products() {
                   <Input label={t('products.medicineName')} required value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder={t('products.nameExample')} />
                 </div>
                 <div className="col-span-2">
-                  <Dropdown label="Category" options={CATEGORY_OPTIONS.map(c => ({ value: c.uuid, label: c.name }))} value={form.category_uuid} onChange={(uuid: string) => {
+                  <Dropdown label={t('products.category')} options={CATEGORY_OPTIONS.map(c => ({ value: c.uuid, label: c.name }))} value={form.category_uuid} onChange={(uuid: string) => {
                     setForm({ ...form, category_uuid: uuid });
                     const dflt = CATEGORY_DEFAULTS[uuid];
                     if (dflt) {
@@ -1984,7 +1838,7 @@ export default function Products() {
                   <Input label={t('products.composition')} value={form.composition} onChange={(e: any) => setForm({ ...form, composition: e.target.value })} placeholder={t('products.compositionExample')} />
                 </div>
                 <div className="col-span-2">
-                  <Input label="Description" value={form.description || ""} onChange={(e: any) => setForm({ ...form, description: e.target.value })} placeholder="Optional description" />
+                  <Input label={t('products.description')} value={form.description || ""} onChange={(e: any) => setForm({ ...form, description: e.target.value })} placeholder={t('products.descriptionOptional')} />
                 </div>
                 <Input label={t('products.manufacturer')} value={form.manufacturer} onChange={(e: any) => setForm({ ...form, manufacturer: e.target.value })} placeholder={t('products.manufacturerExample')} />
                 <div>
@@ -2007,25 +1861,25 @@ export default function Products() {
                 {!isSimpleType && (
                 <div className="col-span-2">
                   <hr className="border-slate-200 my-4" />
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Package</div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('products.package')}</div>
                   <div className="mb-4">
-                    <Dropdown label="Product Type" options={UNIT_OPTIONS.map(u => ({ value: u, label: u }))} value={form.unit} onChange={(v: string) => setForm({ ...form, unit: v })} />
+                    <Dropdown label={t('products.productType')} options={UNIT_OPTIONS.map(u => ({ value: u, label: u }))} value={form.unit} onChange={(v: string) => setForm({ ...form, unit: v })} />
                   </div>
                   <div className="grid grid-cols-3 gap-x-4 gap-y-3">
-                    <Input label="Box =" type="number" value={form.boxes} onChange={(e: any) => setForm({ ...form, boxes: e.target.value })} placeholder="0" />
-                    <Input label={isBottleMedicine ? "1 box = bottles" : "1 box = strips"} type="number" value={form.strips_per_box} onChange={(e: any) => setForm({ ...form, strips_per_box: e.target.value })} placeholder="0" />
-                    <Input label={isBottleMedicine ? "1 bottle = tablets" : "1 strip = tablets"} type="number" value={form.tablets_per_strip} onChange={(e: any) => setForm({ ...form, tablets_per_strip: e.target.value })} placeholder="0" />
-                    <Input label="Extra tablets" type="number" value={form.extra_tablets} onChange={(e: any) => setForm({ ...form, extra_tablets: e.target.value })} placeholder="0" />
+                    <Input label={t('products.boxEquals')} type="number" value={form.boxes} onChange={(e: any) => setForm({ ...form, boxes: e.target.value })} placeholder="0" />
+                    <Input label={isBottleMedicine ? t('products.boxBottles') : t('products.boxStrips')} type="number" value={form.strips_per_box} onChange={(e: any) => setForm({ ...form, strips_per_box: e.target.value })} placeholder="0" />
+                    <Input label={isBottleMedicine ? t('products.bottleTablets') : t('products.stripTablets')} type="number" value={form.tablets_per_strip} onChange={(e: any) => setForm({ ...form, tablets_per_strip: e.target.value })} placeholder="0" />
+                    <Input label={t('products.extraTablets')} type="number" value={form.extra_tablets} onChange={(e: any) => setForm({ ...form, extra_tablets: e.target.value })} placeholder="0" />
                   </div>
                   <div className="mt-3 space-y-2">
                     <div className="px-4 py-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-600">Total Strips</span>
+                      <span className="text-sm font-medium text-slate-600">{t('products.totalStrips')}</span>
                       <span className="text-lg font-bold text-blue-600">
                         {(Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0)}
                       </span>
                     </div>
                     <div className="px-4 py-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-600">Total Tablets</span>
+                      <span className="text-sm font-medium text-slate-600">{t('products.totalTablets')}</span>
                       <span className="text-lg font-bold text-emerald-600">
                         {(Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)}
                       </span>
@@ -2039,11 +1893,11 @@ export default function Products() {
                 <div className="col-span-2">
                   <hr className="border-slate-200 my-4" />
                   <div className="mb-4">
-                    <Dropdown label="Product Type" options={UNIT_OPTIONS.map(u => ({ value: u, label: u }))} value={form.unit} onChange={(v: string) => setForm({ ...form, unit: v })} />
+                    <Dropdown label={t('products.productType')} options={UNIT_OPTIONS.map(u => ({ value: u, label: u }))} value={form.unit} onChange={(v: string) => setForm({ ...form, unit: v })} />
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                    <Input label="Price per product" prefix="₹" type="number" value={form.price_per_tablet} onChange={(e: any) => setForm({ ...form, price_per_tablet: e.target.value })} placeholder="0" />
-                    <Input label="Total stock" type="number" value={form.total_tablets} onChange={(e: any) => { setForm({ ...form, total_tablets: e.target.value }); }} placeholder="0" />
+                    <Input label={t('products.pricePerProduct')} prefix="₹" type="number" value={form.price_per_tablet} onChange={(e: any) => setForm({ ...form, price_per_tablet: e.target.value })} placeholder="0" />
+                    <Input label={t('products.totalStock')} type="number" value={form.total_tablets} onChange={(e: any) => { setForm({ ...form, total_tablets: e.target.value }); }} placeholder="0" />
                   </div>
                 </div>
                 )}
@@ -2052,24 +1906,24 @@ export default function Products() {
                 {!isSimpleType && (
                 <div className="col-span-2">
                   <hr className="border-slate-200 my-4" />
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Pricing</div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('products.pricing')}</div>
                   <div className="grid grid-cols-3 gap-x-4 gap-y-3">
-                    <Input label="Price per box" prefix="₹" type="number" value={form.price_per_box} onChange={(e: any) => setForm({ ...form, price_per_box: e.target.value })} placeholder="0" />
-                    <Input label={isBottleMedicine ? "Price per bottle" : "Price per strip"} prefix="₹" type="number" value={form.price_per_strip} onChange={(e: any) => setForm({ ...form, price_per_strip: e.target.value })} placeholder="0" />
-                    <Input label="Price per tablet" prefix="₹" type="number" value={form.price_per_tablet} onChange={(e: any) => setForm({ ...form, price_per_tablet: e.target.value })} placeholder="0" />
+                    <Input label={t('products.pricePerBox')} prefix="₹" type="number" value={form.price_per_box} onChange={(e: any) => setForm({ ...form, price_per_box: e.target.value })} placeholder="0" />
+                    <Input label={isBottleMedicine ? t('products.pricePerBottle') : t('products.pricePerStrip')} prefix="₹" type="number" value={form.price_per_strip} onChange={(e: any) => setForm({ ...form, price_per_strip: e.target.value })} placeholder="0" />
+                    <Input label={t('products.pricePerTablet')} prefix="₹" type="number" value={form.price_per_tablet} onChange={(e: any) => setForm({ ...form, price_per_tablet: e.target.value })} placeholder="0" />
                   </div>
                 </div>
                 )}
 
                 <div className="col-span-2">
                   <hr className="border-slate-200 my-4" />
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Batches</div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('products.batches')}</div>
                   <div className="space-y-3">
                     <div className="border border-slate-200 rounded-xl p-4 bg-white">
                       <div className={`grid ${isSimpleType ? "grid-cols-2" : "grid-cols-3"} gap-x-4 gap-y-3`}>
-                        <Input label="Batch No" value={form.batch_number} onChange={(e: any) => setForm({ ...form, batch_number: e.target.value })} placeholder="e.g. B001" />
+                        <Input label={t('products.batchNo')} value={form.batch_number} onChange={(e: any) => setForm({ ...form, batch_number: e.target.value })} placeholder="e.g. B001" />
                         {isBottleMedicine && (
-                          <Input label="Bottles" type="number" value={form.bottles} onChange={(e: any) => {
+                          <Input label={t('products.bottles')} type="number" value={form.bottles} onChange={(e: any) => {
                             const b = Number(e.target.value) || 0;
                             const tps = Number(form.tablets_per_strip) || 1;
                             const newTotal = String(b * tps);
@@ -2077,17 +1931,17 @@ export default function Products() {
                           }} placeholder="0" />
                         )}
                         {!isSimpleType && !isBottleMedicine && (
-                          <Input label="Strips" type="number" value={form.strips} onChange={(e: any) => {
+                          <Input label={t('products.strips')} type="number" value={form.strips} onChange={(e: any) => {
                             const s = Number(e.target.value) || 0;
                             const tps = Number(form.tablets_per_strip) || 1;
                             setForm({ ...form, strips: e.target.value, total_tablets: String(s * tps) });
                           }} placeholder="0" />
                         )}
-                        <Input label={isSimpleType ? "Total products" : "Total Tablets"} type="number" value={form.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.reduce((s, r) => s + (Number(r.total_tablets) || 0), 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => { setForm({ ...form, total_tablets: e.target.value, strips: String(Math.round((Number(e.target.value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))), bottles: String(Math.floor((Number(e.target.value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))) }); }} placeholder="0" />
-                        <Input label="PTR" type="number" step="0.01" value={form.ptr} onChange={(e: any) => setForm({ ...form, ptr: e.target.value })} placeholder="0.00" />
+                        <Input label={isSimpleType ? t('products.totalProductsSimple') : t('products.totalTablets')} type="number" value={form.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.reduce((s, r) => s + (Number(r.total_tablets) || 0), 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => { setForm({ ...form, total_tablets: e.target.value, strips: String(Math.round((Number(e.target.value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))), bottles: String(Math.floor((Number(e.target.value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))) }); }} placeholder="0" />
+                        <Input label={t('products.ptr')} type="number" step="0.01" value={form.ptr} onChange={(e: any) => setForm({ ...form, ptr: e.target.value })} placeholder="0.00" />
                         
                         <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Mfg Date</label>
+                          <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.mfgDate')}</label>
                           <div className="relative">
                             <button
                               ref={mfgBtnRef}
@@ -2096,7 +1950,7 @@ export default function Products() {
                               className="flex h-10 w-full items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
                             >
                               <CalendarIcon className="w-4 h-4 text-slate-400" />
-                              <span>{form.manufacture_date ? format(new Date(form.manufacture_date + "T00:00:00"), "dd MMM yyyy") : "Pick a date"}</span>
+                              <span>{form.manufacture_date ? format(new Date(form.manufacture_date + "T00:00:00"), "dd MMM yyyy") : t('products.pickDate')}</span>
                             </button>
                             {mfgShowPicker && (
                               <div id="mfg-cal-popup" className="fixed z-[70]" style={{ top: mfgPickPos.top, right: mfgPickPos.right }}>
@@ -2106,7 +1960,7 @@ export default function Products() {
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Expiry Date</label>
+                          <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.expiryDate')}</label>
                           <div className="relative">
                             <button
                               ref={expiryBtnRef}
@@ -2115,7 +1969,7 @@ export default function Products() {
                               className="flex h-10 w-full items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
                             >
                               <CalendarIcon className="w-4 h-4 text-slate-400" />
-                              <span>{form.expiry_date ? format(new Date(form.expiry_date + "T00:00:00"), "dd MMM yyyy") : "Pick a date"}</span>
+                              <span>{form.expiry_date ? format(new Date(form.expiry_date + "T00:00:00"), "dd MMM yyyy") : t('products.pickDate')}</span>
                             </button>
                             {expiryShowPicker && (
                               <div id="expiry-cal-popup" className="fixed z-[70]" style={{ top: expiryPickPos.top, right: expiryPickPos.right }}>
@@ -2130,28 +1984,54 @@ export default function Products() {
                       <div key={row.id} className="border border-slate-200 rounded-xl p-4 bg-white relative">
                         <button
                           type="button"
-                          onClick={() => removeBatchRow(row.id)}
-                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-50 border border-red-200 rounded-full flex items-center justify-center text-red-500 hover:bg-red-100 text-sm transition-all"
+                          onClick={(e) => confirmDeleteBatch(e, row.id)}
+                          className="absolute -top-2 -right-2 w-7 h-7 bg-red-50 border border-red-200 rounded-full flex items-center justify-center text-red-500 hover:bg-red-100 text-sm transition-all"
                         >
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                         <div className={`grid ${isSimpleType ? "grid-cols-2" : "grid-cols-3"} gap-x-4 gap-y-3`}>
-                          <Input label="Batch No" value={row.batch_number} onChange={(e: any) => updateBatchRow(row.id, "batch_number", e.target.value)} placeholder="e.g. B002" />
+                          <Input label={t('products.batchNo')} value={row.batch_number} onChange={(e: any) => updateBatchRow(row.id, "batch_number", e.target.value)} placeholder="e.g. B002" />
                           {isBottleMedicine && (
-                            <Input label="Bottles" type="number" value={row.bottles} onChange={(e: any) => updateBatchRow(row.id, "bottles", e.target.value)} placeholder="0" />
+                            <Input label={t('products.bottles')} type="number" value={row.bottles} onChange={(e: any) => updateBatchRow(row.id, "bottles", e.target.value)} placeholder="0" />
                           )}
                           {!isSimpleType && !isBottleMedicine && (
-                            <Input label="Strips" type="number" value={row.strips} onChange={(e: any) => updateBatchRow(row.id, "strips", e.target.value)} placeholder="0" />
+                            <Input label={t('products.strips')} type="number" value={row.strips} onChange={(e: any) => updateBatchRow(row.id, "strips", e.target.value)} placeholder="0" />
                           )}
-                          <Input label={isSimpleType ? "Total products" : "Total Tablets"} type="number" value={row.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.slice(0, idx).reduce((s, r) => s + (Number(r.total_tablets) || 0), 0) + (Number(row.total_tablets) || 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => updateBatchRow(row.id, "total_tablets", e.target.value)} placeholder="0" />
-                          <Input label="PTR" type="number" step="0.01" value={row.ptr} onChange={(e: any) => updateBatchRow(row.id, "ptr", e.target.value)} placeholder="0.00" />
+                          <Input label={isSimpleType ? t('products.totalProductsSimple') : t('products.totalTablets')} type="number" value={row.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.slice(0, idx).reduce((s, r) => s + (Number(r.total_tablets) || 0), 0) + (Number(row.total_tablets) || 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => updateBatchRow(row.id, "total_tablets", e.target.value)} placeholder="0" />
+                          <Input label={t('products.ptr')} type="number" step="0.01" value={row.ptr} onChange={(e: any) => updateBatchRow(row.id, "ptr", e.target.value)} placeholder="0.00" />
                           <div>
-                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Mfg Date</label>
-                            <input type="date" value={row.manufacture_date} onChange={(e: any) => updateBatchRow(row.id, "manufacture_date", e.target.value)} className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.mfgDate')}</label>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                className="batch-date-btn flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                                onClick={(e) => {
+                                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                  const fitsBelow = rect.bottom + 4 + 300 <= window.innerHeight;
+                                  setBatchDatePicker({ id: row.id, field: 'mfg', top: fitsBelow ? rect.bottom + 4 : rect.top - 300, right: document.documentElement.clientWidth - rect.right });
+                                }}
+                              >
+                                <CalendarIcon className="w-4 h-4 text-slate-400" />
+                                <span>{row.manufacture_date ? format(new Date(row.manufacture_date + "T00:00:00"), "dd MMM yyyy") : t('products.pickDate')}</span>
+                              </button>
+                            </div>
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Expiry Date</label>
-                            <input type="date" value={row.expiry_date} onChange={(e: any) => updateBatchRow(row.id, "expiry_date", e.target.value)} className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.expiryDate')}</label>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                className="batch-date-btn flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                                onClick={(e) => {
+                                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                  const fitsBelow = rect.bottom + 4 + 300 <= window.innerHeight;
+                                  setBatchDatePicker({ id: row.id, field: 'exp', top: fitsBelow ? rect.bottom + 4 : rect.top - 300, right: document.documentElement.clientWidth - rect.right });
+                                }}
+                              >
+                                <CalendarIcon className="w-4 h-4 text-slate-400" />
+                                <span>{row.expiry_date ? format(new Date(row.expiry_date + "T00:00:00"), "dd MMM yyyy") : t('products.pickDate')}</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2163,13 +2043,13 @@ export default function Products() {
                     className="mt-3 w-full py-2.5 border-2 border-dashed border-slate-300 rounded-xl text-sm text-slate-500 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50/30 transition-all flex items-center justify-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                    Add Batch
+                    {t('products.addBatch')}
                   </button>
                 </div>
 
                 {/* Image */}
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Image</label>
+                  <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.image')}</label>
                   {form.image ? (
                     <div className="relative">
                       <img src={form.image} alt="Preview" className="w-full h-28 object-contain rounded-xl border border-slate-200 bg-slate-50" />
@@ -2201,8 +2081,8 @@ export default function Products() {
                       <svg className="w-10 h-10 mx-auto text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                       </svg>
-                      <p className="text-sm text-slate-500 font-medium">Click or drag image here</p>
-                      <p className="text-xs text-slate-400 mt-1">PNG, JPG, GIF, WEBP</p>
+                      <p className="text-sm text-slate-500 font-medium">{t('products.clickOrDrag')}</p>
+                      <p className="text-xs text-slate-400 mt-1">{t('products.supportedFormats')}</p>
                       <input
                         id="product-image-input"
                         type="file"
@@ -2227,7 +2107,7 @@ export default function Products() {
                   <>
                     <hr className="border-slate-200 my-4" />
                     <div className="flex items-center justify-between mb-3">
-                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Purchase Details</div>
+                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('products.purchaseDetails')}</div>
                       {!showNewPurchase && (
                         <button
                           type="button"
@@ -2235,34 +2115,37 @@ export default function Products() {
                             setNewSupplierSearch("");
                             setNewSupplierDropdownOpen(false);
                             setShowNewPurchase(true);
+                            // Auto-select new batches (those without batch_uuid in batchRows)
+                            const newIds = batchRows.filter(r => !r.batch_uuid).map(r => r.id);
+                            setNewPurchaseBatchIds(newIds);
                           }}
                           className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-300 hover:border-emerald-400 px-3 py-1.5 rounded-lg transition-all"
                         >
-                          + Add New Details
+                          {t('products.addNewDetails')}
                         </button>
                       )}
                     </div>
                     <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm text-slate-700">
-                      <div className="flex justify-between"><span className="text-slate-500">Supplier</span><span>{supplierSearch || "-"}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Invoice No</span><span>{form.invoice_number || "-"}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Invoice Date</span><span>{form.invoice_date ? format(new Date(form.invoice_date + "T00:00:00"), "dd MMM yyyy") : "-"}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Discount</span><span>₹{Number(form.purchase_discount || 0).toFixed(2)}</span></div>
-                      <div className="flex justify-between border-t border-slate-200 pt-2 mt-1"><span className="font-medium">Subtotal</span><span className="font-bold text-emerald-600">₹{(() => { const q = ((Number(form.strips) || 0) + batchRows.reduce((s, r) => s + (Number(r.strips) || 0), 0)) * (Number(form.tablets_per_strip) || 0); const c = Number(form.purchase_price) || 0; const d = Number(form.purchase_discount) || 0; return Math.max(0, q * c - d).toFixed(2); })()}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">{t('products.supplier')}</span><span>{supplierSearch || "-"}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">{t('products.invoiceNo')}</span><span>{form.invoice_number || "-"}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">{t('products.invoiceDate')}</span><span>{form.invoice_date ? format(new Date(form.invoice_date + "T00:00:00"), "dd MMM yyyy") : "-"}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">{t('products.discount')}</span><span>₹{Number(form.purchase_discount || 0).toFixed(2)}</span></div>
+                      <div className="flex justify-between border-t border-slate-200 pt-2 mt-1"><span className="font-medium">{t('products.subtotal')}</span><span className="font-bold text-emerald-600">₹{Number(form.purchase_total || 0).toFixed(2)}</span></div>
                     </div>
                     {showNewPurchase && (
                       <>
                         <hr className="border-slate-200 my-4" />
-                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">New Purchase Details</div>
+                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('products.newPurchaseDetails')}</div>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                           {/* Supplier Combobox */}
                           <div className="relative">
-                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Supplier</label>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.supplier')}</label>
                             <input
                               type="text"
                               value={newSupplierSearch}
                               onChange={(e) => { setNewSupplierSearch(e.target.value); setNewSupplierDropdownOpen(true); if (!e.target.value) setForm({ ...form, supplier_uuid: "" }); }}
                               onFocus={() => setNewSupplierDropdownOpen(true)}
-                              placeholder="Search or type supplier..."
+                              placeholder={t('products.searchOrTypeSupplier')}
                               className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
                             />
                             {newSupplierDropdownOpen && (
@@ -2273,7 +2156,7 @@ export default function Products() {
                                     {!newSupplierSearch.trim() ? (
                                       recentSuppliers.length > 0 ? (
                                         <>
-                                          <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Recent Suppliers</div>
+                                          <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">{t('products.recentSuppliers')}</div>
                                           {recentSuppliers.map((s) => (
                                             <button
                                               key={s.supplier_uuid}
@@ -2289,15 +2172,15 @@ export default function Products() {
                                               {s.phone && <span className="text-xs text-slate-400">+91 {s.phone}</span>}
                                             </button>
                                           ))}
-                                          <div className="px-4 py-2.5 text-xs text-slate-400 border-t border-slate-100 text-center">Type to search all suppliers</div>
+                                          <div className="px-4 py-2.5 text-xs text-slate-400 border-t border-slate-100 text-center">{t('products.typeToSearchAll')}</div>
                                         </>
                                       ) : (
-                                        <div className="px-4 py-6 text-center text-sm text-slate-400">Type to search suppliers</div>
+                                <div className="px-4 py-6 text-center text-sm text-slate-400">{t('products.typeToSearch')}</div>
                                       )
                                     ) : (
                                       <>
                                         {suppliers.filter(s => s.name.toLowerCase().includes(newSupplierSearch.toLowerCase())).length === 0 ? (
-                                          <div className="px-4 py-6 text-center text-sm text-slate-400">No suppliers found</div>
+                                          <div className="px-4 py-6 text-center text-sm text-slate-400">{t('products.noSuppliersFound')}</div>
                                         ) : (
                                           suppliers.filter(s => s.name.toLowerCase().includes(newSupplierSearch.toLowerCase())).map((s) => (
                                             <button
@@ -2342,7 +2225,7 @@ export default function Products() {
                                             className="w-full text-left px-4 py-2.5 text-sm text-emerald-600 hover:bg-emerald-50 font-medium border-t border-slate-100 flex items-center gap-2"
                                           >
                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                                            Add "{newSupplierSearch.trim()}" as new supplier
+                                            {t('products.addAsNewSupplier', { name: newSupplierSearch.trim() })}
                                           </button>
                                         )}
                                       </>
@@ -2352,10 +2235,10 @@ export default function Products() {
                               </>
                             )}
                           </div>
-                          <Input label="Invoice Number" value={newInvoiceNumber} onChange={(e: any) => setNewInvoiceNumber(e.target.value)} placeholder="e.g. INV-001" />
+                          <Input label={t('products.invoiceNumber')} value={newInvoiceNumber} onChange={(e: any) => setNewInvoiceNumber(e.target.value)} placeholder="e.g. INV-001" />
                           {/* Invoice Date */}
                           <div>
-                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Invoice Date</label>
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.invoiceDate')}</label>
                             <div className="relative">
                               <button
                                 ref={newInvoiceBtnRef}
@@ -2370,7 +2253,7 @@ export default function Products() {
                                 className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
                               >
                                 <CalendarIcon className="w-4 h-4 text-slate-400" />
-                                <span>{newInvoiceDate ? format(new Date(newInvoiceDate + "T00:00:00"), "dd MMM yyyy") : "Pick a date"}</span>
+                                <span>{newInvoiceDate ? format(new Date(newInvoiceDate + "T00:00:00"), "dd MMM yyyy") : t('products.pickDate')}</span>
                               </button>
                               {newInvoiceShowPicker && (
                                 <div id="new-inv-cal-popup" className="fixed z-[70]" style={{ top: newInvoicePickPos.top, right: newInvoicePickPos.right }}>
@@ -2379,14 +2262,74 @@ export default function Products() {
                               )}
                             </div>
                           </div>
-                          <Input label="Supplier Discount (₹)" type="number" value={newPurchaseDiscount} onChange={(e: any) => { setNewPurchaseDiscount(e.target.value); setNewManualSubtotal(null); }} placeholder="0" />
+                          <Input label={t('products.supplierDiscount')} type="number" value={newPurchaseDiscount} onChange={(e: any) => { setNewPurchaseDiscount(e.target.value); setNewManualSubtotal(null); }} placeholder="0" />
+                          {/* Batch Selector */}
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Select Batches</label>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => setNewPurchaseBatchOpen(!newPurchaseBatchOpen)}
+                                className="flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                              >
+                                <span>{newPurchaseBatchIds.length} batch{newPurchaseBatchIds.length !== 1 ? "es" : ""} selected</span>
+                                <svg className={`w-4 h-4 text-slate-400 transition-transform ${newPurchaseBatchOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                              </button>
+                              {newPurchaseBatchOpen && (
+                                <>
+                                  <div className="fixed inset-0 z-40" onClick={() => setNewPurchaseBatchOpen(false)} />
+                                  <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden" style={{ position: 'absolute' }}>
+                                    <div className="max-h-60 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                                      {(() => {
+                                        const options: { id: string; batch_number: string; strips: string; total_tablets: string; ptr: string; isNew: boolean }[] = [];
+                                        if (form.batch_number || form.strips) {
+                                          options.push({ id: 'form-batch', batch_number: form.batch_number || "-", strips: form.strips, total_tablets: form.total_tablets, ptr: form.ptr, isNew: !editingBatchUuid });
+                                        }
+                                        for (const row of batchRows) {
+                                          if (row.batch_number) {
+                                            options.push({ id: row.id, batch_number: row.batch_number, strips: row.strips, total_tablets: row.total_tablets, ptr: row.ptr, isNew: !row.batch_uuid });
+                                          }
+                                        }
+                                        if (options.length === 0) {
+                                          return <div className="px-4 py-6 text-center text-sm text-slate-400">No batches available</div>;
+                                        }
+                                        return options.map((opt) => (
+                                          <label
+                                            key={opt.id}
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 cursor-pointer transition-colors"
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={newPurchaseBatchIds.includes(opt.id)}
+                                              onChange={() => {
+                                                setNewPurchaseBatchIds(prev =>
+                                                  prev.includes(opt.id)
+                                                    ? prev.filter(id => id !== opt.id)
+                                                    : [...prev, opt.id]
+                                                );
+                                              }}
+                                              className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/20"
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-sm text-slate-800 font-medium">{opt.batch_number}</div>
+                                              <div className="text-xs text-slate-400">{opt.total_tablets} tablets · ₹{opt.ptr} PTR{opt.isNew ? <span className="text-emerald-500 ml-1">new</span> : ""}</div>
+                                            </div>
+                                          </label>
+                                        ));
+                                      })()}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
                         {/* Subtotal */}
                         {(() => {
                           const displayValue = newManualSubtotal !== null ? newManualSubtotal : "";
                           return (
                             <div className="bg-slate-50 rounded-xl p-4 flex justify-between items-center border border-slate-200 mt-4">
-                              <span className="text-sm font-medium text-slate-600">Subtotal</span>
+                        <span className="text-sm font-medium text-slate-600">{t('products.subtotal')}</span>
                               <div className="flex items-center gap-2">
                                 <span className="text-sm text-slate-400">₹</span>
                                 <input
@@ -2404,16 +2347,18 @@ export default function Products() {
                         <button
                           type="button"
                           onClick={() => {
-                            setShowNewPurchase(false);
-                            setNewSupplierSearch("");
+    setShowNewPurchase(false);
+    setNewSupplierSearch("");
+    setNewPurchaseBatchIds([]);
                             setNewInvoiceNumber("");
                             setNewInvoiceDate("");
                             setNewPurchaseDiscount("");
                             setNewManualSubtotal(null);
+                            setNewPurchaseBatchIds([]);
                           }}
                           className="mt-2 text-xs text-slate-400 hover:text-slate-600 underline"
                         >
-                          Cancel new details
+                          {t('products.cancelNewDetails')}
                         </button>
                       </>
                     )}
@@ -2422,18 +2367,18 @@ export default function Products() {
                 <>
                 <hr className="border-slate-200 my-4" />
                   <div className="border border-slate-200 rounded-xl p-5 bg-white">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">Purchase Details (Optional)</div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">{t('products.purchaseDetails')}</div>
 
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                     {/* Supplier Combobox */}
                     <div className="relative">
-                      <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Supplier</label>
+                      <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.supplier')}</label>
                       <input
                         type="text"
                         value={supplierSearch}
                         onChange={(e) => { setSupplierSearch(e.target.value); setSupplierDropdownOpen(true); if (!e.target.value) setForm({ ...form, supplier_uuid: "" }); }}
                         onFocus={() => setSupplierDropdownOpen(true)}
-                        placeholder="Search or type supplier..."
+                        placeholder={t('products.searchOrTypeSupplier')}
                         className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
                       />
                       {supplierDropdownOpen && (
@@ -2487,7 +2432,7 @@ export default function Products() {
                                       className="w-full text-left px-4 py-2.5 text-sm text-emerald-600 hover:bg-emerald-50 font-medium border-t border-slate-100 flex items-center gap-2"
                                     >
                                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                                      Add "{supplierSearch.trim()}" as new supplier
+                                      {t('products.addAsNewSupplier', { name: supplierSearch.trim() })}
                                     </button>
                                   )}
                                 </>
@@ -2497,10 +2442,10 @@ export default function Products() {
                         </>
                       )}
                     </div>
-                    <Input label="Invoice Number" value={form.invoice_number} onChange={(e: any) => setForm({ ...form, invoice_number: e.target.value })} placeholder="e.g. INV-001" />
+                    <Input label={t('products.invoiceNumber')} value={form.invoice_number} onChange={(e: any) => setForm({ ...form, invoice_number: e.target.value })} placeholder="e.g. INV-001" />
                     {/* Invoice Date */}
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Invoice Date</label>
+                      <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.invoiceDate')}</label>
                       <div className="relative">
                         <button
                           ref={invoiceBtnRef}
@@ -2509,7 +2454,7 @@ export default function Products() {
                           className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
                         >
                           <CalendarIcon className="w-4 h-4 text-slate-400" />
-                          <span>{form.invoice_date ? format(new Date(form.invoice_date + "T00:00:00"), "dd MMM yyyy") : "Pick a date"}</span>
+                          <span>{form.invoice_date ? format(new Date(form.invoice_date + "T00:00:00"), "dd MMM yyyy") : t('products.pickDate')}</span>
                         </button>
                         {invoiceShowPicker && (
                           <div id="inv-cal-popup" className="fixed z-[70]" style={{ top: invoicePickPos.top, right: invoicePickPos.right }}>
@@ -2518,7 +2463,7 @@ export default function Products() {
                         )}
                       </div>
                     </div>
-                    <Input label="Supplier Discount (₹)" type="number" value={form.purchase_discount} onChange={(e: any) => { setForm({ ...form, purchase_discount: e.target.value }); setManualSubtotal(null); }} placeholder="0" />
+                    <Input label={t('products.supplierDiscount')} type="number" value={form.purchase_discount} onChange={(e: any) => { setForm({ ...form, purchase_discount: e.target.value }); setManualSubtotal(null); }} placeholder="0" />
                   </div>
 
                   {/* Subtotal */}
@@ -2590,27 +2535,7 @@ export default function Products() {
         </div>
       , document.body)}
 
-      {ctxMenu && createPortal(
-        <div ref={ctxMenuRef} className="fixed z-[90] w-40 bg-white border border-slate-200 rounded-xl shadow-2xl py-1" style={{ left: ctxMenu.x, top: ctxMenu.y }}>
-          <button onClick={() => { const excluded = ["uuid", "name"]; const data: Partial<BulkRow> = {}; for (const k in ctxMenu.row) { if (!excluded.includes(k)) (data as any)[k] = (ctxMenu.row as any)[k]; } setCopyBuffer(data); setCtxMenu(null); }} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50">
-            <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-            Copy fields
-          </button>
-          <button onClick={() => { const newRow = createEmptyBulkRow(); Object.assign(newRow, JSON.parse(JSON.stringify(ctxMenu.row))); newRow.uuid = crypto.randomUUID(); setBulkRows((prev) => { const i = prev.findIndex((r) => r.uuid === ctxMenu.row.uuid); const next = [...prev]; next.splice(i + 1, 0, newRow); return next; }); setCtxMenu(null); }} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50">
-            <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            Duplicate
-          </button>
-          <button onClick={() => { if (copyBuffer) updateBulkRow(ctxMenu.row.uuid, copyBuffer); setCtxMenu(null); }} disabled={!copyBuffer} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-default">
-            <svg className="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-            Paste {copyBuffer ? "fields" : "(copy first)"}
-          </button>
-          <hr className="my-1 border-slate-100" />
-          <button onClick={() => { removeBulkRow(ctxMenu.row.uuid); setCtxMenu(null); }} disabled={bulkRows.length <= 1} className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-default">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            Delete row
-          </button>
-        </div>
-      , document.body)}
+
 
       {missClickToast && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] px-5 py-2.5 rounded-xl text-sm text-amber-800 bg-amber-50 border border-amber-200 shadow-lg animate-pulse">
@@ -2739,270 +2664,7 @@ export default function Products() {
         </div>
       , document.body)}
 
-      {/* Bulk Stocks Update Modal */}
-      {showBulkModal && createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => { if (e.target === e.currentTarget) { setMissClickToast(true); setTimeout(() => setMissClickToast(false), 2000); } }}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[calc(100vw-2rem)] lg:max-w-7xl max-h-[85vh] flex flex-col overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2m-6 4v6m4-6v6" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">Bulk Stocks Update</h2>
-                  <p className="text-xs text-slate-500">{bulkRows.length} product{bulkRows.length !== 1 ? "s" : ""} — scroll horizontally to fill all fields</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                {bulkSubmitting && (
-                  <span className="text-sm text-blue-600 font-medium">Processing {bulkProgress.current} of {bulkProgress.total}...</span>
-                )}
-                <button onClick={addBulkRow} disabled={bulkSubmitting} className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all disabled:opacity-40">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                  + Add Row
-                </button>
-                <button onClick={() => { setShowBulkModal(false); setBulkRows([]); }} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-              </div>
-            </div>
 
-            {/* Progress bar */}
-            {bulkSubmitting && (
-              <div className="h-1 bg-slate-100 shrink-0">
-                <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }} />
-              </div>
-            )}
-
-            {/* Spreadsheet table */}
-            <div ref={bulkTableRef} className="flex-1 overflow-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full">
-              <table className="border-collapse text-xs w-max">
-                <thead>
-                  <tr className="bg-slate-50 sticky top-0 z-10">
-                    <th className="sticky left-0 z-20 bg-slate-50 border-r border-b border-slate-200 px-2 py-2.5 text-left font-semibold text-slate-600 w-10 text-center">#</th>
-                    {[
-                      { label: "Name*", w: 160 }, { label: "Composition", w: 160 }, { label: "Description", w: 160 },
-                      { label: "Manufacturer", w: 140 }, { label: "MRP*", w: 90 }, { label: "PTR", w: 90 },
-                      { label: "Disc%", w: 70 }, { label: "GST", w: 100 }, { label: "Schedule", w: 110 },
-                      { label: "HSN", w: 100 }, { label: "Barcode", w: 120 }, { label: "SKU", w: 100 },
-                      { label: "Rack", w: 90 }, { label: "Category", w: 110 }, { label: "Rx", w: 50 },
-                      { label: "Unit", w: 80 }, { label: "Batch", w: 110 }, { label: "Qty", w: 70 },
-                      { label: "Mfg Date", w: 110 }, { label: "Exp Date", w: 110 },
-                      { label: "Supplier", w: 150 }, { label: "Inv#", w: 110 }, { label: "Inv Date", w: 110 },
-                      { label: "S.Disc ₹", w: 85 }, { label: "Subtotal", w: 100 },
-                    ].map((col) => (
-                      <th key={col.label} className="border-r border-b border-slate-200 px-2 py-2.5 text-left font-semibold text-slate-600" style={{ minWidth: col.w }}>
-                        {col.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {bulkRows.map((row, idx) => {
-                    const qty = Number(row.quantity) || 0;
-                    const cost = Number(row.purchase_price) || 0;
-                    const disc = Number(row.purchase_discount) || 0;
-                    const subtotal = Math.max(0, qty * cost - disc);
-                    return (
-                      <tr key={row.uuid} className="hover:bg-blue-50/40 even:bg-slate-50/50 cursor-default">
-                        <td className="sticky left-0 z-10 bg-inherit border-r border-b border-slate-200 px-1 py-1 text-center">
-                          <span className="text-slate-400 text-[11px] font-mono">{idx + 1}</span>
-                        </td>
-
-                        {/* Name */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input value={row.name} onChange={(e) => updateBulkRow(row.uuid, { name: e.target.value })}
-                            placeholder="Required" className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 placeholder:text-slate-300" />
-                        </td>
-
-                        {/* Composition */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input value={row.composition} onChange={(e) => updateBulkRow(row.uuid, { composition: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
-                        </td>
-
-                        {/* Description */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input value={row.description} onChange={(e) => updateBulkRow(row.uuid, { description: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
-                        </td>
-
-                        {/* Manufacturer */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input value={row.manufacturer} onChange={(e) => updateBulkRow(row.uuid, { manufacturer: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
-                        </td>
-
-                        {/* MRP */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input type="number" value={row.price} onChange={(e) => updateBulkRow(row.uuid, { price: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-                        </td>
-
-                        {/* PTR */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input type="number" value={row.purchase_price} onChange={(e) => updateBulkRow(row.uuid, { purchase_price: e.target.value, manual_subtotal: null })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-                        </td>
-
-                        {/* Disc% */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input type="number" value={row.discount} onChange={(e) => updateBulkRow(row.uuid, { discount: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 [appearance:textfield]" />
-                        </td>
-
-                        {/* GST */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <select value={row.gst_percent} onChange={(e) => updateBulkRow(row.uuid, { gst_percent: e.target.value })}
-                            className="w-full px-1 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700">
-                            {GST_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                          </select>
-                        </td>
-
-                        {/* Schedule */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <select value={row.schedule_type} onChange={(e) => updateBulkRow(row.uuid, { schedule_type: e.target.value })}
-                            className="w-full px-1 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700">
-                            {SCHEDULE_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                          </select>
-                        </td>
-
-                        {/* HSN */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input value={row.hsn_code} onChange={(e) => updateBulkRow(row.uuid, { hsn_code: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
-                        </td>
-
-                        {/* Barcode */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input value={row.barcode} onChange={(e) => updateBulkRow(row.uuid, { barcode: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
-                        </td>
-
-                        {/* SKU */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input value={row.sku} onChange={(e) => updateBulkRow(row.uuid, { sku: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
-                        </td>
-
-                        {/* Rack */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input value={row.rack_location} onChange={(e) => updateBulkRow(row.uuid, { rack_location: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
-                        </td>
-
-                        {/* Category */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <select value={row.category_uuid} onChange={(e) => {
-                            const uuid = e.target.value;
-                            const dflt = CATEGORY_DEFAULTS[uuid];
-                            updateBulkRow(row.uuid, {
-                              category_uuid: uuid,
-                              schedule_type: dflt ? dflt.schedule : row.schedule_type,
-                              prescription_required: dflt ? dflt.prescription : row.prescription_required,
-                            });
-                          }}
-                            className="w-full px-1 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700">
-                            <option value="">Select...</option>
-                            {CATEGORY_OPTIONS.map((c) => <option key={c.uuid} value={c.uuid}>{c.name}</option>)}
-                          </select>
-                        </td>
-
-                        {/* Rx */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1 text-center">
-                          <input type="checkbox" checked={row.prescription_required} onChange={(e) => updateBulkRow(row.uuid, { prescription_required: e.target.checked })}
-                            className="accent-blue-600 w-3.5 h-3.5" />
-                        </td>
-
-                        {/* Unit */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input value={row.unit} onChange={(e) => updateBulkRow(row.uuid, { unit: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
-                        </td>
-
-                        {/* Batch */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input value={row.batch_number} onChange={(e) => updateBulkRow(row.uuid, { batch_number: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
-                        </td>
-
-                        {/* Qty */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input type="number" value={row.quantity} onChange={(e) => updateBulkRow(row.uuid, { quantity: e.target.value, manual_subtotal: null })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 [appearance:textfield]" />
-                        </td>
-
-                        {/* Mfg Date */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input type="date" value={row.manufacture_date} onChange={(e) => updateBulkRow(row.uuid, { manufacture_date: e.target.value })}
-                            className="w-full px-1 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700 text-[11px]" />
-                        </td>
-
-                        {/* Exp Date */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input type="date" value={row.expiry_date} onChange={(e) => updateBulkRow(row.uuid, { expiry_date: e.target.value })}
-                            className="w-full px-1 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700 text-[11px]" />
-                        </td>
-
-                        {/* Supplier */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input value={row.supplier_name} onChange={(e) => updateBulkRow(row.uuid, { supplier_name: e.target.value })}
-                            placeholder="Type supplier name" list="bulk-supplier-suggest"
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 placeholder:text-slate-300" />
-                          <datalist id="bulk-supplier-suggest">
-                            {suppliers.map((s) => <option key={s.supplier_uuid} value={s.name} />)}
-                          </datalist>
-                        </td>
-
-                        {/* Inv# */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input value={row.invoice_number} onChange={(e) => updateBulkRow(row.uuid, { invoice_number: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800" />
-                        </td>
-
-                        {/* Inv Date */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input type="date" value={row.invoice_date} onChange={(e) => updateBulkRow(row.uuid, { invoice_date: e.target.value })}
-                            className="w-full px-1 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700 text-[11px]" />
-                        </td>
-
-                        {/* S.Disc ₹ */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input type="number" value={row.purchase_discount} onChange={(e) => updateBulkRow(row.uuid, { purchase_discount: e.target.value, manual_subtotal: null })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-800 [appearance:textfield]" />
-                        </td>
-
-                        {/* Subtotal (editable) */}
-                        <td className="border-r border-b border-slate-200 px-1 py-1">
-                          <input type="number" step="0.01"
-                            value={row.manual_subtotal !== null ? row.manual_subtotal : subtotal.toFixed(2)}
-                            onChange={(e) => updateBulkRow(row.uuid, { manual_subtotal: e.target.value })}
-                            className="w-full px-1.5 py-1 border border-transparent focus:border-emerald-400 rounded bg-transparent focus:bg-white focus:ring-1 focus:ring-emerald-500/20 outline-none text-slate-700 text-right font-medium [appearance:textfield]" />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end shrink-0">
-              <button
-                onClick={handleBulkSubmit}
-                disabled={bulkSubmitting}
-                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-blue-200 disabled:opacity-50"
-              >
-                {bulkSubmitting && <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />}
-                {bulkSubmitting ? `Processing ${bulkProgress.current} of ${bulkProgress.total}...` : `Submit ${bulkRows.length} Product${bulkRows.length !== 1 ? "s" : ""}`}
-              </button>
-            </div>
-          </div>
-        </div>
-      , document.body)}
 
       {/* Batch Info Modal */}
       {batchModalProduct && createPortal(
@@ -3039,6 +2701,86 @@ export default function Products() {
               </table>
             </div>
           </div>
+        </div>,
+        document.body
+      )}
+
+      {deleteBatchConfirm && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]" onClick={() => setDeleteBatchConfirm(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 border border-red-200" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center">
+              <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Batch</h3>
+              <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this batch?</p>
+              {(() => {
+                const batch = batchRows.find(r => r.id === deleteBatchConfirm);
+                if (!batch) return null;
+                return (
+                  <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden mb-5">
+                    <table className="w-full text-xs">
+                      <tbody>
+                        <tr className="border-b border-slate-200">
+                          <td className="px-3 py-2 font-medium text-slate-500 text-start w-1/3">Batch No</td>
+                          <td className="px-3 py-2 text-slate-800 text-start">{batch.batch_number || "-"}</td>
+                        </tr>
+                        <tr className="border-b border-slate-200">
+                          <td className="px-3 py-2 font-medium text-slate-500 text-start">Total</td>
+                          <td className="px-3 py-2 text-slate-800 text-start">{batch.total_tablets || "0"}</td>
+                        </tr>
+                        <tr className="border-b border-slate-200">
+                          <td className="px-3 py-2 font-medium text-slate-500 text-start">PTR</td>
+                          <td className="px-3 py-2 text-slate-800 text-start">₹{Number(batch.ptr || 0).toFixed(2)}</td>
+                        </tr>
+                        <tr className="border-b border-slate-200">
+                          <td className="px-3 py-2 font-medium text-slate-500 text-start">Mfg Date</td>
+                          <td className="px-3 py-2 text-slate-800 text-start">{batch.manufacture_date ? format(new Date(batch.manufacture_date + "T00:00:00"), "dd MMM yyyy") : "-"}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 font-medium text-slate-500 text-start">Expiry Date</td>
+                          <td className="px-3 py-2 text-slate-800 text-start">{batch.expiry_date ? format(new Date(batch.expiry_date + "T00:00:00"), "dd MMM yyyy") : "-"}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteBatchConfirm(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                >Cancel</button>
+                <button
+                  type="button"
+                  onClick={() => { removeBatchRow(deleteBatchConfirm); setDeleteBatchConfirm(null); }}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors"
+                >Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {batchDatePicker && createPortal(
+        <div id="batch-date-popup" className="fixed z-[70]" style={{ top: batchDatePicker.top, right: batchDatePicker.right }}>
+          <SimpleDatePicker
+            date={batchDatePicker.field === 'mfg' ? (batchRows.find(r => r.id === batchDatePicker.id)?.manufacture_date ? new Date(batchRows.find(r => r.id === batchDatePicker.id)!.manufacture_date + "T00:00:00") : undefined) : (batchRows.find(r => r.id === batchDatePicker.id)?.expiry_date ? new Date(batchRows.find(r => r.id === batchDatePicker.id)!.expiry_date + "T00:00:00") : undefined)}
+            onSelect={(d) => {
+              const val = format(d, "yyyy-MM-dd");
+              if (batchDatePicker.field === 'mfg') {
+                updateBatchRow(batchDatePicker.id, "manufacture_date", val);
+              } else {
+                updateBatchRow(batchDatePicker.id, "expiry_date", val);
+              }
+              setBatchDatePicker(null);
+            }}
+            disableFuture={batchDatePicker.field === 'mfg'}
+          />
         </div>,
         document.body
       )}

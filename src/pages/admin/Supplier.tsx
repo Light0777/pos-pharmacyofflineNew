@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
   getSuppliers,
@@ -224,7 +225,7 @@ export default function SupplierPage() {
   return (
     <div className="min-h-screen bg-[#F8F9FC] p-6 space-y-5">
       {/* Custom Add Supplier Modal */}
-      {addDialogOpen && (
+      {addDialogOpen && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-200">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
@@ -290,7 +291,8 @@ export default function SupplierPage() {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Stats Cards */}
@@ -504,7 +506,7 @@ export default function SupplierPage() {
       </div>
 
       {/* Custom Edit Supplier Modal */}
-      {editingId && (
+      {editingId && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-200">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
@@ -574,10 +576,11 @@ export default function SupplierPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {selectedStat && (
+      {selectedStat && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedStat(null)}>
           <div className="w-[min(90vw,400px)] h-[min(80vh,500px)] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-end mb-1">
@@ -632,7 +635,8 @@ export default function SupplierPage() {
             )}
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { getAuditLogs } from "../../renderer/services/auditLogApi";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -147,7 +148,7 @@ export default function AuditLogs() {
           </div>
         </div>
       )}
-      {selected && (
+      {selected && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-200">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
@@ -220,7 +221,8 @@ export default function AuditLogs() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-1 mt-5">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -90,7 +91,7 @@ export default function EODModal({ onClose }: { onClose: () => void }) {
     0
   );
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 flex items-center justify-center z-50 p-4 print:hidden-overlay"
       style={{
@@ -429,6 +430,7 @@ export default function EODModal({ onClose }: { onClose: () => void }) {
         #eod-content::-webkit-scrollbar-track { background: transparent; }
         #eod-content::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }

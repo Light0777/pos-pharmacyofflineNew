@@ -31,7 +31,8 @@ export class PurchaseController {
         supplier_uuid,
         invoice_number,
         invoice_date,
-        items
+        items,
+        total
       } = req.body;
 
       // VALIDATE ITEMS
@@ -236,6 +237,11 @@ export class PurchaseController {
           invoice_date:
             invoice_date
               ? String(invoice_date)
+              : undefined,
+
+          total:
+            total !== undefined
+              ? Number(total)
               : undefined,
 
           items:

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
   getTopProducts,
@@ -380,7 +381,7 @@ export default function Reports() {
                       </button>
                       {showRangeMenu && (
                         <>
-                          <div className="fixed inset-0 z-10" onClick={() => setShowRangeMenu(false)} />
+                          {createPortal(<div className="fixed inset-0 z-10" onClick={() => setShowRangeMenu(false)} />, document.body)}
                           <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-slate-200 rounded-xl shadow-xl py-1 min-w-[140px]">
                             {[7, 14, 30, 60, 90, 180, 365].map((d) => (
                               <button
@@ -791,7 +792,7 @@ export default function Reports() {
 
       </div>
 
-      {selectedStat && (
+      {selectedStat && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedStat(null)}>
           <div className="w-[min(90vw,400px)] h-[min(80vh,500px)] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-end mb-1">
@@ -868,7 +869,8 @@ export default function Reports() {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

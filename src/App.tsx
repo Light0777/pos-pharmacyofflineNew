@@ -14,7 +14,6 @@ import Staff from "./pages/admin/Staff";
 import Settings from "./pages/admin/Settings";
 
 import SupplierPage from "./pages/admin/Supplier";
-import PurchasePage from "./pages/admin/Purchase";
 import PurchaseHistory from "./pages/admin/PurchaseHistory";
 import CustomerPage from "./pages/admin/Customer";
 import GSTReport from "./pages/admin/GSTReport";
@@ -72,7 +71,7 @@ export default function App() {
         <Route path="stock" element={<Stock />} />
         <Route path="reports" element={<Reports />} />
         <Route path="supplier" element={<SupplierPage />} />
-        <Route path="purchase" element={<PurchasePage />} />
+        <Route path="purchase" element={<Navigate to="/admin/purchases" replace />} />
         <Route path="purchases" element={<PurchaseHistory />} />
         <Route path="staff" element={<Staff />} />
         <Route path="settings" element={<Settings />} />

@@ -14,7 +14,6 @@ import {
   StickyNote02Icon,
   CheckListIcon,
   PackageIcon,
-  Invoice01Icon,
   AppleStocksIcon,
   RupeeSquareIcon,
   UserGroupIcon,
@@ -35,9 +34,10 @@ interface NavItemProps {
   onClick: () => void;
   collapsed?: boolean;
   iconElement?: React.ReactNode;
+  labelClassName?: string;
 }
 
-function NavItem({ label, path, currentPath, icon, onClick, collapsed, iconElement }: NavItemProps) {
+function NavItem({ label, path, currentPath, icon, onClick, collapsed, iconElement, labelClassName }: NavItemProps) {
   const active = currentPath === path;
   return (
     <button
@@ -54,7 +54,7 @@ function NavItem({ label, path, currentPath, icon, onClick, collapsed, iconEleme
       }`}
     >
       {iconElement}
-      {!collapsed && <span className="text-sm font-medium whitespace-nowrap">{label}</span>}
+      {!collapsed && <span className={`text-sm font-medium ${labelClassName || ""}`}>{label}</span>}
       {!collapsed && active && <HugeiconsIcon icon={CheckmarkCircle01Icon} className="text-white text-sm ml-auto shrink-0" />}
     </button>
   );
@@ -197,6 +197,7 @@ function SidebarContent({ user, currentPath, navigate, t, onMobileClose, collaps
               iconElement={<HugeiconsIcon icon={StickyNote02Icon} className="text-xl shrink-0" />}
               onClick={() => handleNavigate("/admin/h1-register")}
               collapsed={collapsed}
+              labelClassName="text-xs"
             />
             <NavItem
               label={t('adminLayout.nav.auditLogs')}
@@ -217,14 +218,6 @@ function SidebarContent({ user, currentPath, navigate, t, onMobileClose, collaps
               currentPath={currentPath}
               iconElement={<HugeiconsIcon icon={PackageIcon} className="text-xl shrink-0" />}
               onClick={() => handleNavigate("/admin/products")}
-              collapsed={collapsed}
-            />
-            <NavItem
-              label={t('adminLayout.nav.purchase')}
-              path="/admin/purchase"
-              currentPath={currentPath}
-              iconElement={<HugeiconsIcon icon={Invoice01Icon} className="text-xl shrink-0" />}
-              onClick={() => handleNavigate("/admin/purchase")}
               collapsed={collapsed}
             />
             <NavItem

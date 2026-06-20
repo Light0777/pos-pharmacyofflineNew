@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { getStockAdjustments, createStockAdjustment } from "../../renderer/services/stockAdjustmentApi";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -157,7 +158,7 @@ export default function StockAdjustments() {
         </CardContent>
       </Card>
 
-      {modalOpen && (
+      {modalOpen && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-[#171717] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-gray-700">
             <div className="sticky top-0 bg-[#171717] border-b border-gray-700 px-6 py-4 flex justify-between items-center">
@@ -265,7 +266,8 @@ export default function StockAdjustments() {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

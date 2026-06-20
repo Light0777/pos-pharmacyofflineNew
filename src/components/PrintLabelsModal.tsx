@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Cancel01Icon,
@@ -90,8 +91,9 @@ export default function PrintLabelsModal({ products, onClose }: {
       {/* JsBarcode CDN */}
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js" />
 
-      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 print:hidden">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[calc(100vw-2rem)] sm:max-w-xl lg:max-w-4xl max-h-[90vh] flex flex-col">
+      {createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 print:hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[calc(100vw-2rem)] sm:max-w-xl lg:max-w-4xl max-h-[90vh] flex flex-col">
 
           {/* Header */}
           <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-6 text-white rounded-t-2xl flex justify-between items-center flex-shrink-0">
@@ -261,7 +263,9 @@ export default function PrintLabelsModal({ products, onClose }: {
             </div>
           )}
         </div>
-      </div>
+      </div>,
+      document.body
+      )}
 
       {/* Print Styles */}
       <style>{`

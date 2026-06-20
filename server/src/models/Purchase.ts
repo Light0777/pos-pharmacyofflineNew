@@ -26,6 +26,7 @@ export class PurchaseModel {
     supplier_uuid?: string;
     invoice_number?: string;
     invoice_date?: string;
+    total?: number;
     items: Array<{
       product_uuid: string;
       batch_number: string;
@@ -354,7 +355,9 @@ export class PurchaseModel {
 
       `).run(
 
-        Math.round(total * 100) / 100,
+        data.total !== undefined
+          ? Math.round(Number(data.total) * 100) / 100
+          : Math.round(total * 100) / 100,
 
         purchaseUuid
       );

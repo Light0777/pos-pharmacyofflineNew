@@ -245,22 +245,22 @@ export class ReportModel {
     // Get sales data grouped by date
     const salesData = db.prepare(`
       SELECT 
-        DATE(created_at) as date,
+        DATE(created_at, 'localtime') as date,
         SUM(grand_total) as total
       FROM sales
       WHERE created_at >= ?
-      GROUP BY DATE(created_at)
+      GROUP BY DATE(created_at, 'localtime')
       ORDER BY date ASC
     `).all(dates[0]) as Array<{ date: string; total: number }>;
 
     // Get refund data grouped by date
     const refundData = db.prepare(`
       SELECT 
-        DATE(created_at) as date,
+        DATE(created_at, 'localtime') as date,
         COALESCE(SUM(refund_amount), 0) as total
       FROM medicine_returns
       WHERE return_type = 'customer_return' AND created_at >= ?
-      GROUP BY DATE(created_at)
+      GROUP BY DATE(created_at, 'localtime')
       ORDER BY date ASC
     `).all(dates[0]) as Array<{ date: string; total: number }>;
 
@@ -297,33 +297,33 @@ export class ReportModel {
     // Get sales per day (using grand_total = subtotal + GST)
     const salesByDay = db.prepare(`
       SELECT 
-        DATE(created_at) as date,
+        DATE(created_at, 'localtime') as date,
         COALESCE(SUM(grand_total), 0) as revenue
       FROM sales
       WHERE created_at >= ?
-      GROUP BY DATE(created_at)
+      GROUP BY DATE(created_at, 'localtime')
     `).all(startDateStr) as Array<{ date: string; revenue: number }>;
 
     // Get refunds per day
     const refundsByDay = db.prepare(`
       SELECT 
-        DATE(created_at) as date,
+        DATE(created_at, 'localtime') as date,
         COALESCE(SUM(refund_amount), 0) as total
       FROM medicine_returns
       WHERE return_type = 'customer_return' AND created_at >= ?
-      GROUP BY DATE(created_at)
+      GROUP BY DATE(created_at, 'localtime')
     `).all(startDateStr) as Array<{ date: string; total: number }>;
 
     // Get COGS per day from sale items × batch PTR
     const purchasesByDay = db.prepare(`
       SELECT 
-        DATE(s.created_at) as date,
+        DATE(s.created_at, 'localtime') as date,
         COALESCE(SUM(si.quantity * COALESCE(pb.ptr, 0)), 0) as cost
       FROM sale_items si
       JOIN sales s ON si.sale_uuid = s.sale_uuid
       LEFT JOIN product_batches pb ON si.batch_uuid = pb.batch_uuid
       WHERE s.created_at >= ?
-      GROUP BY DATE(s.created_at)
+      GROUP BY DATE(s.created_at, 'localtime')
     `).all(startDateStr) as Array<{ date: string; cost: number }>;
 
     // Create maps for quick lookup
@@ -384,14 +384,14 @@ export class ReportModel {
 
     return db.prepare(`
       SELECT 
-        DATE(created_at) as date,
+        DATE(created_at, 'localtime') as date,
         COUNT(*) as order_count,
         COALESCE(SUM(total), 0) as total,
         COALESCE(SUM(tax), 0) as tax,
         COALESCE(SUM(grand_total), 0) as grand_total
       FROM sales
       WHERE created_at >= ?
-      GROUP BY DATE(created_at)
+      GROUP BY DATE(created_at, 'localtime')
       ORDER BY date DESC
     `).all(startDateStr);
   }

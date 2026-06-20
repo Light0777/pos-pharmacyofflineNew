@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   EyeIcon,
@@ -215,7 +216,7 @@ export default function SalesModal({ sales, onClose, onViewInvoice, onRefresh }:
 
   const hasActiveFilters = filters.dateFrom || filters.dateTo || filters.minAmount || filters.maxAmount;
 
-  return (
+  return createPortal(
     <>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[calc(100vw-2rem)] sm:max-w-xl lg:max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
@@ -526,7 +527,7 @@ export default function SalesModal({ sales, onClose, onViewInvoice, onRefresh }:
       </div>
 
       {/* Return Dialog */}
-      {returnTarget && (
+      {returnTarget && createPortal(
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]" onClick={(e) => { if (e.target === e.currentTarget) setReturnTarget(null); }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
@@ -690,8 +691,10 @@ export default function SalesModal({ sales, onClose, onViewInvoice, onRefresh }:
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </>
+    </>,
+    document.body
   );
 }

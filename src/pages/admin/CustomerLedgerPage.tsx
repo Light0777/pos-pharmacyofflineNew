@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
   getCustomerLedger,
@@ -82,7 +83,7 @@ export default function CustomerLedgerModal({ customer, onClose }: any) {
     window.open(url, "_blank");
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[720px] max-h-[85vh] flex flex-col border border-slate-200">
         {/* Header */}
@@ -199,6 +200,7 @@ export default function CustomerLedgerModal({ customer, onClose }: any) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

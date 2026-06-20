@@ -369,43 +369,49 @@ export class ProductModel {
 
   static delete(uuid: string): boolean {
 
-    const transaction = db.transaction(() => {
+    // Must set PRAGMA outside transaction — SQLite ignores foreign_keys toggle
+    // inside a multi-statement transaction.
+    db.pragma('foreign_keys = OFF');
 
-      // 1. Cart items
-      db.prepare(`DELETE FROM cart_items WHERE product_uuid = ?`).run(uuid);
+    try {
+      const transaction = db.transaction(() => {
 
-      // 2. Stock ledger
-      db.prepare(`DELETE FROM stock_ledgers WHERE product_uuid = ?`).run(uuid);
+        // 1. Cart items
+        db.prepare(`DELETE FROM cart_items WHERE product_uuid = ?`).run(uuid);
 
-      // 3. Stock adjustments (references both product_uuid and batch_uuid,
-      //    must go before batches are deleted)
-      db.prepare(`DELETE FROM stock_adjustments WHERE product_uuid = ?`).run(uuid);
+        // 2. Stock ledger
+        db.prepare(`DELETE FROM stock_ledgers WHERE product_uuid = ?`).run(uuid);
 
-      // 4. Medicine returns (references batch_uuid, must go before batches)
-      db.prepare(`DELETE FROM medicine_returns WHERE product_uuid = ?`).run(uuid);
+        // 3. Stock adjustments
+        db.prepare(`DELETE FROM stock_adjustments WHERE product_uuid = ?`).run(uuid);
 
-      // 5. Sale items (references both product_uuid and batch_uuid,
-      //    must go before batches — sale and payment rows stay intact)
-      db.prepare(`DELETE FROM sale_items WHERE product_uuid = ?`).run(uuid);
+        // 4. Medicine returns
+        db.prepare(`DELETE FROM medicine_returns WHERE product_uuid = ?`).run(uuid);
 
-      // 6. Purchase items
-      db.prepare(`DELETE FROM purchase_items WHERE product_uuid = ?`).run(uuid);
+        // 5. Sale items
+        db.prepare(`DELETE FROM sale_items WHERE product_uuid = ?`).run(uuid);
 
-      // 7. Product batches (now safe — nothing references them anymore)
-      db.prepare(`DELETE FROM product_batches WHERE product_uuid = ?`).run(uuid);
+        // 6. Purchase items — SKIP deletion to preserve purchase history
 
-      // 8. Product units
-      db.prepare(`DELETE FROM product_units WHERE product_uuid = ?`).run(uuid);
+        // 7. Product batches
+        db.prepare(`DELETE FROM product_batches WHERE product_uuid = ?`).run(uuid);
 
-      // 9. Product attributes
-      db.prepare(`DELETE FROM product_attributes WHERE product_uuid = ?`).run(uuid);
+        // 8. Product units
+        db.prepare(`DELETE FROM product_units WHERE product_uuid = ?`).run(uuid);
 
-      // 10. Finally delete the product itself
-      const result = db.prepare(`DELETE FROM products WHERE product_uuid = ?`).run(uuid);
-      return result.changes > 0;
-    });
+        // 9. Product attributes
+        db.prepare(`DELETE FROM product_attributes WHERE product_uuid = ?`).run(uuid);
 
-    return transaction();
+        // 10. Finally delete the product itself
+        const result = db.prepare(`DELETE FROM products WHERE product_uuid = ?`).run(uuid);
+
+        return result.changes > 0;
+      });
+
+      return transaction();
+    } finally {
+      db.pragma('foreign_keys = ON');
+    }
   }
 
   // =========================

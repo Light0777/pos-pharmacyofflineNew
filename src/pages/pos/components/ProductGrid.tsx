@@ -90,6 +90,13 @@ function UnitSelectionModal({
   }, [selectedUnitUuid, availableUnits]);
 
   useEffect(() => {
+    if (selectedUnit) {
+      const maxQty = Math.floor(batchTabletQty / (selectedUnit.conversion_factor || 1));
+      if (quantity > maxQty) setQuantity(Math.max(1, maxQty));
+    }
+  }, [selectedUnit, selectedBatchUuid]);
+
+  useEffect(() => {
     if (batches.length > 0 && !selectedBatchUuid) {
       setSelectedBatchUuid(batches[0].batch_uuid);
     }
@@ -100,6 +107,13 @@ function UnitSelectionModal({
     return unit.price || product?.price || 0;
   };
   const totalPrice = selectedUnit ? (getUnitPrice(selectedUnit) * quantity).toFixed(2) : "0.00";
+
+  const selectedBatch = batches.find(b => b.batch_uuid === (selectedBatchUuid || batches[0]?.batch_uuid));
+  const batchTabletQty = selectedBatch?.quantity ?? 0;
+  const availableForUnit = selectedUnit
+    ? Math.floor(batchTabletQty / (selectedUnit.conversion_factor || 1))
+    : 0;
+
   const getDaysUntilExpiry = (expiryDate: string): number => {
     const today = new Date();
     const expiry = new Date(expiryDate);
@@ -202,9 +216,16 @@ function UnitSelectionModal({
 
           {/* Quantity Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Quantity
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-600">
+                Quantity
+              </label>
+              {selectedUnit && (
+                <span className="text-sm text-gray-500">
+                  Available: <span className="font-semibold text-gray-800">{availableForUnit}</span> {selectedUnit.unit_name.toLowerCase()}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-3">
               <Button
                 type="button"
@@ -218,6 +239,7 @@ function UnitSelectionModal({
               <Input
                 type="number"
                 min="1"
+                max={availableForUnit || 999999}
                 value={quantity || ""}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -226,7 +248,9 @@ function UnitSelectionModal({
                     return;
                   }
                   const parsed = parseInt(val);
-                  if (!isNaN(parsed) && parsed >= 1) setQuantity(parsed);
+                  if (!isNaN(parsed) && parsed >= 1) {
+                    setQuantity(Math.min(parsed, availableForUnit || 999999));
+                  }
                 }}
                 onBlur={() => { if (quantity < 1) setQuantity(1); }}
                 className="w-20 text-center bg-white border-gray-300 text-gray-900 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
@@ -235,8 +259,9 @@ function UnitSelectionModal({
                 type="button"
                 variant="outline"
                 size="icon"
-                onClick={() => setQuantity(quantity + 1)}
-                className="border-gray-300 text-gray-700"
+                disabled={quantity >= (availableForUnit || 0)}
+                onClick={() => setQuantity(Math.min(quantity + 1, availableForUnit || 999999))}
+                className="border-gray-300 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Plus className="h-4 w-4" />
               </Button>

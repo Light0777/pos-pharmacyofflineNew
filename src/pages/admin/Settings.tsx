@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import LanguageToggle from "../../components/LanguageToggle";
 import {
@@ -64,43 +65,217 @@ const DEFAULT_SETTINGS = {
 
 const DEFAULT_TERMS = `Terms & Conditions
 
+Last Updated: 20-Jun-2026
+Application Name: POS Pharmacy
+
 1. Acceptance of Terms
-By using this software, you agree to be bound by these terms and conditions.
 
-2. License
-The software is licensed, not sold. You are granted a non-exclusive, non-transferable license to use the software.
+By installing, accessing, or using POS Pharmacy ("the Software"), you agree to be bound by these Terms & Conditions.
 
-3. Usage
-You agree to use the software only for lawful purposes and in accordance with all applicable laws and regulations.
+If you do not agree with any part of these terms, you must not use the Software.
 
-4. Data Privacy
-You are responsible for maintaining the confidentiality of your account information and for all activities that occur under your account.
+2. Description of Service
 
-5. Limitation of Liability
-The software is provided "as is" without warranty of any kind. The developers shall not be liable for any damages arising from the use of this software.
+POS Pharmacy is an offline pharmacy billing, inventory, and business management software designed to assist users in managing sales, purchases, stock, and related business operations.
 
-6. Changes
-We reserve the right to modify these terms at any time. Continued use of the software after changes constitutes acceptance of the new terms.`;
+The Software operates locally on the user's device and does not require an internet connection for core functionality.
+
+3. Offline Usage and Data Responsibility
+
+The Software stores all data locally on the user's device.
+
+The user acknowledges and agrees that:
+
+All business data is stored and managed on their device
+The user is solely responsible for maintaining backups
+Data loss due to device failure, corruption, or misuse is the user's responsibility
+The developer does not have access to user data unless explicitly provided by the user for support purposes
+
+4. User Responsibility
+
+The user is solely responsible for:
+
+Accuracy of billing, invoices, and GST/tax entries
+Verification of product details, pricing, and stock levels
+Compliance with applicable laws, including pharmacy and taxation regulations
+Proper use of the Software in accordance with local laws
+
+The Software is a tool for assistance and does not replace professional accounting, legal, or regulatory compliance obligations.
+
+5. GST / Tax Calculation Disclaimer
+
+The Software may include features for Goods and Services Tax (GST) and other tax-related calculations based on user input and configured settings.
+
+While the Software is designed to assist with tax calculations in accordance with commonly used rules, we do not guarantee the absolute accuracy, completeness, or real-time compliance of GST or tax computations.
+
+Users acknowledge and agree that:
+
+GST and tax calculations are provided as an assisting tool only
+Tax rates, rules, and regulations may change over time
+The user is solely responsible for verifying all tax-related entries and compliance with applicable government laws
+The Software shall not be held liable for any discrepancies, penalties, or losses arising from incorrect tax calculations or outdated tax configurations
+
+6. No Warranty
+
+The Software is provided on an "as is" and "as available" basis.
+
+We make no warranties or representations, express or implied, including but not limited to:
+
+Accuracy of calculations or reports
+Uninterrupted or error-free operation
+Fitness for a particular purpose
+Compatibility with all devices or environments
+
+7. Limitation of Liability
+
+To the maximum extent permitted by law, the developer shall not be held liable for any:
+
+Direct, indirect, incidental, or consequential damages
+Financial or business losses
+Loss of data, revenue, or profits
+Errors in billing, inventory, or tax calculations
+Business interruptions arising from use or inability to use the Software
+
+The entire risk arising from use of the Software remains with the user.
+
+8. Refund Policy
+
+Refunds, if applicable, are limited strictly to the purchase price of the Software and will be provided only within [insert refund period, e.g., 7 or 14 days] of purchase.
+
+No additional compensation, damages, or claims beyond the purchase price shall be entertained under any circumstances.
+
+9. Prohibited Use
+
+Users agree not to:
+
+Reverse engineer, modify, or redistribute the Software without permission
+Use the Software for illegal or unauthorized purposes
+Attempt to disrupt or compromise the Software's functionality
+
+10. Updates and Modifications
+
+We reserve the right to update, modify, or discontinue the Software or any part of it at any time without prior notice.
+
+Terms may also be updated periodically, and continued use of the Software constitutes acceptance of the updated terms.
+
+11. Third-Party Services
+
+The Software does not rely on third-party services for core functionality unless explicitly stated.
+
+If third-party integrations are added in the future, users will be informed and this document will be updated accordingly.
+
+12. Termination of Use
+
+We reserve the right to restrict or terminate access to the Software in cases of misuse, illegal activity, or violation of these Terms.
+
+13. Governing Law
+
+These Terms shall be governed by and interpreted in accordance with the laws applicable in the jurisdiction of the developer's operation, without regard to conflict of law principles.
+
+14. Contact Information
+
+For any questions regarding these Terms & Conditions, please contact:
+
+Developer: vsaas.studio`;
 
 const DEFAULT_PRIVACY = `Privacy Policy
 
-1. Information We Collect
-We collect information you provide directly, including business name, address, contact details, and transaction data.
+Last Updated: 20-Jun-2026
+Application Name: POS Pharmacy
 
-2. Use of Information
-Your information is used to operate the software, process transactions, generate invoices, and comply with legal requirements.
+1. Introduction
 
-3. Data Storage
-Your data is stored locally on your device. We do not transmit your data to external servers unless required for license validation.
+This Privacy Policy describes how POS Pharmacy ("the Software," "we," "our," or "us") handles information when you use our pharmacy billing and inventory management application.
 
-4. Data Security
-We implement reasonable security measures to protect your data from unauthorized access or disclosure.
+POS Pharmacy is designed to operate fully offline and is intended to assist pharmacy and retail businesses in managing billing, inventory, and related operations.
 
-5. Your Rights
-You have the right to access, update, and delete your data. Contact us for assistance with data requests.
+By using this Software, you acknowledge and agree to the practices described in this Privacy Policy.
 
-6. Contact
-For questions about this policy, please contact your software provider.`;
+2. Data Storage
+
+All data entered into the Software is stored locally on the user's device.
+
+This may include, but is not limited to:
+
+Business and pharmacy details
+Product and inventory information
+Sales and purchase records
+Invoice and billing data
+Customer details (if entered by the user)
+User account information (if applicable)
+
+The Software does not store this data on external servers.
+
+3. Data Collection
+
+The Software does not collect, transmit, upload, or store any user data on remote servers.
+
+We do not access, monitor, or retrieve any business or personal data entered into the application.
+
+All information remains fully under the control of the user and is stored locally on their device.
+
+4. Data Usage
+
+All data entered into the Software is used solely for the purpose of providing core functionality, including billing, inventory management, reporting, and record-keeping.
+
+No data is used for advertising, profiling, analytics, or external processing.
+
+5. Data Sharing
+
+The Software does not share, sell, rent, or disclose any user data to third parties.
+
+Since all data is stored locally on the user's device, no external data transmission occurs.
+
+6. Data Ownership
+
+All data entered into the Software remains the sole property of the user or the respective business owner.
+
+We do not claim ownership over any invoices, billing records, inventory data, or customer information created within the application.
+
+7. Data Security
+
+The security of data stored within the Software depends on the user's device and usage practices.
+
+Users are responsible for:
+
+Securing access to their device
+Maintaining backups of their data
+Protecting login credentials (if applicable)
+
+We do not assume responsibility for data loss resulting from device failure, misuse, or lack of backups.
+
+8. Third-Party Services
+
+The Software does not use any third-party services for data storage, processing, or analytics.
+
+If future versions introduce optional third-party integrations, this Privacy Policy will be updated accordingly.
+
+9. Data Deletion
+
+Users may delete their data at any time by:
+
+Removing records within the application, or
+Uninstalling the Software from their device
+
+It is recommended that users create backups before deleting or uninstalling the Software.
+
+10. Children and Intended Use
+
+This Software is intended for use by business owners and authorized personnel for professional billing and inventory management purposes.
+
+It is not intended for personal medical use or use by children.
+
+11. Changes to This Privacy Policy
+
+We reserve the right to update or modify this Privacy Policy at any time to reflect changes in features or legal requirements.
+
+Updated versions will be made available within the Software.
+
+12. Contact Information
+
+If you have any questions or concerns regarding this Privacy Policy, you may contact us at:
+
+Developer: vsaas.studio`;
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -824,7 +999,7 @@ export default function Settings() {
       </div>
 
       {/* Custom Edit Modal */}
-      {dialogOpen && (
+      {dialogOpen && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-200">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
@@ -915,11 +1090,12 @@ export default function Settings() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Terms & Conditions Modal */}
-      {showTermsModal && (
+      {showTermsModal && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-slate-200">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
@@ -942,11 +1118,12 @@ export default function Settings() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Privacy Policy Modal */}
-      {showPrivacyModal && (
+      {showPrivacyModal && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-slate-200">
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
@@ -969,7 +1146,8 @@ export default function Settings() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

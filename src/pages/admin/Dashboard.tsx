@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -421,8 +422,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {showLowStock && <div className="fixed inset-0 z-40" onClick={() => setShowLowStock(false)} />}
-      {showOutOfStock && <div className="fixed inset-0 z-40" onClick={() => setShowOutOfStock(false)} />}
+      {showLowStock && createPortal(<div className="fixed inset-0 z-40" onClick={() => setShowLowStock(false)} />, document.body)}
+      {showOutOfStock && createPortal(<div className="fixed inset-0 z-40" onClick={() => setShowOutOfStock(false)} />, document.body)}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 text-start">
@@ -767,7 +768,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {showDebtorModal && (
+      {showDebtorModal && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setShowDebtorModal(false)}>
           <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-[20px] shadow-xl p-8" style={{ width: 'min(90vw, 900px)', maxHeight: '90vh', overflow: 'hidden' }}>
             <div className="flex items-start justify-between mb-6">
@@ -866,7 +867,7 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Orders */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -984,7 +985,7 @@ export default function Dashboard() {
         />
       )}
 
-      {selectedStat && (
+      {selectedStat && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedStat(null)}>
           <div className="w-[min(90vw,400px)] h-[min(80vh,500px)] rounded-[24px] overflow-hidden pt-5 px-5 pb-3 flex flex-col" style={{ background: "#1a1d1f" }} onClick={(e) => e.stopPropagation()}>
             {/* Close X button */}
@@ -1077,7 +1078,8 @@ export default function Dashboard() {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

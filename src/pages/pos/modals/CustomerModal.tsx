@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Cancel01Icon,
@@ -62,7 +63,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <form
         onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
@@ -231,6 +232,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }
