@@ -98,6 +98,7 @@ interface BatchRow {
   id: string;
   batch_uuid?: string;
   batch_number: string;
+  bottles: string;
   strips: string;
   total_tablets: string;
   manufacture_date: string;
@@ -174,6 +175,7 @@ const EMPTY_FORM = {
   manufacture_date: "",
   expiry_date: "",
   strips: "",
+  bottles: "",
   total_tablets: "",
   ptr: "",
   supplier_uuid: "",
@@ -923,6 +925,7 @@ export default function Products() {
         const updates: any = {
           batch_number: b.batch_number || "",
           strips: stripVal,
+          bottles: String(Math.floor(Number(tabletVal) / tsp)),
           total_tablets: tabletVal,
           ptr: String(b.ptr ?? b.purchase_price ?? ""),
           manufacture_date: b.manufacture_date || "",
@@ -936,6 +939,7 @@ export default function Products() {
         id: `batch-edit-${i}`,
         batch_uuid: b.batch_uuid,
         batch_number: b.batch_number || "",
+        bottles: String(Math.floor((b.quantity || 0) / tsp)),
         strips: String(b.strips || (b.quantity ? Math.round(b.quantity / tsp) : 0) || 0),
         total_tablets: String(b.quantity || 0),
         ptr: String(b.ptr ?? b.purchase_price ?? ""),
@@ -1030,6 +1034,7 @@ export default function Products() {
     setBatchRows((prev) => [...prev, {
       id: `batch-${Date.now()}`,
       batch_number: "",
+      bottles: "",
       strips: "",
       total_tablets: "",
       ptr: "",
@@ -1046,8 +1051,17 @@ export default function Products() {
     setBatchRows((prev) => prev.map((r) => {
       if (r.id !== id) return r;
       const updated = { ...r, [field]: value };
+      const tps = Number(form.tablets_per_strip) || 1;
+      if (field === "bottles") {
+        updated.total_tablets = String((Number(value) || 0) * tps);
+        updated.strips = String(Math.round((Number(updated.total_tablets) || 0) / tps));
+      }
+      if (field === "strips") {
+        updated.total_tablets = String((Number(value) || 0) * tps);
+      }
       if (field === "total_tablets") {
-        updated.strips = String(Math.round((Number(value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1)));
+        updated.strips = String(Math.round((Number(value) || 0) / tps));
+        updated.bottles = String(Math.floor((Number(value) || 0) / tps));
       }
       return updated;
     }));
@@ -2052,9 +2066,24 @@ export default function Products() {
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Batches</div>
                   <div className="space-y-3">
                     <div className="border border-slate-200 rounded-xl p-4 bg-white">
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                      <div className={`grid ${isSimpleType ? "grid-cols-2" : "grid-cols-3"} gap-x-4 gap-y-3`}>
                         <Input label="Batch No" value={form.batch_number} onChange={(e: any) => setForm({ ...form, batch_number: e.target.value })} placeholder="e.g. B001" />
-                        <Input label={isSimpleType ? "Total products" : "Total Tablets"} type="number" value={form.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.reduce((s, r) => s + (Number(r.total_tablets) || 0), 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => { setForm({ ...form, total_tablets: e.target.value, strips: String(Math.round((Number(e.target.value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))) }); }} placeholder="0" />
+                        {isBottleMedicine && (
+                          <Input label="Bottles" type="number" value={form.bottles} onChange={(e: any) => {
+                            const b = Number(e.target.value) || 0;
+                            const tps = Number(form.tablets_per_strip) || 1;
+                            const newTotal = String(b * tps);
+                            setForm({ ...form, bottles: e.target.value, total_tablets: newTotal, strips: String(b) });
+                          }} placeholder="0" />
+                        )}
+                        {!isSimpleType && !isBottleMedicine && (
+                          <Input label="Strips" type="number" value={form.strips} onChange={(e: any) => {
+                            const s = Number(e.target.value) || 0;
+                            const tps = Number(form.tablets_per_strip) || 1;
+                            setForm({ ...form, strips: e.target.value, total_tablets: String(s * tps) });
+                          }} placeholder="0" />
+                        )}
+                        <Input label={isSimpleType ? "Total products" : "Total Tablets"} type="number" value={form.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.reduce((s, r) => s + (Number(r.total_tablets) || 0), 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => { setForm({ ...form, total_tablets: e.target.value, strips: String(Math.round((Number(e.target.value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))), bottles: String(Math.floor((Number(e.target.value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))) }); }} placeholder="0" />
                         <Input label="PTR" type="number" step="0.01" value={form.ptr} onChange={(e: any) => setForm({ ...form, ptr: e.target.value })} placeholder="0.00" />
                         
                         <div>
@@ -2106,8 +2135,14 @@ export default function Products() {
                         >
                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                        <div className={`grid ${isSimpleType ? "grid-cols-2" : "grid-cols-3"} gap-x-4 gap-y-3`}>
                           <Input label="Batch No" value={row.batch_number} onChange={(e: any) => updateBatchRow(row.id, "batch_number", e.target.value)} placeholder="e.g. B002" />
+                          {isBottleMedicine && (
+                            <Input label="Bottles" type="number" value={row.bottles} onChange={(e: any) => updateBatchRow(row.id, "bottles", e.target.value)} placeholder="0" />
+                          )}
+                          {!isSimpleType && !isBottleMedicine && (
+                            <Input label="Strips" type="number" value={row.strips} onChange={(e: any) => updateBatchRow(row.id, "strips", e.target.value)} placeholder="0" />
+                          )}
                           <Input label={isSimpleType ? "Total products" : "Total Tablets"} type="number" value={row.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.slice(0, idx).reduce((s, r) => s + (Number(r.total_tablets) || 0), 0) + (Number(row.total_tablets) || 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => updateBatchRow(row.id, "total_tablets", e.target.value)} placeholder="0" />
                           <Input label="PTR" type="number" step="0.01" value={row.ptr} onChange={(e: any) => updateBatchRow(row.id, "ptr", e.target.value)} placeholder="0.00" />
                           <div>
@@ -2348,11 +2383,7 @@ export default function Products() {
                         </div>
                         {/* Subtotal */}
                         {(() => {
-                          const qty = ((Number(form.strips) || 0) + batchRows.reduce((sum, r) => sum + (Number(r.strips) || 0), 0)) * (Number(form.tablets_per_strip) || 0);
-                          const cost = Number(form.purchase_price) || 0;
-                          const disc = Number(newPurchaseDiscount) || 0;
-                          const autoSubtotal = Math.max(0, qty * cost - disc);
-                          const displayValue = newManualSubtotal !== null ? newManualSubtotal : autoSubtotal.toFixed(2);
+                          const displayValue = newManualSubtotal !== null ? newManualSubtotal : "";
                           return (
                             <div className="bg-slate-50 rounded-xl p-4 flex justify-between items-center border border-slate-200 mt-4">
                               <span className="text-sm font-medium text-slate-600">Subtotal</span>
@@ -2363,7 +2394,8 @@ export default function Products() {
                                   step="0.01"
                                   value={displayValue}
                                   onChange={(e) => setNewManualSubtotal(e.target.value)}
-                                  className="w-32 text-right bg-transparent border-b border-slate-300 text-2xl font-bold text-emerald-600 focus:outline-none focus:border-emerald-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                  placeholder="0"
+                                  className="w-32 text-right bg-transparent border-b border-slate-300 text-2xl font-bold text-emerald-600 focus:outline-none focus:border-emerald-500 placeholder:text-slate-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                 />
                               </div>
                             </div>
@@ -2491,11 +2523,7 @@ export default function Products() {
 
                   {/* Subtotal */}
                   {(() => {
-                    const qty = ((Number(form.strips) || 0) + batchRows.reduce((sum, r) => sum + (Number(r.strips) || 0), 0)) * (Number(form.tablets_per_strip) || 0);
-                    const cost = Number(form.purchase_price) || 0;
-                    const disc = Number(form.purchase_discount) || 0;
-                    const autoSubtotal = Math.max(0, qty * cost - disc);
-                    const displayValue = manualSubtotal !== null ? manualSubtotal : autoSubtotal.toFixed(2);
+                    const displayValue = manualSubtotal !== null ? manualSubtotal : "";
                     return (
                       <div className="bg-slate-50 rounded-xl p-4 flex justify-between items-center border border-slate-200 mt-4">
                         <span className="text-sm font-medium text-slate-600">Subtotal</span>
@@ -2506,7 +2534,8 @@ export default function Products() {
                             step="0.01"
                             value={displayValue}
                             onChange={(e) => setManualSubtotal(e.target.value)}
-                            className="w-32 text-right bg-transparent border-b border-slate-300 text-2xl font-bold text-emerald-600 focus:outline-none focus:border-emerald-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            placeholder="0"
+                            className="w-32 text-right bg-transparent border-b border-slate-300 text-2xl font-bold text-emerald-600 focus:outline-none focus:border-emerald-500 placeholder:text-slate-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
                         </div>
                       </div>

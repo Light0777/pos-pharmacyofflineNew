@@ -382,6 +382,8 @@ export interface Setting {
   drug_license_valid_upto?: string;
   pharmacist_name?: string;
   pharmacist_registration_number?: string;
+  terms_conditions?: string;
+  privacy_policy?: string;
   created_at: string;
   updated_at: string;
 }

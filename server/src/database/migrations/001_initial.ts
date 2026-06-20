@@ -580,6 +580,8 @@ export function runMigrations(): void {
     { table: 'products', column: 'price_per_strip', def: 'REAL DEFAULT 0' },
     { table: 'products', column: 'price_per_tablet', def: 'REAL DEFAULT 0' },
     { table: 'product_batches', column: 'strips', def: 'REAL DEFAULT 0' },
+    { table: 'settings', column: 'terms_conditions', def: 'TEXT' },
+    { table: 'settings', column: 'privacy_policy', def: 'TEXT' },
   ];
   for (const fix of fixColumns) {
     try {

@@ -32,7 +32,7 @@ export class SettingsController {
   // CREATE or UPDATE settings
   static save = (req: AuthRequest, res: Response): void => {
     try {
-      const { shop_name, mobile, address, gstin, invoice_prefix, auto_print, printer_type, printer_host, printer_port, printer_name } = req.body;
+      const { shop_name, mobile, address, gstin, invoice_prefix, auto_print, printer_type, printer_host, printer_port, printer_name, terms_conditions, privacy_policy } = req.body;
 
       if (!shop_name) {
         res.status(400).json({
@@ -53,6 +53,8 @@ export class SettingsController {
         printer_host: printer_host ? String(printer_host) : undefined,
         printer_port: printer_port !== undefined ? Number(printer_port) : undefined,
         printer_name: printer_name ? String(printer_name) : undefined,
+        terms_conditions: terms_conditions !== undefined ? String(terms_conditions) : undefined,
+        privacy_policy: privacy_policy !== undefined ? String(privacy_policy) : undefined,
       });
 
       res.json({

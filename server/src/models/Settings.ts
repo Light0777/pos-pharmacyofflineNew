@@ -31,6 +31,8 @@ export class SettingsModel {
     printer_host?: string;
     printer_port?: number;
     printer_name?: string;
+    terms_conditions?: string;
+    privacy_policy?: string;
   }): Setting {
     const existing = db.prepare('SELECT * FROM settings LIMIT 1').get() as Setting | undefined;
 
@@ -79,6 +81,15 @@ export class SettingsModel {
       if (data.printer_name !== undefined) {
         updateFields.push('printer_name = ?');
         values.push(data.printer_name);
+      }
+
+      if (data.terms_conditions !== undefined) {
+        updateFields.push('terms_conditions = ?');
+        values.push(data.terms_conditions);
+      }
+      if (data.privacy_policy !== undefined) {
+        updateFields.push('privacy_policy = ?');
+        values.push(data.privacy_policy);
       }
 
       if (updateFields.length > 0) {

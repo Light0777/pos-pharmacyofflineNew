@@ -58,7 +58,49 @@ const DEFAULT_SETTINGS = {
   gstin: "",
   invoice_prefix: "INV",
   auto_print: 0,
+  terms_conditions: "",
+  privacy_policy: "",
 };
+
+const DEFAULT_TERMS = `Terms & Conditions
+
+1. Acceptance of Terms
+By using this software, you agree to be bound by these terms and conditions.
+
+2. License
+The software is licensed, not sold. You are granted a non-exclusive, non-transferable license to use the software.
+
+3. Usage
+You agree to use the software only for lawful purposes and in accordance with all applicable laws and regulations.
+
+4. Data Privacy
+You are responsible for maintaining the confidentiality of your account information and for all activities that occur under your account.
+
+5. Limitation of Liability
+The software is provided "as is" without warranty of any kind. The developers shall not be liable for any damages arising from the use of this software.
+
+6. Changes
+We reserve the right to modify these terms at any time. Continued use of the software after changes constitutes acceptance of the new terms.`;
+
+const DEFAULT_PRIVACY = `Privacy Policy
+
+1. Information We Collect
+We collect information you provide directly, including business name, address, contact details, and transaction data.
+
+2. Use of Information
+Your information is used to operate the software, process transactions, generate invoices, and comply with legal requirements.
+
+3. Data Storage
+Your data is stored locally on your device. We do not transmit your data to external servers unless required for license validation.
+
+4. Data Security
+We implement reasonable security measures to protect your data from unauthorized access or disclosure.
+
+5. Your Rights
+You have the right to access, update, and delete your data. Contact us for assistance with data requests.
+
+6. Contact
+For questions about this policy, please contact your software provider.`;
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -82,6 +124,8 @@ export default function Settings() {
   const [secQuestion, setSecQuestion] = useState("");
   const [secAnswer, setSecAnswer] = useState("");
   const [savingSecurity, setSavingSecurity] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -120,6 +164,8 @@ export default function Settings() {
       gstin: source.gstin || "",
       invoice_prefix: source.invoice_prefix || "INV",
       auto_print: source.auto_print ?? 0,
+      terms_conditions: source.terms_conditions || "",
+      privacy_policy: source.privacy_policy || "",
     };
   };
 
@@ -590,6 +636,48 @@ export default function Settings() {
           </div>
         </div>
 
+        {/* Terms & Conditions */}
+        <div className="settings-section" style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 14, overflow: "hidden", marginBottom: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+          <div className="section-header" style={{ padding: "16px 20px 15px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="section-icon orange" style={{ width: 42, height: 42, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: "rgba(245,158,11,0.1)", color: "#d97706" }}>
+              <HugeiconsIcon icon={File01Icon} className="text-xl" />
+            </div>
+            <div style={{ flex: 1, textAlign: "left" }}>
+              <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>Terms & Conditions</div>
+              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>Legal agreement for using this software</div>
+            </div>
+            <button onClick={() => setShowTermsModal(true)} className="edit-inline" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 20, fontSize: "0.75rem", fontWeight: 600, color: "#d97706", cursor: "pointer", transition: "all 0.15s" }}>
+              <HugeiconsIcon icon={File01Icon} className="text-xs" />
+              View
+            </button>
+          </div>
+          <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>Terms & Conditions</span>
+            <span style={{ fontSize: "0.85rem", color: "#6b7280", fontFamily: "inherit" }}>{data.terms_conditions ? <span style={{ color: "#16a34a" }}>Customized</span> : <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Default</span>}</span>
+          </div>
+        </div>
+
+        {/* Privacy Policy */}
+        <div className="settings-section" style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 14, overflow: "hidden", marginBottom: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+          <div className="section-header" style={{ padding: "16px 20px 15px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="section-icon blue" style={{ width: 42, height: 42, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: "rgba(37,99,235,0.1)", color: "#2563eb" }}>
+              <HugeiconsIcon icon={Shield01Icon} className="text-xl" />
+            </div>
+            <div style={{ flex: 1, textAlign: "left" }}>
+              <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>Privacy Policy</div>
+              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>How your data is handled and protected</div>
+            </div>
+            <button onClick={() => setShowPrivacyModal(true)} className="edit-inline" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)", borderRadius: 20, fontSize: "0.75rem", fontWeight: 600, color: "#2563eb", cursor: "pointer", transition: "all 0.15s" }}>
+              <HugeiconsIcon icon={Shield01Icon} className="text-xs" />
+              View
+            </button>
+          </div>
+          <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>Privacy Policy</span>
+            <span style={{ fontSize: "0.85rem", color: "#6b7280", fontFamily: "inherit" }}>{data.privacy_policy ? <span style={{ color: "#16a34a" }}>Customized</span> : <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Default</span>}</span>
+          </div>
+        </div>
+
         {/* Backup & Restore */}
         <div className="settings-section" style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 14, overflow: "hidden", marginBottom: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
           <div className="section-header" style={{ padding: "16px 20px 15px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 10 }}>
@@ -824,6 +912,60 @@ export default function Settings() {
                     {t('settings.saveChanges')}
                   </span>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Terms & Conditions Modal */}
+      {showTermsModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-slate-200">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <HugeiconsIcon icon={File01Icon} className="text-xl text-amber-600" />
+                Terms & Conditions
+              </h2>
+              <button onClick={() => setShowTermsModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                <HugeiconsIcon icon={Cancel01Icon} className="text-2xl" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[55vh]" style={{ textAlign: "left" }}>
+              <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "0.85rem", color: "#374151", lineHeight: 1.7, margin: 0 }}>
+                {data.terms_conditions || DEFAULT_TERMS}
+              </pre>
+            </div>
+            <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3 bg-white">
+              <button onClick={() => setShowTermsModal(false)} className="px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors cursor-pointer">
+                Agree
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Privacy Policy Modal */}
+      {showPrivacyModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden border border-slate-200">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <HugeiconsIcon icon={Shield01Icon} className="text-xl text-blue-600" />
+                Privacy Policy
+              </h2>
+              <button onClick={() => setShowPrivacyModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                <HugeiconsIcon icon={Cancel01Icon} className="text-2xl" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[55vh]" style={{ textAlign: "left" }}>
+              <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "0.85rem", color: "#374151", lineHeight: 1.7, margin: 0 }}>
+                {data.privacy_policy || DEFAULT_PRIVACY}
+              </pre>
+            </div>
+            <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3 bg-white">
+              <button onClick={() => setShowPrivacyModal(false)} className="px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors cursor-pointer">
+                Agree
               </button>
             </div>
           </div>
