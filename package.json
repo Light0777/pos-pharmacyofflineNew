@@ -1,7 +1,7 @@
 {
   "name": "POS-Pharmacy",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "main": "electron/main.cjs",
   "description": "Complete POS billing system for retail stores",

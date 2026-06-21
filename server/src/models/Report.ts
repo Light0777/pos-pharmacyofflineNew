@@ -500,7 +500,7 @@ export class ReportModel {
       COALESCE((SELECT SUM(si.quantity * COALESCE(pb.ptr, 0)) FROM sale_items si JOIN product_batches pb ON si.batch_uuid = pb.batch_uuid JOIN sales s2 ON si.sale_uuid = s2.sale_uuid WHERE s2.created_at BETWEEN ? AND ?), 0) as total_cost
     FROM sales
     WHERE created_at BETWEEN ? AND ?
-  `).get(startDate, endDate, startDate, endDate, startDate, endDate, startDate, endDate) as any;
+  `).get(startDate, endDate, startDate, endDate, startDate, endDate) as any;
 
     // Payment breakdown
     const payments = db.prepare(`

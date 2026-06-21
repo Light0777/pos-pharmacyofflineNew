@@ -198,7 +198,6 @@ function createWindow() {
 }
 
 // ─── Update Checker ─────────────────────────────────────────────────────────
-const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 const GITHUB_OWNER = 'Light0777';
 const GITHUB_REPO = 'pos-pharmacyofflineNew';
 
@@ -210,21 +209,6 @@ function semverCompare(a, b) {
     if ((pa[i] || 0) < (pb[i] || 0)) return -1;
   }
   return 0;
-}
-
-function getLastUpdateCheckPath() {
-  return path.join(app.getPath('userData'), 'last-update-check.json');
-}
-
-function readLastUpdateCheck() {
-  try {
-    const raw = fs.readFileSync(getLastUpdateCheckPath(), 'utf8');
-    return JSON.parse(raw).timestamp || null;
-  } catch { return null; }
-}
-
-function writeLastUpdateCheck(timestamp) {
-  fs.writeFileSync(getLastUpdateCheckPath(), JSON.stringify({ timestamp }), 'utf8');
 }
 
 async function checkForUpdates() {
@@ -267,24 +251,11 @@ async function checkForUpdates() {
 
 // ─── IPC Handlers ───────────────────────────────────────────────────────────
 ipcMain.handle('check-for-updates', async () => {
-  const lastCheck = readLastUpdateCheck();
-  const now = Date.now();
-  if (lastCheck && (now - lastCheck) < UPDATE_CHECK_INTERVAL) {
-    return { skipped: true, nextCheckAt: lastCheck + UPDATE_CHECK_INTERVAL };
-  }
   try {
-    const result = await checkForUpdates();
-    writeLastUpdateCheck(now);
-    return result;
+    return await checkForUpdates();
   } catch (err) {
     return { error: err.message || 'Update check failed' };
   }
-});
-
-ipcMain.handle('get-last-update-check', () => readLastUpdateCheck());
-
-ipcMain.handle('set-last-update-check', (_event, timestamp) => {
-  writeLastUpdateCheck(timestamp);
 });
 
 ipcMain.handle('download-update', async (event, assetUrl) => {
