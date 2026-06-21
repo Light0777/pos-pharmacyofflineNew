@@ -116,7 +116,7 @@ const CATEGORY_DEFAULTS: Record<string, { schedule: string; prescription: boolea
   "cat-cosmetic":  { schedule: "NONE", prescription: false },
 };
 
-const UNIT_OPTIONS = ["Tablets / Capsules", "Liquids", "Creams / Ointments", "Devices", "Bottle Medicine", "Piece"];
+const UNIT_OPTIONS = ["Tablets / Capsules", "Liquids", "Creams / Ointments", "Devices", "Bottled Tablets", "Piece"];
 
 const EMPTY_FORM = {
   name: "",
@@ -940,6 +940,7 @@ export default function Products() {
       try {
         await deleteProduct(target.uuid);
         await loadProducts(true);
+        resetForm();
         setSuccess("Product deleted successfully!");
         setTimeout(() => setSuccess(null), 3000);
       } catch (err) {
@@ -1255,7 +1256,7 @@ export default function Products() {
   }
 
   const isSimpleType = ["Liquids", "Creams / Ointments", "Devices", "Piece"].includes(form.unit);
-  const isBottleMedicine = form.unit === "Bottle Medicine";
+  const isBottleMedicine = form.unit === "Bottled Tablets";
   return (
     <div className="min-h-screen bg-[#F8F9FC] p-6 space-y-5">
 

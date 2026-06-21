@@ -26,10 +26,13 @@ import AuthGate from "./context/AuthGate";
 import SignupPage from "./pages/SignUpPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ProtectedRoute from "./context/ProtectedRoute";
+import UpdateBanner from "./components/UpdateBanner";
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <UpdateBanner />
+      <Routes>
       {/* LOGIN */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
@@ -85,5 +88,6 @@ export default function App() {
       {/* FALLBACK */}
       <Route path="*" element={<Navigate to="/login" />} />
     </Routes>
+    </>
   );
 }

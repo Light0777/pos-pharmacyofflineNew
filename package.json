@@ -1,16 +1,21 @@
 {
   "name": "POS-Pharmacy",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "main": "electron/main.cjs",
   "description": "Complete POS billing system for retail stores",
   "author": "Your Name <your.email@example.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Light0777/pos-pharmacyofflineNew"
+  },
   "scripts": {
     "backend": "cross-env APP_TYPE=pharmacy APP_DB_NAME=pharmacy.db tsx watch server/src/index.ts",
     "frontend": "vite",
     "electron": "electron electron/main.cjs",
     "dev": "concurrently -n BACK,FRONT,ELEC -c blue,green,yellow \"npm run backend\" \"npm run frontend\" \"wait-on http://localhost:5173 && wait-on http://127.0.0.1:3000/health && npm run electron\"",
+    "dev:rebuild": "npm rebuild better-sqlite3 && npm run dev",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "vite build",
     "build:backend": "esbuild server/src/index.ts --bundle --platform=node --target=node20 --outfile=server/dist/index.cjs --external:better-sqlite3",
@@ -54,7 +59,9 @@
     },
     "files": [
       "dist/**/*",
+      "dist-electron/**/*",
       "electron/main.cjs",
+      "electron/preload.cjs",
       "server/dist/**/*",
       "assets/icon.ico"
     ],

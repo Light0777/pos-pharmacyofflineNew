@@ -1,8 +1,9 @@
-const { app, BrowserWindow, globalShortcut, Menu } = require('electron');
+const { app, BrowserWindow, globalShortcut, Menu, ipcMain, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const http = require('http');
+const https = require('https');
 
 function waitForBackend(url, retries = 40, delay = 500) {  // 20 seconds total
   return new Promise((resolve, reject) => {
@@ -125,7 +126,8 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true
+      sandbox: true,
+      preload: path.join(__dirname, 'preload.cjs')
     }
   });
 
@@ -194,6 +196,129 @@ function createWindow() {
   mainWindow.webContents.on('context-menu', (e) => e.preventDefault());
   mainWindow.on('closed', () => { mainWindow = null; });
 }
+
+// ─── Update Checker ─────────────────────────────────────────────────────────
+const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
+const GITHUB_OWNER = 'Light0777';
+const GITHUB_REPO = 'pos-pharmacyofflineNew';
+
+function semverCompare(a, b) {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return 1;
+    if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+  }
+  return 0;
+}
+
+function getLastUpdateCheckPath() {
+  return path.join(app.getPath('userData'), 'last-update-check.json');
+}
+
+function readLastUpdateCheck() {
+  try {
+    const raw = fs.readFileSync(getLastUpdateCheckPath(), 'utf8');
+    return JSON.parse(raw).timestamp || null;
+  } catch { return null; }
+}
+
+function writeLastUpdateCheck(timestamp) {
+  fs.writeFileSync(getLastUpdateCheckPath(), JSON.stringify({ timestamp }), 'utf8');
+}
+
+async function checkForUpdates() {
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, {
+      headers: { 'User-Agent': 'pos-pharmacy', 'Accept': 'application/vnd.github.v3+json' },
+      timeout: 10000,
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          if (res.statusCode !== 200) {
+            resolve({ error: `GitHub API returned ${res.statusCode}` });
+            return;
+          }
+          const release = JSON.parse(data);
+          const tag = release.tag_name || '';
+          const latestVersion = tag.replace(/^v/, '');
+          const currentVersion = app.getVersion();
+          const updateAvailable = semverCompare(latestVersion, currentVersion) > 0;
+          resolve({
+            updateAvailable,
+            latestVersion,
+            currentVersion,
+            downloadUrl: release.assets?.[0]?.browser_download_url || null,
+            releaseUrl: release.html_url,
+            releaseNotes: release.body || null,
+          });
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Request timed out')); });
+  });
+}
+
+// ─── IPC Handlers ───────────────────────────────────────────────────────────
+ipcMain.handle('check-for-updates', async () => {
+  const lastCheck = readLastUpdateCheck();
+  const now = Date.now();
+  if (lastCheck && (now - lastCheck) < UPDATE_CHECK_INTERVAL) {
+    return { skipped: true, nextCheckAt: lastCheck + UPDATE_CHECK_INTERVAL };
+  }
+  try {
+    const result = await checkForUpdates();
+    writeLastUpdateCheck(now);
+    return result;
+  } catch (err) {
+    return { error: err.message || 'Update check failed' };
+  }
+});
+
+ipcMain.handle('get-last-update-check', () => readLastUpdateCheck());
+
+ipcMain.handle('set-last-update-check', (_event, timestamp) => {
+  writeLastUpdateCheck(timestamp);
+});
+
+ipcMain.handle('download-update', async (event, assetUrl) => {
+  const ext = assetUrl.endsWith('.exe') ? '.exe' : path.extname(new URL(assetUrl).pathname) || '.exe';
+  const dest = path.join(app.getPath('temp'), `pos-pharmacy-update${ext}`);
+  return new Promise((resolve, reject) => {
+    https.get(assetUrl, { headers: { 'User-Agent': 'pos-pharmacy' }, timeout: 300000 }, (res) => {
+      const total = parseInt(res.headers['content-length'] || '0', 10);
+      let downloaded = 0;
+      const fileStream = fs.createWriteStream(dest);
+      res.on('data', (chunk) => {
+        downloaded += chunk.length;
+        const pct = total ? Math.round((downloaded / total) * 100) : 0;
+        event.sender.send('update-download-progress', {
+          progress: pct, downloadedBytes: downloaded, totalBytes: total, done: false,
+        });
+      });
+      res.pipe(fileStream);
+      fileStream.on('finish', () => {
+        fileStream.close();
+        event.sender.send('update-download-progress', {
+          progress: 100, downloadedBytes: total, totalBytes: total, done: true, filePath: dest,
+        });
+        shell.openPath(dest);
+        resolve();
+      });
+    }).on('error', (err) => {
+      event.sender.send('update-download-progress', {
+        progress: 0, done: true, error: err.message,
+      });
+      reject(err);
+    });
+  });
+});
 
 app.whenReady().then(() => {
   const { session } = require('electron');

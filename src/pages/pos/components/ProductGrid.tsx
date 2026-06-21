@@ -646,7 +646,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
         )}
         {sortedProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-            <div className="text-4xl mb-2">🔍</div>
+            <HugeiconsIcon icon={Search01Icon} className="text-3xl mb-2 text-gray-400" />
             <p className="text-sm">{t('pos.noProductsFound')}</p>
             <p className="text-xs mt-1">{t('pos.tryDifferentSearch')}</p>
           </div>
