@@ -126,6 +126,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
 
       <div className="flex items-center gap-3">
 
+        {/*
         <button
           onClick={() => setShowEOD(true)}
           className="flex items-center gap-3 px-2 sm:px-4 py-2 sm:py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full text-base font-medium transition-colors whitespace-nowrap"
@@ -133,6 +134,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
           <HugeiconsIcon icon={MoonIcon} className="text-xl"  />
           <span className="hidden sm:inline">End of Day</span>
         </button>
+        */}
 
         <button
           className="px-3 sm:px-5 py-2 sm:py-3 bg-green-500 text-white rounded-full font-bold flex gap-2 justify-center items-center hover:bg-green-600 transition-colors text-base"
