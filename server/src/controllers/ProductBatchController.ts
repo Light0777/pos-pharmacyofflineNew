@@ -368,8 +368,12 @@ export class ProductBatchController {
   static deleteBatch = (req: Request, res: Response): void => {
   try {
     const batch_uuid = String(req.params.batch_uuid);
-    const deleted = ProductBatchModel.deleteBatch(batch_uuid);
-    if (!deleted) {
+    const result = ProductBatchModel.deleteBatch(batch_uuid);
+    if (!result.success) {
+      if (result.reason === 'has_references') {
+        res.status(409).json({ success: false, error: 'Batch has existing sales or cart references', reason: 'has_references' });
+        return;
+      }
       res.status(404).json({ success: false, error: 'Batch not found' });
       return;
     }

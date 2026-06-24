@@ -170,10 +170,10 @@ export class ProductBatchModel {
         product_uuid = ?
         AND quantity > 0
         AND is_quarantined = 0
-        AND expiry_date > DATE('now', '+' || ? || ' day')
+        AND expiry_date > DATE('now')
       ORDER BY expiry_date ASC
     `);
-    return stmt.all(product_uuid, this.MIN_EXPIRY_DAYS) as ProductBatch[];
+    return stmt.all(product_uuid) as ProductBatch[];
   }
 
   // =========================
@@ -260,19 +260,26 @@ export class ProductBatchModel {
   // DELETE BATCH
   // =========================
 
-  static deleteBatch(batch_uuid: string): boolean {
+  static deleteBatch(batch_uuid: string): { success: boolean; reason?: string } {
     const batch = this.findById(batch_uuid);
-    if (!batch) return false;
+    if (!batch) return { success: false, reason: 'not_found' };
 
-    const result = db.prepare(`
-      DELETE FROM product_batches WHERE batch_uuid = ?
-    `).run(batch_uuid);
+    try {
+      const result = db.prepare(`
+        DELETE FROM product_batches WHERE batch_uuid = ?
+      `).run(batch_uuid);
 
-    if (result.changes > 0) {
-      this.recalculateProductStock(batch.product_uuid);
-      return true;
+      if (result.changes > 0) {
+        this.recalculateProductStock(batch.product_uuid);
+        return { success: true };
+      }
+      return { success: false, reason: 'not_found' };
+    } catch (err: any) {
+      if (err?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+        return { success: false, reason: 'has_references' };
+      }
+      throw err;
     }
-    return false;
   }
 
   // =========================

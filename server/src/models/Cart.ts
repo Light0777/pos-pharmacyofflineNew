@@ -87,6 +87,8 @@ export class CartModel {
 
       p.unit as p_unit,
 
+      p.image as p_image,
+
       p.schedule_type as p_schedule_type,
 
       p.prescription_required as p_prescription_required,
@@ -149,6 +151,8 @@ export class CartModel {
       p_stock: number;
 
       p_unit: string;
+
+      p_image: string | null;
 
       p_schedule_type: string;
 
@@ -272,6 +276,9 @@ export class CartModel {
 
           unit:
             item.p_unit,
+
+          image:
+            item.p_image || undefined,
 
           schedule_type:
             item.p_schedule_type,

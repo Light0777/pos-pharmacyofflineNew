@@ -23,6 +23,7 @@ interface CartItem {
     medicine_type?: string;
     schedule_type?: string;
     prescription_required?: number;
+    image?: string;
   };
 }
 
@@ -79,9 +80,13 @@ export default function CartItems({
             className="border-2 border-gray-200 bg-white hover:bg-gray-50 text-gray-800 rounded-2xl flex flex-row overflow-hidden transition-all duration-200 font-inter"
           >
             <div className="flex-shrink-0 self-center overflow-hidden rounded-xl aspect-square mx-[1.3%]" style={{ width: '27%' }}>
-              <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#83df1a' }}>
-                <HugeiconsIcon icon={Medicine01Icon} className="text-2xl text-white"  />
-              </div>
+              {item.product?.image ? (
+                <img src={item.product.image} alt={item.product.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#83df1a' }}>
+                  <HugeiconsIcon icon={Medicine01Icon} className="text-2xl text-white" />
+                </div>
+              )}
             </div>
 
             <div className="flex-1 min-w-0 px-2 py-0.5 flex flex-col justify-start text-left gap-[1px]">

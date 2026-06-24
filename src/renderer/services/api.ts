@@ -34,7 +34,7 @@ async function handleResponse(res: Response, url: string) {
   // For errors, return the error data instead of throwing
   // This allows the caller to check the error message
   if (!res.ok) {
-    return { success: false, error: data?.error || data?.message || `HTTP ${res.status}` };
+    return { ...data, success: false, error: data?.error || data?.message || `HTTP ${res.status}` };
   }
 
   return data;

@@ -116,7 +116,7 @@ const CATEGORY_DEFAULTS: Record<string, { schedule: string; prescription: boolea
   "cat-cosmetic":  { schedule: "NONE", prescription: false },
 };
 
-const UNIT_OPTIONS = ["Tablets / Capsules", "Liquids", "Creams / Ointments", "Devices", "Bottled Tablets", "Piece"];
+const UNIT_OPTIONS = ["Tablets / Capsules", "Liquids", "Creams / Ointments", "Devices", "Bottled Tablets", "Piece", "Bandage", "General"];
 
 const EMPTY_FORM = {
   name: "",
@@ -244,6 +244,7 @@ const Input = ({ label, required, prefix, ...props }: any) => (
       {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">{prefix}</span>}
       <input
         {...props}
+        onWheel={(e) => { if (props.type === "number") { e.preventDefault(); (e.target as HTMLElement).blur(); } }}
         className={`w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all hover:border-slate-300 ${prefix ? "pl-7" : ""} ${props.className || ""} [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
         style={props.type === "number" ? { MozAppearance: "textfield" } : undefined}
       />
@@ -314,6 +315,31 @@ const Dropdown = ({ label, options, value, onChange, placeholder }: { label: str
   );
 };
 
+// ─── Image compression utility ────────────────────────────────────────────
+const compressImage = (file: File, maxWidth = 800, maxHeight = 800, quality = 0.7): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+        if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = ev.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 // ─── Main Products Component ──────────────────────────────────────────────
 export default function Products() {
   const { t } = useTranslation();
@@ -347,6 +373,8 @@ export default function Products() {
   const filterFromBtnRef = useRef<HTMLButtonElement>(null);
   const filterToBtnRef = useRef<HTMLButtonElement>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const formRef = useRef(form);
+  formRef.current = form;
   const [units, setUnits] = useState<any[]>([]);
   const [unitForm, setUnitForm] = useState({
     unit_name: "",
@@ -386,7 +414,7 @@ export default function Products() {
   const [newManualSubtotal, setNewManualSubtotal] = useState<string | null>(null);
   const [newPurchaseBatchIds, setNewPurchaseBatchIds] = useState<string[]>([]);
   const [newPurchaseBatchOpen, setNewPurchaseBatchOpen] = useState(false);
-
+  const [formKey, setFormKey] = useState(0);
 
   // Advanced filter state
   const [showFilters, setShowFilters] = useState(false);
@@ -496,15 +524,8 @@ export default function Products() {
   }, [filterToDate]);
 
   // Click outside handlers for date pickers
-  const pickerHeight = 300;
   useEffect(() => {
     if (!mfgShowPicker || !mfgBtnRef.current) return;
-    const rect = mfgBtnRef.current.getBoundingClientRect();
-    const fitsBelow = rect.bottom + 4 + pickerHeight <= window.innerHeight;
-    setMfgPickPos({
-      top: fitsBelow ? rect.bottom + 4 : rect.top - pickerHeight,
-      right: document.documentElement.clientWidth - rect.right
-    });
     const handler = (e: MouseEvent) => {
       if (mfgBtnRef.current && !mfgBtnRef.current.contains(e.target as Node)) {
         const cal = document.getElementById("mfg-cal-popup");
@@ -519,12 +540,6 @@ export default function Products() {
 
   useEffect(() => {
     if (!expiryShowPicker || !expiryBtnRef.current) return;
-    const rect = expiryBtnRef.current.getBoundingClientRect();
-    const fitsBelow = rect.bottom + 4 + pickerHeight <= window.innerHeight;
-    setExpiryPickPos({
-      top: fitsBelow ? rect.bottom + 4 : rect.top - pickerHeight,
-      right: document.documentElement.clientWidth - rect.right
-    });
     const handler = (e: MouseEvent) => {
       if (expiryBtnRef.current && !expiryBtnRef.current.contains(e.target as Node)) {
         const cal = document.getElementById("expiry-cal-popup");
@@ -550,12 +565,6 @@ export default function Products() {
 
   useEffect(() => {
     if (!invoiceShowPicker || !invoiceBtnRef.current) return;
-    const rect = invoiceBtnRef.current.getBoundingClientRect();
-    const fitsBelow = rect.bottom + 4 + pickerHeight <= window.innerHeight;
-    setInvoicePickPos({
-      top: fitsBelow ? rect.bottom + 4 : rect.top - pickerHeight,
-      right: document.documentElement.clientWidth - rect.right
-    });
     const handler = (e: MouseEvent) => {
       if (invoiceBtnRef.current && !invoiceBtnRef.current.contains(e.target as Node)) {
         const cal = document.getElementById("inv-cal-popup");
@@ -836,7 +845,7 @@ export default function Products() {
     setNewManualSubtotal(null);
     setForm({
       name: p.name || "",
-      purchase_price: String(p.purchase_price || ""),
+      purchase_price: p.purchase_price != null ? String(p.purchase_price) : "",
       sku: p.sku || "",
       barcode: p.barcode || "",
       gst_percent: String(p.gst_percent ?? "0"),
@@ -850,7 +859,7 @@ export default function Products() {
       schedule_type: p.schedule_type || "NONE",
       prescription_required: Boolean(p.prescription_required),
       rack_location: p.rack_location || "",
-      discount: p.discount ? String(p.discount) : "",
+      discount: p.discount != null ? String(p.discount) : "",
       boxes: String(p.boxes ?? ""),
       strips_per_box: String(p.strips_per_box ?? ""),
       tablets_per_strip: String(p.tablets_per_strip ?? ""),
@@ -868,11 +877,12 @@ export default function Products() {
       setEditingBatchUuid(active.length > 0 ? active[0].batch_uuid : null);
       setEditingPurchaseUuid(all[0]?.purchase_uuid || null);
       setOriginalBatchUuids(all.map((b: any) => b.batch_uuid).filter(Boolean));
+      const isLiquidType = ["Liquids", "Creams / Ointments", "Devices", "Piece"].includes(p.unit);
       const tsp = Number(p.tablets_per_strip) || 1;
       if (active.length > 0) {
         const b = active[0];
         const stripVal = String(b.strips || (b.quantity ? Math.round(b.quantity / tsp) : 0) || 0);
-        const tabletVal = String((Number(stripVal) || 0) * (Number(p.tablets_per_strip) || 0) + (Number(p.extra_tablets) || 0));
+        const tabletVal = isLiquidType ? stripVal : String((Number(stripVal) || 0) * (Number(p.tablets_per_strip) || 0) + (Number(p.extra_tablets) || 0));
         const updates: any = {
           batch_number: b.batch_number || "",
           strips: stripVal,
@@ -925,6 +935,7 @@ export default function Products() {
         }).catch(() => {});
       }
     }).catch(() => { setEditingBatchUuid(null); setEditingPurchaseUuid(null); });
+    setFormKey(k => k + 1);
     setShowForm(true);
   };
 
@@ -941,6 +952,7 @@ export default function Products() {
         await deleteProduct(target.uuid);
         await loadProducts(true);
         resetForm();
+        window.dispatchEvent(new CustomEvent('stock-updated'));
         setSuccess("Product deleted successfully!");
         setTimeout(() => setSuccess(null), 3000);
       } catch (err) {
@@ -955,6 +967,7 @@ export default function Products() {
       }
       await loadProducts(true);
       setSelectedRows(new Set());
+      window.dispatchEvent(new CustomEvent('stock-updated'));
       setSuccess("Selected products deleted successfully!");
       setTimeout(() => setSuccess(null), 3000);
     }
@@ -1027,67 +1040,69 @@ export default function Products() {
     setLoading(true);
     setError(null);
     try {
-      const isSimple = ["Liquids", "Creams / Ointments", "Devices"].includes(form.unit);
-      const tsp = Number(form.tablets_per_strip) || (isSimple ? 1 : 0);
+      const f = formRef.current;
+      const isSimple = ["Liquids", "Creams / Ointments", "Devices", "Piece"].includes(f.unit);
+      const tsp = Number(f.tablets_per_strip) || (isSimple ? 1 : 0);
       const payload: any = {
-        name: form.name,
-        price: Number(form.price_per_tablet) || 0,
-        sku: form.sku || undefined,
-        barcode: form.barcode || undefined,
-        gst_percent: Number(form.gst_percent) || 0,
-        hsn_code: form.hsn_code || undefined,
-        unit: form.unit || "Tablet",
-        image: form.image || undefined,
-        category_uuid: form.category_uuid || undefined,
-        manufacturer: form.manufacturer || undefined,
-        composition: form.composition || undefined,
-        description: form.description || undefined,
-        schedule_type: form.schedule_type || "NONE",
-        prescription_required: form.prescription_required ? 1 : 0,
-        rack_location: form.rack_location || undefined,
+        name: f.name,
+        price: Number(f.price_per_tablet) || 0,
+        sku: f.sku || null,
+        barcode: f.barcode || null,
+        gst_percent: Number(f.gst_percent) || 0,
+        hsn_code: f.hsn_code || null,
+        unit: f.unit || "Tablet",
+        image: f.image || null,
+        category_uuid: f.category_uuid || null,
+        manufacturer: f.manufacturer || null,
+        composition: f.composition || null,
+        description: f.description || null,
+        schedule_type: f.schedule_type || "NONE",
+        prescription_required: f.prescription_required ? 1 : 0,
+        rack_location: f.rack_location || null,
+        purchase_price: Number(f.purchase_price) || 0,
+        discount: Number(f.discount) || 0,
       };
-      if (form.purchase_price) payload.purchase_price = Number(form.purchase_price);
-      if (form.discount) payload.discount = Number(form.discount);
       if (isSimple) {
         payload.boxes = 0; payload.strips_per_box = 0; payload.tablets_per_strip = 0; payload.extra_tablets = 0;
-        payload.price_per_box = 0; payload.price_per_strip = 0; payload.price_per_tablet = Number(form.price_per_tablet) || 0;
+        payload.price_per_box = 0; payload.price_per_strip = 0; payload.price_per_tablet = Number(f.price_per_tablet) || 0;
       } else {
-        if (form.boxes) payload.boxes = Number(form.boxes);
-        if (form.strips_per_box) payload.strips_per_box = Number(form.strips_per_box);
-        if (form.tablets_per_strip) payload.tablets_per_strip = Number(form.tablets_per_strip);
-        if (form.extra_tablets) payload.extra_tablets = Number(form.extra_tablets);
-        if (form.price_per_box) payload.price_per_box = Number(form.price_per_box);
-        if (form.price_per_strip) payload.price_per_strip = Number(form.price_per_strip);
-        if (form.price_per_tablet) payload.price_per_tablet = Number(form.price_per_tablet);
+        payload.boxes = Number(f.boxes) || 0;
+        payload.strips_per_box = Number(f.strips_per_box) || 0;
+        payload.tablets_per_strip = Number(f.tablets_per_strip) || 0;
+        payload.extra_tablets = Number(f.extra_tablets) || 0;
+        payload.price_per_box = Number(f.price_per_box) || 0;
+        payload.price_per_strip = Number(f.price_per_strip) || 0;
+        payload.price_per_tablet = Number(f.price_per_tablet) || 0;
       }
         const computeBatchQty = (strips: string) => (Number(strips) || 0) * tsp;
         const batchPtr = (ptr: string) => Number(ptr) || 0;
         const createSingleBatch = (puuid: string, bn: string, strips: string, ptr: string, mfg: string | undefined, exp: string | undefined) =>
-          createProductBatch({ product_uuid: puuid, batch_number: bn, manufacture_date: mfg, expiry_date: exp || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: computeBatchQty(strips), ptr: batchPtr(ptr), purchase_price: batchPtr(ptr), mrp: Number(form.price_per_tablet) || 0 });
+          createProductBatch({ product_uuid: puuid, batch_number: bn, manufacture_date: mfg, expiry_date: exp || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: computeBatchQty(strips), ptr: batchPtr(ptr), purchase_price: batchPtr(ptr), mrp: Number(f.price_per_tablet) || 0 });
 
         if (editing) {
-          await updateProduct(editing.product_uuid, payload);
+          const updateResult = await updateProduct(editing.product_uuid, payload);
+          if (updateResult && updateResult.success === false) throw new Error(updateResult.error || 'Update failed');
           // Sync product_units — delete all and recreate with current prices
           const existingUnits = await getProductUnits(editing.product_uuid);
           for (const u of existingUnits) await deleteProductUnit(u.unit_uuid);
-          const baseUnitName = form.unit || "Tablet";
-          const spb = Number(form.strips_per_box) || 0;
-          const tps = Number(form.tablets_per_strip) || (isSimple ? 1 : 0);
-          const ppb = Number(form.price_per_box) || 0;
-          const pps = Number(form.price_per_strip) || 0;
-          const ppt = Number(form.price_per_tablet) || 0;
-          await createProductUnit({ product_uuid: editing.product_uuid, unit_name: baseUnitName, conversion_factor: 1, is_base_unit: true, price: ppt || undefined });
+          const baseUnitName = f.unit === "General" ? "Piece" : (f.unit || "Tablet");
+          const spb = Number(f.strips_per_box) || 0;
+          const tps = Number(f.tablets_per_strip) || (isSimple ? 1 : 0);
+          const ppb = Number(f.price_per_box) || 0;
+          const pps = Number(f.price_per_strip) || 0;
+          const ppt = Number(f.price_per_tablet) || 0;
+          await createProductUnit({ product_uuid: editing.product_uuid, unit_name: baseUnitName, conversion_factor: 1, is_base_unit: true, price: ppt || 0 });
           if (!isSimple && tps > 0) {
-            await createProductUnit({ product_uuid: editing.product_uuid, unit_name: "Strip", conversion_factor: tps, is_base_unit: false, price: pps || undefined });
+            await createProductUnit({ product_uuid: editing.product_uuid, unit_name: (f.unit === "Bandage" || f.unit === "General") ? "Pack" : "Strip", conversion_factor: tps, is_base_unit: false, price: pps || 0 });
           }
-          if (!isSimple && Number(form.boxes) > 0 && spb > 0 && tps > 0) {
-            await createProductUnit({ product_uuid: editing.product_uuid, unit_name: "Box", conversion_factor: spb * tps, is_base_unit: false, price: ppb || undefined });
+          if (!isSimple && Number(f.boxes) > 0 && spb > 0 && tps > 0) {
+            await createProductUnit({ product_uuid: editing.product_uuid, unit_name: "Box", conversion_factor: spb * tps, is_base_unit: false, price: ppb || 0 });
           }
           // If new purchase details were added, create a purchase linking selected batches only
-          if (showNewPurchase && form.supplier_uuid) {
+          if (showNewPurchase && f.supplier_uuid) {
             const purchaseBatches: Array<{ id: string; batch_number: string; batch_uuid?: string; strips: string; ptr: string; manufacture_date: string | undefined; expiry_date: string | undefined }> = [];
-            if (form.batch_number || form.strips) {
-              purchaseBatches.push({ id: 'form-batch', batch_number: form.batch_number || "BATCH-" + Date.now(), batch_uuid: editingBatchUuid || undefined, strips: form.strips, ptr: form.ptr, manufacture_date: form.manufacture_date || undefined, expiry_date: form.expiry_date || undefined });
+            if (f.batch_number || f.strips) {
+              purchaseBatches.push({ id: 'form-batch', batch_number: f.batch_number || "BATCH-" + Date.now(), batch_uuid: editingBatchUuid || undefined, strips: f.strips, ptr: f.ptr, manufacture_date: f.manufacture_date || undefined, expiry_date: f.expiry_date || undefined });
             }
             for (const row of batchRows) {
               if (row.batch_number) {
@@ -1097,30 +1112,31 @@ export default function Products() {
             const selectedBatches = purchaseBatches.filter(b => newPurchaseBatchIds.includes(b.id));
             if (selectedBatches.length > 0 && newPurchaseBatchIds.length > 0) {
               await createPurchase({
-                supplier_uuid: form.supplier_uuid,
+                supplier_uuid: f.supplier_uuid,
                 invoice_number: newInvoiceNumber || undefined,
                 invoice_date: newInvoiceDate || undefined,
                 discount: Number(newPurchaseDiscount) || 0,
                 total: newManualSubtotal !== null ? Number(newManualSubtotal) : undefined,
-                items: selectedBatches.map(b => ({ product_uuid: editing.product_uuid, batch_uuid: b.batch_uuid, batch_number: b.batch_number, manufacture_date: b.manufacture_date, expiry_date: b.expiry_date || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: computeBatchQty(b.strips), strips: Number(b.strips) || 0, ptr: batchPtr(b.ptr), cost_price: batchPtr(b.ptr), mrp: Number(form.price_per_tablet) || 0 })),
+                items: selectedBatches.map(b => ({ product_uuid: editing.product_uuid, batch_uuid: b.batch_uuid, batch_number: b.batch_number, manufacture_date: b.manufacture_date, expiry_date: b.expiry_date || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: computeBatchQty(b.strips), strips: Number(b.strips) || 0, ptr: batchPtr(b.ptr), cost_price: batchPtr(b.ptr), mrp: Number(f.price_per_tablet) || 0 })),
               });
             }
           }
           // Update/create first batch (skip standalone creation if handled by new purchase above)
-          if (form.batch_number || form.strips || form.manufacture_date || form.expiry_date || form.supplier_uuid) {
+          const stripsVal = f.strips || (isSimple ? f.total_tablets : "");
+          const hasBatchFields = f.batch_number || stripsVal || f.ptr || f.manufacture_date || f.expiry_date || f.supplier_uuid;
+          if (hasBatchFields) {
             if (editingBatchUuid) {
               const batchUpdates: Record<string, any> = {};
-              if (form.batch_number) batchUpdates.batch_number = form.batch_number;
-              if (form.strips) batchUpdates.strips = Number(form.strips);
-              if (form.strips) batchUpdates.quantity = computeBatchQty(form.strips);
-              if (form.ptr) batchUpdates.ptr = batchPtr(form.ptr);
-              if (form.ptr) batchUpdates.purchase_price = batchPtr(form.ptr);
-              if (form.manufacture_date) batchUpdates.manufacture_date = form.manufacture_date;
-              if (form.expiry_date) batchUpdates.expiry_date = form.expiry_date;
-              if (form.supplier_uuid) batchUpdates.supplier_uuid = form.supplier_uuid;
+              batchUpdates.batch_number = f.batch_number || "";
+              if (stripsVal) { batchUpdates.strips = Number(stripsVal); batchUpdates.quantity = computeBatchQty(stripsVal); }
+              batchUpdates.ptr = batchPtr(f.ptr);
+              batchUpdates.purchase_price = batchPtr(f.ptr);
+              batchUpdates.manufacture_date = f.manufacture_date || null;
+              batchUpdates.expiry_date = f.expiry_date || null;
+              if (f.supplier_uuid) batchUpdates.supplier_uuid = f.supplier_uuid;
               await updateProductBatch(editingBatchUuid, batchUpdates);
-            } else if ((form.batch_number || form.strips) && !(showNewPurchase && form.supplier_uuid)) {
-              await createSingleBatch(editing.product_uuid, form.batch_number || "BATCH-" + Date.now(), form.strips, form.ptr, form.manufacture_date || undefined, form.expiry_date || undefined);
+            } else if ((f.batch_number || stripsVal) && !(showNewPurchase && f.supplier_uuid)) {
+              await createSingleBatch(editing.product_uuid, f.batch_number || "BATCH-" + Date.now(), stripsVal, f.ptr, f.manufacture_date || undefined, f.expiry_date || undefined);
             }
           }
           // Create/update additional batches (skip standalone creation if handled by new purchase above)
@@ -1133,11 +1149,11 @@ export default function Products() {
                 quantity: computeBatchQty(row.strips),
                 ptr: batchPtr(row.ptr),
                 purchase_price: batchPtr(row.ptr),
-                manufacture_date: row.manufacture_date || undefined,
-                expiry_date: row.expiry_date || undefined,
-                mrp: Number(form.price_per_tablet) || 0,
+                manufacture_date: row.manufacture_date || null,
+                expiry_date: row.expiry_date || null,
+                mrp: Number(f.price_per_tablet) || 0,
               });
-            } else if (!(showNewPurchase && form.supplier_uuid)) {
+            } else if (!(showNewPurchase && f.supplier_uuid)) {
               await createSingleBatch(editing.product_uuid, row.batch_number, row.strips, row.ptr, row.manufacture_date || undefined, row.expiry_date || undefined);
             }
           }
@@ -1145,47 +1161,58 @@ export default function Products() {
           const currentUuids = [editingBatchUuid, ...batchRows.map(r => r.batch_uuid)].filter(Boolean);
           for (const uuid of originalBatchUuids) {
             if (!currentUuids.includes(uuid)) {
-              try { await deleteBatch(uuid); } catch (e) { console.error("Failed to delete batch", uuid, e); }
+              try {
+                const delResult = await deleteBatch(uuid) as any;
+                if (delResult && !delResult.success) {
+                  if (delResult.reason === 'has_references') {
+                    // Batch has existing sales — keep in DB for historical record
+                  } else {
+                    console.warn("Failed to delete batch", uuid, delResult.error);
+                  }
+                }
+              } catch (e: any) {
+                console.error("Failed to delete batch", uuid, e);
+              }
             }
           }
           // Update purchase record if linked
-          if (editingPurchaseUuid && (form.invoice_number || form.invoice_date || form.purchase_discount || form.supplier_uuid)) {
+          if (editingPurchaseUuid && (f.invoice_number || f.invoice_date || f.purchase_discount || f.supplier_uuid)) {
             const purchaseUpdates: Record<string, any> = {};
-            if (form.invoice_number) purchaseUpdates.invoice_number = form.invoice_number;
-            if (form.invoice_date) purchaseUpdates.invoice_date = form.invoice_date;
-            if (form.purchase_discount) purchaseUpdates.discount = Number(form.purchase_discount);
-            if (form.supplier_uuid) purchaseUpdates.supplier_uuid = form.supplier_uuid;
+            if (f.invoice_number) purchaseUpdates.invoice_number = f.invoice_number;
+            if (f.invoice_date) purchaseUpdates.invoice_date = f.invoice_date;
+            if (f.purchase_discount) purchaseUpdates.discount = Number(f.purchase_discount);
+            if (f.supplier_uuid) purchaseUpdates.supplier_uuid = f.supplier_uuid;
             await updatePurchase(editingPurchaseUuid, purchaseUpdates);
           }
         } else {
           const created = await createProduct(payload);
-          const baseUnitName = form.unit || "Tablet";
-          const spb = Number(form.strips_per_box) || 0;
-          const tps = Number(form.tablets_per_strip) || (isSimple ? 1 : 0);
-          const ppb = Number(form.price_per_box) || 0;
-          const pps = Number(form.price_per_strip) || 0;
-          const ppt = Number(form.price_per_tablet) || 0;
-          await createProductUnit({ product_uuid: created.product_uuid, unit_name: baseUnitName, conversion_factor: 1, is_base_unit: true, price: ppt || undefined });
+          const baseUnitName = f.unit === "General" ? "Piece" : (f.unit || "Tablet");
+          const spb = Number(f.strips_per_box) || 0;
+          const tps = Number(f.tablets_per_strip) || (isSimple ? 1 : 0);
+          const ppb = Number(f.price_per_box) || 0;
+          const pps = Number(f.price_per_strip) || 0;
+          const ppt = Number(f.price_per_tablet) || 0;
+          await createProductUnit({ product_uuid: created.product_uuid, unit_name: baseUnitName, conversion_factor: 1, is_base_unit: true, price: ppt || 0 });
           if (!isSimple && tps > 0) {
-            await createProductUnit({ product_uuid: created.product_uuid, unit_name: "Strip", conversion_factor: tps, is_base_unit: false, price: pps || undefined });
+            await createProductUnit({ product_uuid: created.product_uuid, unit_name: (f.unit === "Bandage" || f.unit === "General") ? "Pack" : "Strip", conversion_factor: tps, is_base_unit: false, price: pps || 0 });
           }
-          if (!isSimple && Number(form.boxes) > 0 && spb > 0 && tps > 0) {
-            await createProductUnit({ product_uuid: created.product_uuid, unit_name: "Box", conversion_factor: spb * tps, is_base_unit: false, price: ppb || undefined });
+          if (!isSimple && Number(f.boxes) > 0 && spb > 0 && tps > 0) {
+            await createProductUnit({ product_uuid: created.product_uuid, unit_name: "Box", conversion_factor: spb * tps, is_base_unit: false, price: ppb || 0 });
           }
           // Collect all batch rows (first form batch + additional)
           const allBatches = [
-            { bn: form.batch_number, strips: form.strips, ptr: form.ptr, mfg: form.manufacture_date || undefined, exp: form.expiry_date || undefined },
+            { bn: f.batch_number, strips: f.strips, ptr: f.ptr, mfg: f.manufacture_date || undefined, exp: f.expiry_date || undefined },
             ...batchRows.filter(r => r.batch_number).map(r => ({ bn: r.batch_number, strips: r.strips, ptr: r.ptr, mfg: r.manufacture_date || undefined, exp: r.expiry_date || undefined })),
           ].filter(b => b.bn);
           // Create purchase if supplier is selected (purchase model creates the batch)
-          if (form.supplier_uuid && allBatches.length > 0) {
+          if (f.supplier_uuid && allBatches.length > 0) {
             await createPurchase({
-              supplier_uuid: form.supplier_uuid,
-              invoice_number: form.invoice_number || undefined,
-              invoice_date: form.invoice_date || undefined,
-              discount: Number(form.purchase_discount) || 0,
+              supplier_uuid: f.supplier_uuid,
+              invoice_number: f.invoice_number || undefined,
+              invoice_date: f.invoice_date || undefined,
+              discount: Number(f.purchase_discount) || 0,
               total: manualSubtotal !== null ? Number(manualSubtotal) : undefined,
-              items: allBatches.map(b => ({ product_uuid: created.product_uuid, batch_number: b.bn, manufacture_date: b.mfg, expiry_date: b.exp, quantity: computeBatchQty(b.strips), strips: Number(b.strips) || 0, ptr: batchPtr(b.ptr), cost_price: batchPtr(b.ptr), mrp: Number(form.price_per_tablet) || 0 })),
+              items: allBatches.map(b => ({ product_uuid: created.product_uuid, batch_number: b.bn, manufacture_date: b.mfg, expiry_date: b.exp || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0], quantity: computeBatchQty(b.strips), strips: Number(b.strips) || 0, ptr: batchPtr(b.ptr), cost_price: batchPtr(b.ptr), mrp: Number(f.price_per_tablet) || 0 })),
             });
           } else {
             for (const b of allBatches) {
@@ -1257,6 +1284,8 @@ export default function Products() {
 
   const isSimpleType = ["Liquids", "Creams / Ointments", "Devices", "Piece"].includes(form.unit);
   const isBottleMedicine = form.unit === "Bottled Tablets";
+  const isBandageType = form.unit === "Bandage";
+  const isGeneralType = form.unit === "General";
   return (
     <div className="min-h-screen bg-[#F8F9FC] p-6 space-y-5">
 
@@ -1389,6 +1418,7 @@ export default function Products() {
             onClick={() => {
               resetForm();
               setError(null);
+              setFormKey(k => k + 1);
               setShowForm(true);
             }}
             className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white text-sm font-semibold rounded-xl transition-all shadow-md shadow-green-900/20 shrink-0"
@@ -1659,7 +1689,7 @@ export default function Products() {
                           <span className={`font-semibold text-sm ${isOutOfStock ? "text-red-500" : isLowStock ? "text-amber-600" : "text-slate-700"}`}>
                             {p.stock ?? 0}
                           </span>
-                          <span className="text-xs text-slate-400">{p.unit}s</span>
+                          <span className="text-xs text-slate-400">{p.unit === "General" ? "Pieces" : `${p.unit}s`}</span>
                         </div>
                       </TableCell>
                       {/* Batches */}
@@ -1796,7 +1826,7 @@ export default function Products() {
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">{editing ? t('products.editProduct') : t('products.quickAddProduct')}</h2>
+                  <h2 className="text-base font-bold text-slate-900">{editing ? t('products.editProduct') : form.name.trim() ? form.name : t('products.quickAddProduct')}</h2>
                   <p className="text-xs text-slate-500 mt-0.5">{editing ? t('products.updateMedicineInfo') : t('products.addProductManually')}</p>
                 </div>
               </div>
@@ -1816,7 +1846,7 @@ export default function Products() {
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-slate-400">
+            <div key={formKey} className="flex-1 overflow-y-auto p-5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-slate-400">
               <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                 <div className="col-span-2">
                   <Input label={t('products.medicineName')} required value={form.name} onChange={(e: any) => setForm({ ...form, name: e.target.value })} placeholder={t('products.nameExample')} />
@@ -1836,7 +1866,7 @@ export default function Products() {
                   }} />
                 </div>
                 <div className="col-span-2">
-                  <Input label={t('products.composition')} value={form.composition} onChange={(e: any) => setForm({ ...form, composition: e.target.value })} placeholder={t('products.compositionExample')} />
+                  <Input label={t('products.composition')} value={form.composition} onChange={(e: any) => setForm(prev => ({ ...prev, composition: e.target.value }))} placeholder={t('products.compositionExample')} />
                 </div>
                 <div className="col-span-2">
                   <Input label={t('products.description')} value={form.description || ""} onChange={(e: any) => setForm({ ...form, description: e.target.value })} placeholder={t('products.descriptionOptional')} />
@@ -1868,19 +1898,19 @@ export default function Products() {
                   </div>
                   <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                     <Input label={t('products.boxEquals')} type="number" value={form.boxes} onChange={(e: any) => setForm({ ...form, boxes: e.target.value })} placeholder="0" />
-                    <Input label={isBottleMedicine ? t('products.boxBottles') : t('products.boxStrips')} type="number" value={form.strips_per_box} onChange={(e: any) => setForm({ ...form, strips_per_box: e.target.value })} placeholder="0" />
-                    <Input label={isBottleMedicine ? t('products.bottleTablets') : t('products.stripTablets')} type="number" value={form.tablets_per_strip} onChange={(e: any) => setForm({ ...form, tablets_per_strip: e.target.value })} placeholder="0" />
-                    <Input label={t('products.extraTablets')} type="number" value={form.extra_tablets} onChange={(e: any) => setForm({ ...form, extra_tablets: e.target.value })} placeholder="0" />
+                    <Input label={isBottleMedicine ? t('products.boxBottles') : (isBandageType || isGeneralType) ? "1 box = pack" : t('products.boxStrips')} type="number" value={form.strips_per_box} onChange={(e: any) => setForm({ ...form, strips_per_box: e.target.value })} placeholder="0" />
+                    <Input label={isBottleMedicine ? t('products.bottleTablets') : isBandageType ? "1 pack = bandages" : isGeneralType ? "1 pack = pieces" : t('products.stripTablets')} type="number" value={form.tablets_per_strip} onChange={(e: any) => setForm({ ...form, tablets_per_strip: e.target.value })} placeholder="0" />
+                    <Input label={isBandageType ? "Extra bandages" : isGeneralType ? "Extra pieces" : t('products.extraTablets')} type="number" value={form.extra_tablets} onChange={(e: any) => setForm({ ...form, extra_tablets: e.target.value })} placeholder="0" />
                   </div>
                   <div className="mt-3 space-y-2">
                     <div className="px-4 py-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-600">{t('products.totalStrips')}</span>
+                      <span className="text-sm font-medium text-slate-600">{(isBandageType || isGeneralType) ? "Total Packs" : t('products.totalStrips')}</span>
                       <span className="text-lg font-bold text-blue-600">
                         {(Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0)}
                       </span>
                     </div>
                     <div className="px-4 py-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-600">{t('products.totalTablets')}</span>
+                      <span className="text-sm font-medium text-slate-600">{isBandageType ? "Total Bandages" : isGeneralType ? "Total Pieces" : t('products.totalTablets')}</span>
                       <span className="text-lg font-bold text-emerald-600">
                         {(Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)}
                       </span>
@@ -1898,7 +1928,7 @@ export default function Products() {
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                     <Input label={t('products.pricePerProduct')} prefix="₹" type="number" value={form.price_per_tablet} onChange={(e: any) => setForm({ ...form, price_per_tablet: e.target.value })} placeholder="0" />
-                    <Input label={t('products.totalStock')} type="number" value={form.total_tablets} onChange={(e: any) => { setForm({ ...form, total_tablets: e.target.value }); }} placeholder="0" />
+                    <Input label={t('products.totalStock')} type="number" value={form.total_tablets} onChange={(e: any) => { const v = e.target.value; setForm({ ...form, total_tablets: v, strips: String(Math.round((Number(v) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))) }); }} placeholder="0" />
                   </div>
                 </div>
                 )}
@@ -1910,8 +1940,8 @@ export default function Products() {
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('products.pricing')}</div>
                   <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                     <Input label={t('products.pricePerBox')} prefix="₹" type="number" value={form.price_per_box} onChange={(e: any) => setForm({ ...form, price_per_box: e.target.value })} placeholder="0" />
-                    <Input label={isBottleMedicine ? t('products.pricePerBottle') : t('products.pricePerStrip')} prefix="₹" type="number" value={form.price_per_strip} onChange={(e: any) => setForm({ ...form, price_per_strip: e.target.value })} placeholder="0" />
-                    <Input label={t('products.pricePerTablet')} prefix="₹" type="number" value={form.price_per_tablet} onChange={(e: any) => setForm({ ...form, price_per_tablet: e.target.value })} placeholder="0" />
+                    <Input label={isBottleMedicine ? t('products.pricePerBottle') : (isBandageType || isGeneralType) ? "Price per pack" : t('products.pricePerStrip')} prefix="₹" type="number" value={form.price_per_strip} onChange={(e: any) => setForm({ ...form, price_per_strip: e.target.value })} placeholder="0" />
+                    <Input label={isBandageType ? "Price per bandage" : isGeneralType ? "Price per piece" : t('products.pricePerTablet')} prefix="₹" type="number" value={form.price_per_tablet} onChange={(e: any) => setForm({ ...form, price_per_tablet: e.target.value })} placeholder="0" />
                   </div>
                 </div>
                 )}
@@ -1932,13 +1962,13 @@ export default function Products() {
                           }} placeholder="0" />
                         )}
                         {!isSimpleType && !isBottleMedicine && (
-                          <Input label={t('products.strips')} type="number" value={form.strips} onChange={(e: any) => {
+                          <Input label={(isBandageType || isGeneralType) ? "Packs" : t('products.strips')} type="number" value={form.strips} onChange={(e: any) => {
                             const s = Number(e.target.value) || 0;
                             const tps = Number(form.tablets_per_strip) || 1;
                             setForm({ ...form, strips: e.target.value, total_tablets: String(s * tps) });
                           }} placeholder="0" />
                         )}
-                        <Input label={isSimpleType ? t('products.totalProductsSimple') : t('products.totalTablets')} type="number" value={form.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.reduce((s, r) => s + (Number(r.total_tablets) || 0), 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => { setForm({ ...form, total_tablets: e.target.value, strips: String(Math.round((Number(e.target.value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))), bottles: String(Math.floor((Number(e.target.value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))) }); }} placeholder="0" />
+                        <Input label={isSimpleType ? t('products.totalProductsSimple') : isBandageType ? "Total Bandages" : isGeneralType ? "Total Pieces" : t('products.totalTablets')} type="number" value={form.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.reduce((s, r) => s + (Number(r.total_tablets) || 0), 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => { setForm({ ...form, total_tablets: e.target.value, strips: String(Math.round((Number(e.target.value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))), bottles: String(Math.floor((Number(e.target.value) || 0) / ((Number(form.tablets_per_strip) || 0) || 1))) }); }} placeholder="0" />
                         <Input label={t('products.ptr')} type="number" step="0.01" value={form.ptr} onChange={(e: any) => setForm({ ...form, ptr: e.target.value })} placeholder="0.00" />
                         
                         <div>
@@ -1947,7 +1977,12 @@ export default function Products() {
                             <button
                               ref={mfgBtnRef}
                               type="button"
-                              onClick={() => setMfgShowPicker(!mfgShowPicker)}
+                              onClick={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const fitsBelow = rect.bottom + 4 + 300 <= window.innerHeight;
+                                setMfgPickPos({ top: fitsBelow ? rect.bottom + 4 : rect.top - 300, right: document.documentElement.clientWidth - rect.right });
+                                setMfgShowPicker(!mfgShowPicker);
+                              }}
                               className="flex h-10 w-full items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
                             >
                               <CalendarIcon className="w-4 h-4 text-slate-400" />
@@ -1966,7 +2001,12 @@ export default function Products() {
                             <button
                               ref={expiryBtnRef}
                               type="button"
-                              onClick={() => setExpiryShowPicker(!expiryShowPicker)}
+                              onClick={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const fitsBelow = rect.bottom + 4 + 300 <= window.innerHeight;
+                                setExpiryPickPos({ top: fitsBelow ? rect.bottom + 4 : rect.top - 300, right: document.documentElement.clientWidth - rect.right });
+                                setExpiryShowPicker(!expiryShowPicker);
+                              }}
                               className="flex h-10 w-full items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
                             >
                               <CalendarIcon className="w-4 h-4 text-slate-400" />
@@ -1996,9 +2036,9 @@ export default function Products() {
                             <Input label={t('products.bottles')} type="number" value={row.bottles} onChange={(e: any) => updateBatchRow(row.id, "bottles", e.target.value)} placeholder="0" />
                           )}
                           {!isSimpleType && !isBottleMedicine && (
-                            <Input label={t('products.strips')} type="number" value={row.strips} onChange={(e: any) => updateBatchRow(row.id, "strips", e.target.value)} placeholder="0" />
+                            <Input label={(isBandageType || isGeneralType) ? "Packs" : t('products.strips')} type="number" value={row.strips} onChange={(e: any) => updateBatchRow(row.id, "strips", e.target.value)} placeholder="0" />
                           )}
-                          <Input label={isSimpleType ? t('products.totalProductsSimple') : t('products.totalTablets')} type="number" value={row.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.slice(0, idx).reduce((s, r) => s + (Number(r.total_tablets) || 0), 0) + (Number(row.total_tablets) || 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => updateBatchRow(row.id, "total_tablets", e.target.value)} placeholder="0" />
+                          <Input label={isSimpleType ? t('products.totalProductsSimple') : isBandageType ? "Total Bandages" : isGeneralType ? "Total Pieces" : t('products.totalTablets')} type="number" value={row.total_tablets} className={!isSimpleType && ((Number(form.total_tablets) || 0) + batchRows.slice(0, idx).reduce((s, r) => s + (Number(r.total_tablets) || 0), 0) + (Number(row.total_tablets) || 0)) > ((Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)) ? "border-red-400 focus:ring-red-500/20 focus:border-red-400" : ""} onChange={(e: any) => updateBatchRow(row.id, "total_tablets", e.target.value)} placeholder="0" />
                           <Input label={t('products.ptr')} type="number" step="0.01" value={row.ptr} onChange={(e: any) => updateBatchRow(row.id, "ptr", e.target.value)} placeholder="0.00" />
                           <div>
                             <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.mfgDate')}</label>
@@ -2068,13 +2108,14 @@ export default function Products() {
                     <div
                       onClick={() => document.getElementById("product-image-input")?.click()}
                       onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
+                      onDrop={async (e) => {
                         e.preventDefault();
                         const f = e.dataTransfer.files[0];
                         if (f && f.type.startsWith("image/")) {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => setForm({ ...form, image: ev.target?.result as string });
-                          reader.readAsDataURL(f);
+                          try {
+                            const dataUrl = await compressImage(f);
+                            setForm({ ...form, image: dataUrl });
+                          } catch { /* ignore */ }
                         }
                       }}
                       className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/30 transition-all"
@@ -2089,12 +2130,13 @@ export default function Products() {
                         type="file"
                         accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const f = e.target.files?.[0];
                           if (f && f.type.startsWith("image/")) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => setForm({ ...form, image: ev.target?.result as string });
-                            reader.readAsDataURL(f);
+                            try {
+                              const dataUrl = await compressImage(f);
+                              setForm({ ...form, image: dataUrl });
+                            } catch { /* ignore */ }
                           }
                         }}
                       />
@@ -2333,11 +2375,12 @@ export default function Products() {
                         <span className="text-sm font-medium text-slate-600">{t('products.subtotal')}</span>
                               <div className="flex items-center gap-2">
                                 <span className="text-sm text-slate-400">₹</span>
-                                <input
+                                  <input
                                   type="number"
                                   step="0.01"
                                   value={displayValue}
                                   onChange={(e) => setNewManualSubtotal(e.target.value)}
+                                  onWheel={(e) => { e.preventDefault(); (e.target as HTMLElement).blur(); }}
                                   placeholder="0"
                                   className="w-32 text-right bg-transparent border-b border-slate-300 text-2xl font-bold text-emerald-600 focus:outline-none focus:border-emerald-500 placeholder:text-slate-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                 />
@@ -2448,17 +2491,22 @@ export default function Products() {
                     <div>
                       <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{t('products.invoiceDate')}</label>
                       <div className="relative">
-                        <button
-                          ref={invoiceBtnRef}
-                          type="button"
-                          onClick={() => setInvoiceShowPicker(!invoiceShowPicker)}
-                          className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
-                        >
-                          <CalendarIcon className="w-4 h-4 text-slate-400" />
-                          <span>{form.invoice_date ? format(new Date(form.invoice_date + "T00:00:00"), "dd MMM yyyy") : t('products.pickDate')}</span>
-                        </button>
-                        {invoiceShowPicker && (
-                          <div id="inv-cal-popup" className="fixed z-[70]" style={{ top: invoicePickPos.top, right: invoicePickPos.right }}>
+                          <button
+                            ref={invoiceBtnRef}
+                            type="button"
+                            onClick={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const fitsBelow = rect.bottom + 4 + 300 <= window.innerHeight;
+                              setInvoicePickPos({ top: fitsBelow ? rect.bottom + 4 : rect.top - 300, right: document.documentElement.clientWidth - rect.right });
+                              setInvoiceShowPicker(!invoiceShowPicker);
+                            }}
+                            className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                          >
+                            <CalendarIcon className="w-4 h-4 text-slate-400" />
+                            <span>{form.invoice_date ? format(new Date(form.invoice_date + "T00:00:00"), "dd MMM yyyy") : t('products.pickDate')}</span>
+                          </button>
+                          {invoiceShowPicker && (
+                            <div id="inv-cal-popup" className="fixed z-[70]" style={{ top: invoicePickPos.top, right: invoicePickPos.right }}>
                             <SimpleDatePicker date={form.invoice_date ? new Date(form.invoice_date + "T00:00:00") : undefined} onSelect={(d) => { setForm({ ...form, invoice_date: format(d, "yyyy-MM-dd") }); setInvoiceShowPicker(false); }} />
                           </div>
                         )}
@@ -2481,6 +2529,7 @@ export default function Products() {
                             value={displayValue}
                             onChange={(e) => setManualSubtotal(e.target.value)}
                             placeholder="0"
+                            onWheel={(e) => { e.preventDefault(); (e.target as HTMLElement).blur(); }}
                             className="w-32 text-right bg-transparent border-b border-slate-300 text-2xl font-bold text-emerald-600 focus:outline-none focus:border-emerald-500 placeholder:text-slate-300 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
                         </div>

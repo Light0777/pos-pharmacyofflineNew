@@ -135,6 +135,9 @@ export default function Stock() {
 
   useEffect(() => {
     loadStock();
+    const handler = () => loadStock();
+    window.addEventListener('stock-updated', handler);
+    return () => window.removeEventListener('stock-updated', handler);
   }, []);
 
   useEffect(() => {

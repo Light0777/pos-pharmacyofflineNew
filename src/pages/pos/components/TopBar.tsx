@@ -195,14 +195,6 @@ export default function TopBar({ onShowSales }: TopBarProps) {
                               : t('topbar.notifLowStock', { count: item.stock })}
                           </p>
                         </div>
-                        <Badge
-                          variant="outline"
-                          className={`flex-shrink-0 ${item.stock === 0
-                            ? 'text-red-500 border-red-500/30 bg-red-500/10'
-                            : 'text-amber-500 border-amber-500/30 bg-amber-500/10'}`}
-                        >
-                          {item.stock}
-                        </Badge>
                       </div>
                     </DropdownMenuItem>
                   ))}

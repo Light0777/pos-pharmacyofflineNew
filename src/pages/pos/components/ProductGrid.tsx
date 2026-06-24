@@ -97,8 +97,10 @@ function UnitSelectionModal({
   }, [selectedUnit, selectedBatchUuid]);
 
   useEffect(() => {
-    if (batches.length > 0 && !selectedBatchUuid) {
+    if (batches.length > 0) {
       setSelectedBatchUuid(batches[0].batch_uuid);
+    } else {
+      setSelectedBatchUuid("");
     }
   }, [batches]);
 
@@ -334,6 +336,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
 
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: "", visible: false });
+  const clickSeqRef = useRef(0);
 
   const showToast = (message: string) => {
     setToast({ message, visible: true });
@@ -369,12 +372,11 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
       const batches = await getProductBatches(productUuid);
       const availableBatches = batches
         .filter((b: any) => {
-          const available = (b.quantity || 0) - (b.sold_quantity || 0);
-          return available > 0 && new Date(b.expiry_date) > new Date();
+          return (b.quantity || 0) > 0 && new Date(b.expiry_date) > new Date();
         })
         .map((b: any) => ({
           ...b,
-          available: (b.quantity || 0) - (b.sold_quantity || 0)
+          available: b.quantity || 0
         }))
         .sort((a: any, b: any) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
       
@@ -405,7 +407,10 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
 
   // Handle product click - show unit selection modal
   const handleProductClick = async (product: Product) => {
+    const seq = ++clickSeqRef.current;
     const units = await loadProductUnits(product.product_uuid);
+
+    if (seq !== clickSeqRef.current) return;
     
     if (units.length === 0) {
       showToast(`No pack sizes defined for "${product.name}". Please add pack sizes first.`);
@@ -413,6 +418,8 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
     }
     
     const batches = await getAvailableBatches(product.product_uuid);
+
+    if (seq !== clickSeqRef.current) return;
     
     setSelectedProduct(product);
     setProductUnits(units);

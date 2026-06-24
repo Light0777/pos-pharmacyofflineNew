@@ -195,61 +195,67 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onFocus={() => { if (searchResults.length > 0) setShowSearchDropdown(true); }}
                         placeholder={t('common.search') || "Search products..."}
-                        className="pl-10 pr-4 py-2.5 bg-transparent border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent w-56 lg:w-72"
+                        className="pl-10 pr-4 py-2.5 bg-transparent border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent w-[40rem]"
                     />
                     {showSearchDropdown && (
-                        <div className="absolute top-full mt-2 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto thin-scrollbar">
+                        <div className="absolute top-full mt-2 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-2xl z-50">
                             {searchLoading && (
                                 <div className="px-4 py-3 text-sm text-gray-500">Searching...</div>
                             )}
                             {!searchLoading && matchedPages.length === 0 && searchResults.length === 0 && (
                                 <div className="px-4 py-6 text-sm text-gray-400 text-center">No results found</div>
                             )}
-                            {!searchLoading && matchedPages.length > 0 && (
-                                <>
-                                    <div className="sticky top-0 bg-white px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                                        Pages ({matchedPages.length})
-                                    </div>
-                                    {matchedPages.map((link) => (
-                                        <button
-                                            key={link.path}
-                                            onClick={() => {
-                                                setShowSearchDropdown(false);
-                                                setSearchQuery("");
-                                                navigate(link.path);
-                                            }}
-                                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-3 transition-colors"
-                                        >
-                                            <span className="text-sm font-medium text-gray-700">{link.label}</span>
-                                        </button>
-                                    ))}
-                                </>
-                            )}
-                            {!searchLoading && searchResults.length > 0 && (
-                                <>
-                                    {matchedPages.length > 0 && <div className="border-t border-gray-100" />}
-                                    <div className="sticky top-0 bg-white px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                                        Products ({searchResults.length})
-                                    </div>
-                                    {searchResults.map((product: any) => (
-                                        <button
-                                            key={product.product_uuid}
-                                            onClick={() => {
-                                                setShowSearchDropdown(false);
-                                                setSearchQuery("");
-                                                navigate('/admin/products');
-                                            }}
-                                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors"
-                                        >
-                                            <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                                            <div className="flex items-center gap-3 mt-0.5">
-                                                {product.sku && <span className="text-xs text-gray-400">{product.sku}</span>}
-                                                {product.manufacturer && <span className="text-xs text-gray-400">{product.manufacturer}</span>}
-                                                <span className="text-xs font-medium text-green-600 ml-auto">{product.stock ?? 0} in stock</span>
+                            {!searchLoading && (matchedPages.length > 0 || searchResults.length > 0) && (
+                                <div className="flex max-h-80 thin-scrollbar">
+                                    {matchedPages.length > 0 && (
+                                        <div className="flex-1 min-w-0 overflow-y-auto">
+                                            <div className="sticky top-0 bg-white px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                                                Pages ({matchedPages.length})
                                             </div>
-                                        </button>
-                                    ))}
-                                </>
+                                            {matchedPages.map((link) => (
+                                                <button
+                                                    key={link.path}
+                                                    onClick={() => {
+                                                        setShowSearchDropdown(false);
+                                                        setSearchQuery("");
+                                                        navigate(link.path);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                                                >
+                                                    <span className="text-sm font-medium text-gray-700">{link.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {matchedPages.length > 0 && searchResults.length > 0 && (
+                                        <div className="w-px bg-gray-200 flex-shrink-0" />
+                                    )}
+                                    {searchResults.length > 0 && (
+                                        <div className="flex-1 min-w-0 overflow-y-auto">
+                                            <div className="sticky top-0 bg-white px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                                                Products ({searchResults.length})
+                                            </div>
+                                            {searchResults.map((product: any) => (
+                                                <button
+                                                    key={product.product_uuid}
+                                                    onClick={() => {
+                                                        setShowSearchDropdown(false);
+                                                        setSearchQuery("");
+                                                        navigate('/admin/products');
+                                                    }}
+                                                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors"
+                                                >
+                                                    <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                                    <div className="flex items-center gap-3 mt-0.5">
+                                                        {product.sku && <span className="text-xs text-gray-400">{product.sku}</span>}
+                                                        {product.manufacturer && <span className="text-xs text-gray-400">{product.manufacturer}</span>}
+                                                        <span className="text-xs font-medium text-green-600 ml-auto">{product.stock ?? 0} in stock</span>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             )}
                         </div>
                     )}
@@ -328,14 +334,6 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                                                                 : t('topbar.notifLowStock', { count: item.stock })}
                                                         </p>
                                                     </div>
-                                                    <Badge
-                                                        variant="outline"
-                                                        className={`flex-shrink-0 ${item.stock === 0
-                                                            ? 'text-red-500 border-red-500/30 bg-red-500/10'
-                                                            : 'text-amber-500 border-amber-500/30 bg-amber-500/10'}`}
-                                                    >
-                                                        {item.stock}
-                                                    </Badge>
                                                 </div>
                                             </DropdownMenuItem>
                                         ))}
