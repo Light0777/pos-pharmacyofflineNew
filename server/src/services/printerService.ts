@@ -41,56 +41,54 @@ interface Invoice {
     payments?: Array<{ method: string; amount: number }>;
 }
 
+const PAPER_WIDTHS: Record<string, number> = {
+  '80mm': 42,
+  '58mm': 32,
+};
+
 export class ThermalPrinterService {
     private printerHost: string;
     private printerPort: number;
     private printerName: string | null;
-    private readonly PAPER_WIDTH = 32; // 32 characters for 80mm paper
+    private paperWidth: number;
 
-    constructor(host: string = 'localhost', port: number = 9104, printerName: string | null = null) {
+    constructor(host: string = 'localhost', port: number = 9104, printerName: string | null = null, paperWidth: number = 42) {
         this.printerHost = host;
         this.printerPort = port;
         this.printerName = printerName;
+        this.paperWidth = paperWidth;
     }
 
-    // Helper: Center text for thermal paper
     private centerText(text: string): string {
         const textLength = text.length;
-        if (textLength >= this.PAPER_WIDTH) return text;
-        const padding = Math.floor((this.PAPER_WIDTH - textLength) / 2);
+        if (textLength >= this.paperWidth) return text;
+        const padding = Math.floor((this.paperWidth - textLength) / 2);
         return ' '.repeat(padding) + text;
     }
 
-    // Helper: Add line separator
     private addSeparator(commands: number[], encoder: TextEncoder, char: string = '-'): void {
-        const separator = char.repeat(this.PAPER_WIDTH);
+        const separator = char.repeat(this.paperWidth);
         commands.push(...encoder.encode(separator + '\n'));
     }
 
-    private formatToESC_POS(invoice: Invoice): Buffer {
+    private formatToESC_POS(invoice: Invoice, paperWidth?: number): Buffer {
+        const width = paperWidth || this.paperWidth;
         const encoder = new TextEncoder();
         let commands: number[] = [];
 
-        // Initialize printer
         commands.push(0x1B, 0x40); // ESC @
+        commands.push(0x1B, 0x61, 0x01); // Center align
 
-        // Use center alignment ESC/POS command for the entire document
-        commands.push(0x1B, 0x61, 0x01); // Center align all text
-
-        // ========== HEADER ==========
         const shopName = invoice.shop?.name || 'MY STORE';
-        commands.push(0x1B, 0x45, 0x01); // ESC E 1 (bold on)
-
+        commands.push(0x1B, 0x45, 0x01);
         commands.push(...encoder.encode(shopName + '\n'));
 
         if (invoice.shop?.address) {
             commands.push(...encoder.encode(invoice.shop.address + '\n'));
         }
-
         if (invoice.shop?.mobile) {
             commands.push(...encoder.encode('Ph: ' + invoice.shop.mobile + '\n'));
         }
-
         if (invoice.shop?.gstin) {
             commands.push(...encoder.encode('GSTIN: ' + invoice.shop.gstin + '\n'));
         }
@@ -98,7 +96,6 @@ export class ThermalPrinterService {
         commands.push(...encoder.encode('\n'));
         this.addSeparator(commands, encoder, '-');
 
-        // Invoice details
         commands.push(...encoder.encode(`Invoice #: ${invoice.invoice_number}\n`));
         const dateStr = invoice.date || invoice.created_at || new Date().toISOString();
         commands.push(...encoder.encode(`Date: ${new Date(dateStr).toLocaleString()}\n`));
@@ -114,31 +111,25 @@ export class ThermalPrinterService {
         commands.push(...encoder.encode('TAX INVOICE\n'));
         this.addSeparator(commands, encoder, '-');
 
-        // Items header - For table, we need to use left align temporarily
-        commands.push(0x1B, 0x61, 0x01); // Left align for table columns
+        commands.push(0x1B, 0x61, 0x00); // Left align for table
 
-        // Create table header with proper spacing
+        const nameWidth = Math.max(10, width - 28);
         const headerLine =
-            'Item'.padEnd(16) +
-            'Qty'.padStart(4) +
-            'Rate'.padStart(8) +
-            'Amt'.padStart(8);
+            'Item'.padEnd(nameWidth) +
+            'Qty'.padStart(6) +
+            'Rate'.padStart(10) +
+            'Amt'.padStart(10);
         commands.push(...encoder.encode(headerLine + '\n'));
         this.addSeparator(commands, encoder, '-');
 
-        // Items
         invoice.items?.forEach(item => {
-            // Format each column with proper spacing
-            const nameLine = item.name.substring(0, 16).padEnd(16);
-            const qtyLine = item.qty.toString().padStart(4);
-            const rateLine = Number(item.price).toFixed(2).toString().padStart(8);
-            const totalLine = Number(item.total).toFixed(2).toString().padStart(8);
-
-            // Add a space between columns for clarity
-            const itemLine = `${nameLine} ${qtyLine} ${rateLine} ${totalLine}`;
+            const nameLine = item.name.substring(0, nameWidth).padEnd(nameWidth);
+            const qtyLine = item.qty.toString().padStart(6);
+            const rateLine = Number(item.price).toFixed(2).toString().padStart(10);
+            const totalLine = Number(item.total).toFixed(2).toString().padStart(10);
+            const itemLine = `${nameLine}${qtyLine}${rateLine}${totalLine}`;
             commands.push(...encoder.encode(itemLine + '\n'));
 
-            // Tax info if available (indented)
             if (item.hsn_code || item.tax_percent) {
                 let taxLine = '  ';
                 if (item.hsn_code) taxLine += `HSN:${item.hsn_code} `;
@@ -152,10 +143,8 @@ export class ThermalPrinterService {
 
         this.addSeparator(commands, encoder, '-');
 
-        // Switch back to center align for summary
         commands.push(0x1B, 0x61, 0x01); // Center align
 
-        // Summary
         const subtotal = (invoice.summary?.total || 0).toFixed(2);
         commands.push(...encoder.encode(`Subtotal: Rs.${subtotal}\n`));
 
@@ -173,13 +162,11 @@ export class ThermalPrinterService {
 
         this.addSeparator(commands, encoder, '=');
 
-        // Grand Total
         const grandTotal = (invoice.summary?.grand_total || 0).toFixed(2);
         commands.push(...encoder.encode(`TOTAL: Rs.${grandTotal}\n`));
 
         this.addSeparator(commands, encoder, '=');
 
-        // Payments
         if (invoice.payments && invoice.payments.length > 0) {
             commands.push(...encoder.encode('Payment Details:\n'));
             invoice.payments.forEach(payment => {
@@ -188,7 +175,6 @@ export class ThermalPrinterService {
             this.addSeparator(commands, encoder, '-');
         }
 
-        // Footer
         commands.push(...encoder.encode('\n'));
         commands.push(...encoder.encode('** THANK YOU **\n'));
         commands.push(...encoder.encode('Visit us again!\n'));
@@ -196,7 +182,6 @@ export class ThermalPrinterService {
         commands.push(...encoder.encode('Computer generated invoice\n'));
         commands.push(...encoder.encode('\n\n\n'));
 
-        // Cut paper
         commands.push(0x1D, 0x56, 0x00); // GS V 0 (full cut)
 
         return Buffer.from(commands);
@@ -204,13 +189,12 @@ export class ThermalPrinterService {
 
     private async printViaWindows(data: Buffer): Promise<{ success: boolean; error?: string; printed?: boolean }> {
         return new Promise((resolve) => {
-            // Write ESC/POS data to a temp file
             const tmpFile = path.join(os.tmpdir(), `receipt_${Date.now()}.bin`);
             fs.writeFileSync(tmpFile, data);
+            const printerArg = this.printerName || '';
 
-            // Send raw data to Windows printer using print command
-            execFile('cmd.exe', ['/c', 'copy', '/b', tmpFile, this.printerName], (error) => {
-                fs.unlinkSync(tmpFile); // clean up temp file
+            execFile('cmd.exe', ['/c', 'copy', '/b', tmpFile, printerArg], (error: Error | null) => {
+                fs.unlinkSync(tmpFile);
                 if (error) {
                     resolve({ success: false, error: error.message, printed: false });
                 } else {
@@ -220,15 +204,13 @@ export class ThermalPrinterService {
         });
     }
 
-    async print(invoice: Invoice): Promise<{ success: boolean; error?: string; printed?: boolean }> {
-    const printData = this.formatToESC_POS(invoice);
+    async print(invoice: Invoice, paperWidth?: number): Promise<{ success: boolean; error?: string; printed?: boolean }> {
+    const printData = this.formatToESC_POS(invoice, paperWidth);
 
-    // If printer name is set, use Windows USB printing
     if (this.printerName) {
       return this.printViaWindows(printData);
     }
 
-    // Otherwise use TCP/network (WiFi or LAN) — your existing code
     return new Promise((resolve) => {
       const client = new net.Socket();
 

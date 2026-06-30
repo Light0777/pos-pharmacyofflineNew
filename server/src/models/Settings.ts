@@ -27,6 +27,7 @@ export class SettingsModel {
     address?: string;
     gstin?: string;
     invoice_prefix?: string;
+    bill_format?: string;
     printer_type?: string;
     printer_host?: string;
     printer_port?: number;
@@ -62,6 +63,10 @@ export class SettingsModel {
         values.push(data.invoice_prefix);
       }
 
+      if (data.bill_format !== undefined) {
+        updateFields.push('bill_format = ?');
+        values.push(data.bill_format);
+      }
       if (data.auto_print !== undefined) {
         updateFields.push('auto_print = ?');
         values.push(data.auto_print);

@@ -59,6 +59,7 @@ const DEFAULT_SETTINGS = {
   gstin: "",
   invoice_prefix: "INV",
   auto_print: 0,
+  bill_format: "a4",
   terms_conditions: "",
   privacy_policy: "",
 };
@@ -339,6 +340,7 @@ export default function Settings() {
       gstin: source.gstin || "",
       invoice_prefix: source.invoice_prefix || "INV",
       auto_print: source.auto_print ?? 0,
+      bill_format: source.bill_format || "a4",
       terms_conditions: source.terms_conditions || "",
       privacy_policy: source.privacy_policy || "",
     };
@@ -461,6 +463,7 @@ export default function Settings() {
         gstin: data.gstin || "",
         invoice_prefix: data.invoice_prefix || "INV",
         auto_print: data.auto_print ?? 0,
+        bill_format: data.bill_format || "a4",
       });
       setDialogOpen(true);
     }
@@ -483,6 +486,7 @@ export default function Settings() {
         gstin: formData.gstin,
         invoice_prefix: formData.invoice_prefix,
         auto_print: formData.auto_print,
+        bill_format: formData.bill_format,
       };
       localStorage.setItem("shop_settings", JSON.stringify(toStore));
       setData((prev: any) => ({ ...prev, ...toStore }));
@@ -756,6 +760,76 @@ export default function Settings() {
               <div style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: 2 }}>{t('settings.switchLanguage')}</div>
             </div>
             <LanguageToggle />
+          </div>
+        </div>
+
+        {/* Bill Settings */}
+        <div className="settings-section" style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 14, overflow: "hidden", marginBottom: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+          <div className="section-header" style={{ padding: "16px 20px 15px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="section-icon" style={{ width: 42, height: 42, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: "rgba(37,99,235,0.1)", color: "#2563eb" }}>
+              <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>Bill Settings</div>
+              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>Choose your invoice format and printer</div>
+            </div>
+          </div>
+          <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="grid grid-cols-2 gap-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {[
+                { id: "a4", label: "A4 Sheet", desc: "Full page A4, GST breakdown, Rx info", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+                { id: "a5", label: "A5 Sheet", desc: "Half page, compact layout", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+                { id: "80mm", label: "80mm Thermal", desc: "ESC/POS thermal receipt 80mm paper", icon: "M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 0h4a2 2 0 002-2v-4a2 2 0 00-2-2h-4a2 2 0 00-2 2v4a2 2 0 002 2zm6 0v4a2 2 0 01-2 2H7a2 2 0 01-2-2v-4" },
+                { id: "58mm", label: "58mm Thermal", desc: "ESC/POS thermal receipt 58mm paper", icon: "M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 0h4a2 2 0 002-2v-4a2 2 0 00-2-2h-4a2 2 0 00-2 2v4a2 2 0 002 2zm6 0v4a2 2 0 01-2 2H7a2 2 0 01-2-2v-4" },
+              ].map((opt) => {
+                const selected = (data.bill_format || "a4") === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                      onClick={() => {
+                      const newData = { ...data, bill_format: opt.id };
+                      setData(newData);
+                      localStorage.setItem("shop_settings", JSON.stringify(newData));
+                      saveSettings(newData).catch(console.error);
+                    }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10,
+                      border: selected ? "2px solid #2563eb" : "1px solid #e5e7eb", cursor: "pointer",
+                      background: selected ? "rgba(37,99,235,0.04)" : "#ffffff",
+                      textAlign: "left", transition: "all 0.15s"
+                    }}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 8, display: "flex", alignItems: "center",
+                      justifyContent: "center", flexShrink: 0,
+                      background: selected ? "rgba(37,99,235,0.12)" : "#f3f4f6",
+                      color: selected ? "#2563eb" : "#9ca3af"
+                    }}>
+                      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path d={opt.icon} />
+                      </svg>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: "0.9rem", fontWeight: 600, color: selected ? "#2563eb" : "#111827" }}>{opt.label}</div>
+                      <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: 1 }}>{opt.desc}</div>
+                    </div>
+                    {selected && (
+                      <svg width="20" height="20" fill="#2563eb" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "#6b7280", padding: "8px 0 0", borderTop: "1px solid #f3f4f6", textAlign: "center" }}>
+              {data.bill_format === "a4" && "Prints on A4 paper via browser print dialog"}
+              {data.bill_format === "a5" && "Prints on A5 paper via browser print dialog"}
+              {data.bill_format === "80mm" && "Sends ESC/POS data to your configured 80mm thermal printer"}
+              {data.bill_format === "58mm" && "Sends ESC/POS data to your configured 58mm thermal printer"}
+            </div>
           </div>
         </div>
 

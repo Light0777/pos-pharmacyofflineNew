@@ -375,6 +375,7 @@ export interface Setting {
   gstin?: string;
   invoice_prefix: string;
   auto_print?: number;
+  bill_format?: string;
   // =========================
   // PHARMACY COMPLIANCE
   // =========================

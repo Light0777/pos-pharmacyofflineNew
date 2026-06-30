@@ -582,6 +582,7 @@ export function runMigrations(): void {
     { table: 'product_batches', column: 'strips', def: 'REAL DEFAULT 0' },
     { table: 'settings', column: 'terms_conditions', def: 'TEXT' },
     { table: 'settings', column: 'privacy_policy', def: 'TEXT' },
+    { table: 'settings', column: 'bill_format', def: "TEXT NOT NULL DEFAULT 'a4'" },
   ];
   for (const fix of fixColumns) {
     try {
