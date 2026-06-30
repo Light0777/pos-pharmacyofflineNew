@@ -22,7 +22,14 @@ const getBackupDir = (): string => {
 };
 
 const getDbName = (): string => {
-  return process.env.APP_DB_NAME || 'pos_billing.db';
+  const appType = process.env.APP_TYPE || 'billing';
+  return process.env.APP_DB_NAME || (
+    appType === 'hardware'
+      ? 'pos_hardware.db'
+      : appType === 'pharmacy'
+      ? 'pos_pharmacy.db'
+      : 'pos_billing.db'
+  );
 };
 
 const getDbPath = (): string => {
