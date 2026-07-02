@@ -96,7 +96,7 @@ export default function StaffPage() {
     setError(null);
 
     try {
-      await createStaff({
+      const res = await createStaff({
         name: form.name,
         email: form.email,
         password: form.password,
@@ -104,6 +104,10 @@ export default function StaffPage() {
         security_question: form.security_question || undefined,
         security_answer: form.security_answer || undefined,
       });
+      if ('error' in res) {
+        setError((res as { error: string }).error);
+        return;
+      }
       await loadStaff();
       setSuccess(t('staff.createSuccess'));
       setTimeout(() => setSuccess(null), 3000);
@@ -137,7 +141,7 @@ export default function StaffPage() {
     setError(null);
 
     try {
-      await updateStaff(editing.user_uuid, {
+      const res = await updateStaff(editing.user_uuid, {
         name: form.name,
         email: form.email,
         password: form.password || undefined,
@@ -145,6 +149,10 @@ export default function StaffPage() {
         security_question: form.security_question || undefined,
         security_answer: form.security_answer || undefined,
       });
+      if ('error' in res) {
+        setError((res as { error: string }).error);
+        return;
+      }
       await loadStaff();
       setSuccess(t('staff.updateSuccess'));
       setTimeout(() => setSuccess(null), 3000);
@@ -169,6 +177,8 @@ export default function StaffPage() {
       await loadStaff();
       setSuccess(t('staff.deleteSuccess'));
       setTimeout(() => setSuccess(null), 3000);
+      setModalOpen(false);
+      resetForm();
     } catch (err) {
       console.error("Delete staff error:", err);
       setError(t('staff.deleteError'));
@@ -338,10 +348,12 @@ export default function StaffPage() {
             </button>
           )}
         </div>
+        {staff.length < 2 && (
         <Button onClick={() => { resetForm(); setModalOpen(true); }} className="gap-2 bg-green-600 hover:bg-green-700 text-white shrink-0">
           <HugeiconsIcon icon={Add01Icon} className="text-xl"  />
           {t('staff.addStaff')}
         </Button>
+        )}
       </div>
 
       {/* Staff Table */}
@@ -423,8 +435,8 @@ export default function StaffPage() {
 
       {/* Custom Modal */}
       {modalOpen && createPortal(
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-200">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => { setModalOpen(false); resetForm(); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-200" onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-bold text-slate-800">
                 {editing ? t('staff.editStaff') : t('staff.addNewStaff')}

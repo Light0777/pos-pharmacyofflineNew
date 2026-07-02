@@ -21,7 +21,7 @@ export async function createStaff(data: {
   role: string;
   security_question?: string;
   security_answer?: string;
-}): Promise<Staff> {
+}): Promise<Staff | { error: string }> {
   return await apiPost("/staff", data);
 }
 
@@ -29,7 +29,7 @@ export async function createStaff(data: {
 export async function updateStaff(
   uuid: string,
   data: Partial<Staff> & { password?: string; security_answer?: string }
-): Promise<Staff> {
+): Promise<Staff | { error: string }> {
   return await apiPut(`/staff/${uuid}`, data);
 }
 

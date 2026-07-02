@@ -52,7 +52,7 @@ interface TopBarProps {
 export default function TopBar({ onMenuClick }: TopBarProps) {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
 
     const [lowStockItems, setLowStockItems] = useState<any[]>([]);
     const [lowStockCount, setLowStockCount] = useState(0);
@@ -450,6 +450,16 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                         >
                             <HugeiconsIcon icon={Settings01Icon} className="text-lg text-gray-500"  />
                             <span>{t('topbar.settingsDropdown')}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-gray-200" />
+                        <DropdownMenuItem
+                            onClick={logout}
+                            className="cursor-pointer gap-3 px-3 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            <span>{t('topbar.logout') || 'Logout'}</span>
                         </DropdownMenuItem>
                     </DropdownMenuContent>
         </DropdownMenu>
