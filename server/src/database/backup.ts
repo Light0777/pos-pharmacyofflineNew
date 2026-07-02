@@ -48,7 +48,7 @@ const getDbPath = (): string => {
 
   // Development mode or fallback
   const base = process.env.USER_DATA_PATH || process.cwd();
-  return path.join(base, 'database', dbName);
+  return path.join(base, 'server', 'database', dbName);
 };
 
 export function ensureBackupDir(): void {
@@ -153,18 +153,23 @@ export function checkDbIntegrity(): boolean {
 export function scheduleAutoBackup(): void {
   try {
     createBackup('auto');
-    pruneOldBackups(7);
+    pruneOldBackups(12);
   } catch (err: any) {
     // Non-fatal in dev mode - DB might be in different location
     console.warn('Startup backup skipped:', err.message);
   }
 
+  let daysSinceLastBackup = 0;
   setInterval(() => {
-    try {
-      createBackup('auto');
-      pruneOldBackups(7);
-    } catch (err: any) {
-      console.warn('Scheduled backup failed:', err.message);
+    daysSinceLastBackup++;
+    if (daysSinceLastBackup >= 30) {
+      daysSinceLastBackup = 0;
+      try {
+        createBackup('auto');
+        pruneOldBackups(12);
+      } catch (err: any) {
+        console.warn('Scheduled backup failed:', err.message);
+      }
     }
   }, 24 * 60 * 60 * 1000);
 }

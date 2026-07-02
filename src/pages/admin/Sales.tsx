@@ -392,7 +392,7 @@ export default function Sales() {
             className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-slate-700 hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400"
           >
             <CalendarIcon className="w-4 h-4 text-slate-400" />
-            <span>{filterDate ? formatDate(new Date(filterDate), "dd MMM yyyy") : "{t('sales.filterByDate')}"}</span>
+            <span>{filterDate ? formatDate(new Date(filterDate), "dd MMM yyyy") : t('sales.filterByDate')}</span>
           </button>
           {filterDate && (
             <button
@@ -428,11 +428,11 @@ export default function Sales() {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              {t('sales.tableInvoice')}
-              {t('sales.tableCustomer')}
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('sales.tableInvoice')}</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('sales.tableCustomer')}</th>
               <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('sales.tableAmount')}</th>
-              {t('sales.tableDate')}
-              {t('sales.tableAction')}
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('sales.tableDate')}</th>
+              <th className="text-center px-5 py-3 text-xs font-medium text-gray-500">{t('sales.tableAction')}</th>
             </tr>
           </thead>
           <tbody>
