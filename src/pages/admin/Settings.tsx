@@ -15,6 +15,7 @@ import { apiPut } from "../../renderer/services/api";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useAuth } from "../../context/AuthContext";
 import { getProfile, type UserProfile, type ShopProfile } from "../../renderer/services/profileApi";
+import AuditLogs from "./AuditLogs";
 
 const SECURITY_QUESTIONS = [
   "What is your pet's name?",
@@ -302,6 +303,8 @@ export default function Settings() {
   const [savingSecurity, setSavingSecurity] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [billDialogOpen, setBillDialogOpen] = useState(false);
+  const [auditDialogOpen, setAuditDialogOpen] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -771,65 +774,31 @@ export default function Settings() {
                 <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
             </div>
-            <div style={{ textAlign: "left" }}>
+            <div style={{ flex: 1, textAlign: "left" }}>
               <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>Bill Settings</div>
               <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>Choose your invoice format and printer</div>
             </div>
+            <button
+              onClick={() => setBillDialogOpen(true)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 8, fontSize: "0.8rem", fontWeight: 500, color: "#6b7280", cursor: "pointer" }}
+            >
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+              Change
+            </button>
           </div>
-          <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
-            <div className="grid grid-cols-2 gap-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {[
-                { id: "a4", label: "A4 Sheet", desc: "Full page A4, GST breakdown, Rx info", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
-                { id: "a5", label: "A5 Sheet", desc: "Half page, compact layout", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
-                { id: "80mm", label: "80mm Thermal", desc: "ESC/POS thermal receipt 80mm paper", icon: "M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 0h4a2 2 0 002-2v-4a2 2 0 00-2-2h-4a2 2 0 00-2 2v4a2 2 0 002 2zm6 0v4a2 2 0 01-2 2H7a2 2 0 01-2-2v-4" },
-                { id: "58mm", label: "58mm Thermal", desc: "ESC/POS thermal receipt 58mm paper", icon: "M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 0h4a2 2 0 002-2v-4a2 2 0 00-2-2h-4a2 2 0 00-2 2v4a2 2 0 002 2zm6 0v4a2 2 0 01-2 2H7a2 2 0 01-2-2v-4" },
-              ].map((opt) => {
-                const selected = (data.bill_format || "a4") === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                      onClick={() => {
-                      const newData = { ...data, bill_format: opt.id };
-                      setData(newData);
-                      localStorage.setItem("shop_settings", JSON.stringify(newData));
-                      saveSettings(newData).catch(console.error);
-                    }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10,
-                      border: selected ? "2px solid #2563eb" : "1px solid #e5e7eb", cursor: "pointer",
-                      background: selected ? "rgba(37,99,235,0.04)" : "#ffffff",
-                      textAlign: "left", transition: "all 0.15s"
-                    }}
-                  >
-                    <div style={{
-                      width: 36, height: 36, borderRadius: 8, display: "flex", alignItems: "center",
-                      justifyContent: "center", flexShrink: 0,
-                      background: selected ? "rgba(37,99,235,0.12)" : "#f3f4f6",
-                      color: selected ? "#2563eb" : "#9ca3af"
-                    }}>
-                      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path d={opt.icon} />
-                      </svg>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: "0.9rem", fontWeight: 600, color: selected ? "#2563eb" : "#111827" }}>{opt.label}</div>
-                      <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: 1 }}>{opt.desc}</div>
-                    </div>
-                    {selected && (
-                      <svg width="20" height="20" fill="#2563eb" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ fontSize: "0.75rem", color: "#6b7280", padding: "8px 0 0", borderTop: "1px solid #f3f4f6", textAlign: "center" }}>
-              {data.bill_format === "a4" && "Prints on A4 paper via browser print dialog"}
-              {data.bill_format === "a5" && "Prints on A5 paper via browser print dialog"}
-              {data.bill_format === "80mm" && "Sends ESC/POS data to your configured 80mm thermal printer"}
-              {data.bill_format === "58mm" && "Sends ESC/POS data to your configured 58mm thermal printer"}
-            </div>
+          <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>Current Format</span>
+            <span style={{ fontSize: "0.85rem", color: "#6b7280", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{
+                display: "inline-block", padding: "2px 8px", borderRadius: 6, fontWeight: 600, fontSize: "0.75rem",
+                background: data.bill_format === "a4" ? "#dbeafe" : data.bill_format === "a5" ? "#fef3c7" : "#dcfce7",
+                color: data.bill_format === "a4" ? "#1d4ed8" : data.bill_format === "a5" ? "#b45309" : "#166534"
+              }}>
+                {data.bill_format === "a4" ? "A4 Sheet" : data.bill_format === "a5" ? "A5 Sheet" : data.bill_format === "80mm" ? "80mm Thermal" : "58mm Thermal"}
+              </span>
+            </span>
           </div>
         </div>
 
@@ -924,6 +893,24 @@ export default function Settings() {
           <div className="setting-row" style={{ padding: "15px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: "0.9rem", fontWeight: 500, color: "#374151" }}>Privacy Policy</span>
             <span style={{ fontSize: "0.85rem", color: "#6b7280", fontFamily: "inherit" }}>{data.privacy_policy ? <span style={{ color: "#16a34a" }}>Customized</span> : <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Default</span>}</span>
+          </div>
+        </div>
+
+        {/* Audit Logs */}
+        <div className="settings-section" style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 14, overflow: "hidden", marginBottom: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+          <div className="section-header" style={{ padding: "16px 20px 15px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => setAuditDialogOpen(true)}>
+            <div className="section-icon" style={{ width: 42, height: 42, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: "rgba(139,92,246,0.1)", color: "#7c3aed" }}>
+              <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+              </svg>
+            </div>
+            <div style={{ flex: 1, textAlign: "left" }}>
+              <div style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>Audit Logs</div>
+              <div style={{ fontSize: "0.8rem", color: "#6b7280", marginTop: 1 }}>Track changes and activities</div>
+            </div>
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" style={{ color: "#9ca3af" }}>
+              <path d="M9 5l7 7-7 7"/>
+            </svg>
           </div>
         </div>
 
@@ -1218,6 +1205,100 @@ export default function Settings() {
               <button onClick={() => setShowPrivacyModal(false)} className="px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors cursor-pointer">
                 Agree
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Bill Format Modal */}
+      {billDialogOpen && createPortal(
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setBillDialogOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-800">Choose Bill Format</h3>
+              <button onClick={() => setBillDialogOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer p-0.5">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="p-4 flex flex-col gap-2">
+              {[
+                { id: "a4", label: "A4 Sheet", desc: "Full page A4, GST breakdown, Rx info" },
+                { id: "a5", label: "A5 Sheet", desc: "Half page, compact layout" },
+                { id: "80mm", label: "80mm Thermal", desc: "ESC/POS thermal receipt" },
+                { id: "58mm", label: "58mm Thermal", desc: "ESC/POS thermal receipt" },
+              ].map((opt) => {
+                const selected = (data.bill_format || "a4") === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => {
+                      const newData = { ...data, bill_format: opt.id };
+                      setData(newData);
+                      localStorage.setItem("shop_settings", JSON.stringify(newData));
+                      saveSettings(newData).catch(console.error);
+                      setBillDialogOpen(false);
+                    }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 10, width: "100%",
+                      border: selected ? "2px solid #2563eb" : "1px solid #e5e7eb",
+                      background: selected ? "rgba(37,99,235,0.04)" : "#ffffff",
+                      textAlign: "left", cursor: "pointer", transition: "all 0.15s"
+                    }}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 8, display: "flex", alignItems: "center",
+                      justifyContent: "center", flexShrink: 0,
+                      background: selected ? "rgba(37,99,235,0.12)" : "#f3f4f6",
+                      color: selected ? "#2563eb" : "#9ca3af"
+                    }}>
+                      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path d={opt.id.includes("mm") ? "M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 0h4a2 2 0 002-2v-4a2 2 0 00-2-2h-4a2 2 0 00-2 2v4a2 2 0 002 2zm6 0v4a2 2 0 01-2 2H7a2 2 0 01-2-2v-4" : "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"} />
+                      </svg>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: "0.9rem", fontWeight: 600, color: selected ? "#2563eb" : "#111827" }}>{opt.label}</div>
+                      <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: 1 }}>{opt.desc}</div>
+                    </div>
+                    {selected && (
+                      <svg width="20" height="20" fill="#2563eb" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="px-4 pb-4">
+              <div style={{ fontSize: "0.7rem", color: "#9ca3af", textAlign: "center", paddingTop: 8, borderTop: "1px solid #f3f4f6" }}>
+                {data.bill_format === "a4" && "Prints on A4 paper via browser"}
+                {data.bill_format === "a5" && "Prints on A5 paper via browser"}
+                {data.bill_format === "80mm" && "Sends ESC/POS to 80mm thermal printer"}
+                {data.bill_format === "58mm" && "Sends ESC/POS to 58mm thermal printer"}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Audit Logs Modal */}
+      {auditDialogOpen && createPortal(
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setAuditDialogOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden border border-slate-200" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" style={{ color: "#7c3aed" }}>
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                </svg>
+                Audit Logs
+              </h2>
+              <button onClick={() => setAuditDialogOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                <HugeiconsIcon icon={Cancel01Icon} className="text-2xl" />
+              </button>
+            </div>
+            <div className="overflow-y-auto" style={{ maxHeight: "calc(90vh - 65px)" }}>
+              <AuditLogs embedded />
             </div>
           </div>
         </div>,

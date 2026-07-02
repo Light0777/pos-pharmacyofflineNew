@@ -22,7 +22,7 @@ function getHeaders() {
 async function handleResponse(res: Response, url: string) {
   console.log(`📥 API Response [${res.status}] for ${url}`);
   
-  if (res.status === 401 && !res.url.includes('/auth/login')) {
+  if (res.status === 401 && !res.url.includes('/auth/login') && !url.includes('/auth/me')) {
     console.log("🔴 Unauthorized — clearing auth");
     onUnauthorized?.();
     return { success: false, error: 'Unauthorized', status: 401 };

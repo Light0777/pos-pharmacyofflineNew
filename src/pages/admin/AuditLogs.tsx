@@ -22,7 +22,7 @@ const ACTION_BADGES: Record<string, string> = {
   batch_quarantined: "destructive",
 };
 
-export default function AuditLogs() {
+export default function AuditLogs({ embedded }: { embedded?: boolean }) {
   const { t } = useTranslation();
   const ACTION_LABELS: Record<string, string> = {
     sale_created: t('auditLog.actionSaleCreated'),
@@ -75,7 +75,7 @@ export default function AuditLogs() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FC] p-6 space-y-5">
+    <div className={`${embedded ? '' : 'min-h-screen'} bg-[#F8F9FC] p-6 space-y-5`}>
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight text-left">{t('auditLog.title')}</h1>
       </div>

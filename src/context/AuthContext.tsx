@@ -39,7 +39,7 @@ function isUserValid(user: any): user is User {
   useEffect(() => {
     setOnUnauthorized(logout);
 
-    const init = async () => {
+    const init = async (retries = 2): Promise<void> => {
       const storedToken = localStorage.getItem("token");
       const storedUser = localStorage.getItem("user");
 
@@ -54,16 +54,6 @@ function isUserValid(user: any): user is User {
       try {
         const res = await apiGet("/auth/me");
 
-        // Server explicitly rejected token — must re-login
-        if (res?.status === 401) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          setToken(null);
-          setUser(null);
-          setLoading(false);
-          return;
-        }
-
         const userData = res?.data?.user || res?.user;
 
         if (userData && isUserValid(userData)) {
@@ -74,12 +64,24 @@ function isUserValid(user: any): user is User {
           localStorage.removeItem("user");
           setToken(null);
           setUser(null);
+        } else if (res?.status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          setToken(null);
+          setUser(null);
         } else {
-          // Empty response — fall back to stored user (offline mode)
-          const parsedUser = JSON.parse(storedUser);
-          if (isUserValid(parsedUser)) {
-            setUser(parsedUser);
-          } else {
+          // Empty or unexpected response — fall back to stored user (offline/server-not-ready mode)
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            if (isUserValid(parsedUser)) {
+              setUser(parsedUser);
+            } else {
+              localStorage.removeItem("token");
+              localStorage.removeItem("user");
+              setToken(null);
+              setUser(null);
+            }
+          } catch {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
             setToken(null);
@@ -87,7 +89,12 @@ function isUserValid(user: any): user is User {
           }
         }
       } catch (e) {
-        // Network error — use cached user for offline mode
+        // Network error — retry if server might not be ready yet
+        if (retries > 0) {
+          await new Promise(r => setTimeout(r, 1000));
+          return init(retries - 1);
+        }
+        // Use cached user for offline mode
         let parsedUser: any;
         try {
           parsedUser = JSON.parse(storedUser);
@@ -112,7 +119,7 @@ function isUserValid(user: any): user is User {
   // ✅ LOGIN - Store both token and user
   const login = (newToken: string, newUser: User) => {
     if (!isUserValid(newUser)) {
-      console.error("Invalid user role:", newUser.role);
+      console.error("Invalid user data");
       return;
     }
     setToken(newToken);

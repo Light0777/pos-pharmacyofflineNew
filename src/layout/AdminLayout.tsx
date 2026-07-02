@@ -12,7 +12,6 @@ import {
   ReceiptIndianRupeeIcon,
   AccountSetting02Icon,
   StickyNote02Icon,
-  CheckListIcon,
   PackageIcon,
   AppleStocksIcon,
   RupeeSquareIcon,
@@ -198,14 +197,6 @@ function SidebarContent({ user, currentPath, navigate, t, onMobileClose, collaps
               onClick={() => handleNavigate("/admin/h1-register")}
               collapsed={collapsed}
               labelClassName="text-xs"
-            />
-            <NavItem
-              label={t('adminLayout.nav.auditLogs')}
-              path="/admin/audit-logs"
-              currentPath={currentPath}
-              iconElement={<HugeiconsIcon icon={CheckListIcon} className="text-xl shrink-0" />}
-              onClick={() => handleNavigate("/admin/audit-logs")}
-              collapsed={collapsed}
             />
           </NavSection>
         )}

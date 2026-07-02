@@ -372,6 +372,7 @@ export default function Products() {
   const [filterToPickPos, setFilterToPickPos] = useState({ top: 0, right: 0 });
   const filterFromBtnRef = useRef<HTMLButtonElement>(null);
   const filterToBtnRef = useRef<HTMLButtonElement>(null);
+  const pickerHeight = 280;
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const formRef = useRef(form);
   formRef.current = form;
@@ -867,8 +868,8 @@ export default function Products() {
       price_per_box: String(p.price_per_box ?? ""),
       price_per_strip: String(p.price_per_strip ?? ""),
       price_per_tablet: String(p.price_per_tablet ?? ""),
-      batch_number: "", strips: "", total_tablets: "", manufacture_date: "", expiry_date: "", ptr: "",
-      purchase_discount: "", supplier_uuid: "", invoice_number: "", invoice_date: "",
+      batch_number: "", strips: "", bottles: "", total_tablets: "", manufacture_date: "", expiry_date: "", ptr: "",
+      purchase_discount: "", supplier_uuid: "", invoice_number: "", invoice_date: "", purchase_total: "",
     });
     // Load batch data into form & store active batch UUID
     getProductBatches(p.product_uuid).then((batches) => {
@@ -1547,7 +1548,7 @@ export default function Products() {
             </div>
             <div className="flex justify-end mt-3">
               <button onClick={() => { setFilters({ dateFrom: "", dateTo: "", composition: "", schedule: "", gst: "", mrpMin: "", mrpMax: "", batch: "" }); setFilterFromDate(undefined); setFilterToDate(undefined); setAllBatchesMap({}); }}
-                className="text-xs font-medium text-slate-500 hover:text-red-600 transition-colors px-3 py-1.5">
+                className="text-xs font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors px-3 py-1.5 rounded-lg shadow-sm">
                 {t('products.clearAllFilters')}
               </button>
             </div>
