@@ -61,7 +61,7 @@ export class AuthController {
       const token = jwt.sign(
         { user_uuid: user.user_uuid, email: user.email },
         process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '24h' }
+        { expiresIn: '10y' }
       );
 
       res.status(201).json({
@@ -104,7 +104,7 @@ export class AuthController {
       const token = jwt.sign(
         { user_uuid: user.user_uuid, email: user.email },
         process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '24h' }
+        { expiresIn: '10y' }
       );
 
       // Get shop settings
