@@ -126,7 +126,7 @@ export default function StaffPage() {
     setForm({
       name: s.name,
       email: s.email,
-      password: "",
+      password: s.has_password ? "••••••••" : "",
       role: s.role,
       security_question: (s as any).security_question || "",
       security_answer: "",
@@ -141,10 +141,11 @@ export default function StaffPage() {
     setError(null);
 
     try {
+      const passwordToSend = form.password === "••••••••" ? undefined : (form.password.trim() || undefined);
       const res = await updateStaff(editing.user_uuid, {
         name: form.name,
         email: form.email,
-        password: form.password || undefined,
+        password: passwordToSend,
         role: form.role,
         security_question: form.security_question || undefined,
         security_answer: form.security_answer || undefined,
@@ -476,13 +477,24 @@ export default function StaffPage() {
                 <label className="block text-sm text-start font-semibold text-slate-700 mb-1.5">
                   {editing ? t('staff.passwordEditLabel') : t('staff.passwordLabel')}
                 </label>
-                <Input
-                  type="password"
-                  placeholder={editing ? t('staff.passwordEditPlaceholder') : t('staff.passwordPlaceholder')}
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 transition-all outline-none"
-                />
+                <div className="relative">
+                  <Input
+                    type="password"
+                    placeholder={editing ? t('staff.passwordEditPlaceholder') : t('staff.passwordPlaceholder')}
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-green-400 focus:ring-2 focus:ring-green-500/20 transition-all outline-none"
+                  />
+                  {editing && !form.password && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 pointer-events-none">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0110 0v4" />
+                      </svg>
+                      Set
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>

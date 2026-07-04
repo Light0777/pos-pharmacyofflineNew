@@ -7,6 +7,7 @@ export interface Staff {
   role: string;
   security_question?: string;
   created_at: string;
+  has_password?: boolean;
 }
 
 export async function getStaff(): Promise<Staff[]> {

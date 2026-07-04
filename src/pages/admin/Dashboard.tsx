@@ -23,6 +23,7 @@ import { getCustomerSummary, getCreditTrend } from "../../renderer/services/cust
 import { getInvoice } from "../../renderer/services/saleApi";
 import InvoiceReceipt from "../pos/components/InvoiceReceipt";
 import ProfitLineChart from "./ProfitLineChart";
+import * as XLSX from "xlsx";
 
 // ── formatCompactNumber
 const formatCompactNumber = (num: number): string => {
@@ -323,6 +324,25 @@ export default function Dashboard() {
       </svg>
       </div>
     );
+  };
+
+  const exportToXLS = () => {
+    const rows = (data.recent_sales || []).map((s: any) => [
+      s.invoice_number || '',
+      s.created_at ? format(new Date(s.created_at), "M/d/yy") : '',
+      s.customer_name || t("dashboard.walkIn"),
+      Number(s.grand_total || 0),
+      Number(s.refund_total || 0),
+      s.status === 'completed' || s.status === 'paid' ? 'Paid' : s.status === 'pending' ? 'Pending' : s.status === 'cancelled' ? 'Cancelled' : s.status || 'Paid',
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([
+      [t("dashboard.orderId"), t("dashboard.tableDate"), t("dashboard.tableCustomer"), t("dashboard.tablePrice"), t("dashboard.tableRefund"), t("dashboard.tableStatus")],
+      ...rows,
+    ]);
+    ws["!cols"] = [{ wch: 16 }, { wch: 12 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Recent Sales");
+    XLSX.writeFile(wb, `Recent_Sales_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
   };
 
   return (
@@ -871,6 +891,18 @@ export default function Dashboard() {
 
       {/* Orders */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+          <span className="text-sm font-semibold text-gray-700">{t("dashboard.recentSales")}</span>
+          <button
+            onClick={exportToXLS}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Export to XLS
+          </button>
+        </div>
         <div className="table-scroll">
         <table className="w-full text-sm table-fixed">
           <thead>

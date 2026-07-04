@@ -161,7 +161,11 @@ function createWindow() {
     });
 
     // Load actual app once backend is ready
-    waitForBackend('http://127.0.0.1:3000/api/health', 40, 500)
+    waitForBackend('http://127.0.0.1:3000/health', 40, 500)
+      .then(() => {
+        // Small stabilization delay to ensure backend is fully settled
+        return new Promise(r => setTimeout(r, 300));
+      })
       .then(() => {
         const indexPath = path.join(__dirname, '../dist/index.html');
         if (fs.existsSync(indexPath)) {

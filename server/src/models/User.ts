@@ -181,7 +181,7 @@ export class UserModel {
       updateFields.push('email = ?');
       values.push(data.email);
     }
-    if (data.password !== undefined) {
+    if (data.password !== undefined && data.password.length > 0) {
       const hashedPassword = bcrypt.hashSync(data.password, 10);
       updateFields.push('password = ?');
       values.push(hashedPassword);

@@ -81,8 +81,11 @@ export class StaffController {
     try {
       const users = UserModel.getAllStaff();
       
-      // Remove passwords from response
-      const safeUsers = users.map(user => UserModel.toSafeUser(user));
+      // Return safe users with has_password flag
+      const safeUsers = users.map(user => ({
+        ...UserModel.toSafeUser(user),
+        has_password: !!user.password
+      }));
 
       res.json(safeUsers);
     } catch (error) {
