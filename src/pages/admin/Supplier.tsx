@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import {
   getSuppliers,
   createSupplier,
@@ -29,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 export default function SupplierPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -399,7 +401,7 @@ export default function SupplierPage() {
               </tr>
             ) : (
               paginatedSuppliers.map((s) => (
-                <tr key={s.supplier_uuid} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                <tr key={s.supplier_uuid} className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/admin/supplier/${s.supplier_uuid}`)}>
                   <td className="px-5 py-3.5 text-start">
                     <div className="font-medium text-gray-800">{s.name || t('suppliers.unnamed')}</div>
                     {s.supplier_uuid && (
@@ -439,7 +441,7 @@ export default function SupplierPage() {
                   </td>
                   <td className="px-5 py-3.5 text-center">
                     <button
-                      onClick={() => startEdit(s)}
+                      onClick={(e) => { e.stopPropagation(); startEdit(s); }}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>

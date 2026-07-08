@@ -412,7 +412,8 @@
     "lowStockAlert": "Low Stock Alert",
     "lowStockMessage_one": "{{count}} product is running low on stock. Update inventory soon.",
     "lowStockMessage_other": "{{count}} products are running low on stock. Update inventory soon.",
-    "viewLowStock": "View Low Stock Items"
+    "viewLowStock": "View Low Stock Items",
+    "edit": "Edit"
   },
   "sales": {
     "title": "Sales",
@@ -1099,7 +1100,8 @@
       "h1Register": "Schedule Register",
       "auditLogs": "Audit Logs",
       "stockAdjustments": "Stock Adjustments",
-      "medicineReturns": "Medicine Returns"
+      "medicineReturns": "Medicine Returns",
+      "expiredMedicines": "Expired Meds"
     },
     "roles": {
       "owner": "Owner",

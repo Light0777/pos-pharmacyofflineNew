@@ -170,6 +170,7 @@ export async function createProductBatch(data: {
   gst_percent?: number;
   quantity: number;
   supplier_uuid?: string;
+  strips?: number;
 }) {
   const response = await apiPost("/product-batches", data);
   return response.data || response;

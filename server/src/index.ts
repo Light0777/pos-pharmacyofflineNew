@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { runMigrations } from './database/migrations/001_initial';
 import { runMigration as runSecurityQuestionsMigration } from './database/migrations/002_security_questions';
+import { runMigration as runSupplierBillsMigration } from './database/migrations/003_supplier_bills';
 import printingRoutes from './routes/printing';
 
 // Import routes
@@ -40,6 +41,9 @@ import medicineReturnRoutes
 import h1RegisterRoutes
   from './routes/h1RegisterRoutes';
 
+import supplierBillRoutes
+  from './routes/supplierBills';
+
 import auditLogRoutes
   from './routes/auditLogRoutes';
 
@@ -59,6 +63,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Run database migrations
 runMigrations();
 runSecurityQuestionsMigration();
+runSupplierBillsMigration();
 
 const licensed = LicenseService.isLicensed();
 if (!licensed) {
@@ -80,6 +85,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/purchases', purchaseRoutes);
 app.use('/api/suppliers', supplierRoutes);
+app.use('/api/suppliers', supplierBillRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/printing', printingRoutes);

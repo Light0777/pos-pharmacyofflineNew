@@ -327,6 +327,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
   const [recentUUIDs, setRecentUUIDs] = useState<string[]>([]);
   const [batchInfo, setBatchInfo] = useState<Record<string, BatchInfo[]>>({});
   const [loadingBatch, setLoadingBatch] = useState<Record<string, boolean>>({});
+  const [hasExpiredStock, setHasExpiredStock] = useState<Record<string, boolean>>({});
   
   // Unit selection modal state
   const [showUnitModal, setShowUnitModal] = useState(false);
@@ -381,6 +382,11 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
         .sort((a: any, b: any) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
       
       setBatchInfo(prev => ({ ...prev, [productUuid]: availableBatches }));
+
+      const expiredFound = batches.some(
+        (b: any) => (b.quantity || 0) > 0 && new Date(b.expiry_date) <= new Date()
+      );
+      setHasExpiredStock(prev => ({ ...prev, [productUuid]: expiredFound }));
     } catch (err) {
       console.error("Failed to load batches:", err);
     } finally {
@@ -420,6 +426,15 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
     const batches = await getAvailableBatches(product.product_uuid);
 
     if (seq !== clickSeqRef.current) return;
+
+    if (batches.length === 0) {
+      if (hasExpiredStock[product.product_uuid]) {
+        showToast(`"${product.name}" has expired and cannot be sold.`);
+      } else {
+        showToast(`"${product.name}" is out of stock.`);
+      }
+      return;
+    }
     
     setSelectedProduct(product);
     setProductUnits(units);
@@ -748,20 +763,25 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                     </div>
 
                     {/* Stock Badge */}
-                    <div>
-                      {stock === 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {hasExpiredStock[p.product_uuid] && (
+                        <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
+                          Expired
+                        </span>
+                      )}
+                      {stock === 0 && !hasExpiredStock[p.product_uuid] ? (
                         <span className="text-[9px] bg-gray-700 text-white px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
                           Out of Stock
                         </span>
-                      ) : stock < 10 ? (
+                      ) : stock < 10 && stock > 0 && !hasExpiredStock[p.product_uuid] ? (
                         <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
                           Only {stock} left
                         </span>
-                      ) : (
+                      ) : stock > 0 && !hasExpiredStock[p.product_uuid] ? (
                         <span className="text-[9px] bg-green-700 text-white px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
                           {stock} remaining
                         </span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>

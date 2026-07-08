@@ -46,6 +46,17 @@ Manage product creation/editing with multi-batch system, unit/category dropdowns
 - `handleEdit` now finds the LATEST purchase across all batches' `purchase_uuid`s for read-only display (instead of first batch's purchase only)
 - New batches are identified as: first batch with no `editingBatchUuid`, or batch rows with no `batch_uuid`
 - Existing batches update in-place; new batches go through purchase flow when supplier is set
+- Stock page edit modal: removed "Current Stock & Update" section; made "Packs" (strips) and "Total Pieces" (quantity) editable; "+ Add Batch" creates new batch rows; auto-calc Total Pieces = Packs × tablets_per_strip; Package section shows live batch totals
+- Stock page: replaced native `type="date"` with `SimpleDatePicker` button + popup (with click-outside-to-dismiss)
+- Products page: package config fields auto-calc `form.strips`/`form.total_tablets`; Package section shows batch sums; `strips_per_box` synced from first batch on edit load
+- Batch column on Products: shows "N expired" info button even when no active batches remain; `loadBatchInfo` updates `expiredProductUuids`
+- `loadProducts` clears `batchInfo` cache and re-fetches expired product UUIDs on refresh; added `visibilitychange` listener for same
+- Fixed batch quantity zeroed on save: changed `tsp` default from `(isSimple ? 1 : 0)` to `1`
+- Topbar: "Batches" tab renamed to "Batch Expire"
+- Sidebar: "Expired Medicines" → "Expired Meds" in English locale
+- All `??`/`||` mixing parse errors fixed (wrapped RHS in parentheses)
+- **Supplier Bill Diary feature**: new DB migration `003_supplier_bills.ts`, model `SupplierBill`, controller `SupplierBillController`, routes at `/api/suppliers/:supplier_uuid/bills`, frontend service `supplierBillApi.ts`, new page `SupplierDetail.tsx` with bill photo grid (upload via `compressImage`, full-image modal, delete confirmation)
+- **Wiring**: route `/admin/supplier/:supplier_uuid` registered in `App.tsx`; supplier table rows in `Supplier.tsx` are now clickable (navigate to detail page); sidebar highlight uses `startsWith` so supplier nav item stays highlighted on detail page
 
 ### In Progress
 - (none)
@@ -59,9 +70,6 @@ Manage product creation/editing with multi-batch system, unit/category dropdowns
 - Info modal uses `HugeiconsIcon` SVG component with explicit `size` prop instead of `<i>` CSS classes which weren't visible
 - Batch info modals share consistent layout: clean table with essential columns, click-outside-to-close overlay
 
-## Next Steps
-- (none currently)
-
 ## Critical Context
 - `InformationCircleIcon` exists in `@hugeicons/core-free-icons` at line 5433 of the types
 - `HugeiconsIcon` accepts a `size` prop (default 24) that controls SVG width/height directly
@@ -70,16 +78,26 @@ Manage product creation/editing with multi-batch system, unit/category dropdowns
 - Pre-existing backend type errors (AuditActionType, attributes, printerService) unrelated and untouched
 
 ## Relevant Files
-- `src/pages/admin/Products.tsx`: Form + batch rows JSX, handleEdit, handleSubmit, loadBatchInfo, batch info modal, "Add New Details" restock flow
+- `src/pages/admin/Products.tsx`: Form + batch rows JSX, handleEdit, handleSubmit, loadBatchInfo, batch info modal, "Add New Details" restock flow, auto-calc package config
 - `src/pages/admin/Purchase.tsx`: Purchase table with batch count + info modal
-- `src/pages/pos/components/ProductGrid.tsx`: UnitSelectionModal with batch selector (ProductGrid.tsx), handleProductClick fetches available batches
-- `src/pages/admin/Purchase.tsx`: Purchase table with batch count + info modal
-- `src/pages/pos/components/ProductGrid.tsx`: UnitSelectionModal with batch selector (ProductGrid.tsx), handleProductClick fetches available batches
+- `src/pages/pos/components/ProductGrid.tsx`: UnitSelectionModal with batch selector, handleProductClick fetches available batches
 - `src/pages/pos/hooks/useCart.ts`: `addItemToCart` passes `batchUuid` to `addItem`
 - `src/pages/pos/POSPage.tsx`: `onAddItem` handler threads `batchUuid` through
 - `src/renderer/services/cartApi.ts`: `addItem` accepts optional `batch_uuid`
 - `server/src/models/ProductBatch.ts`: `consumeStock`, `consumeStockFEFO`, `getAvailableBatches`, `recalculateProductStock`, `updateQuantity`
 - `server/src/models/Cart.ts`: `addItem` accepts `batchUuid`, `findWithItems` returns `batch_uuid`
 - `server/src/models/Sale.ts`: `createFromCart` uses `item.batch_uuid` if present
-- `server/src/types/index.ts`: `CartItem.batch_uuid?: string`
+- `server/src/types/index.ts`: `CartItem.batch_uuid?: string`, `SupplierBill` interface
 - `server/src/database/migrations/001_initial.ts`: `batch_uuid TEXT` in cart_items CREATE TABLE + fixColumns entry
+- `server/src/database/migrations/003_supplier_bills.ts`: supplier_bills table creation
+- `server/src/models/SupplierBill.ts`: CRUD model
+- `server/src/controllers/SupplierBillController.ts`: Express handlers
+- `server/src/routes/supplierBills.ts`: API routes
+- `src/renderer/services/supplierBillApi.ts`: frontend API service
+- `src/pages/admin/SupplierDetail.tsx`: Dedicated supplier detail page with bill diary, photo upload, full-image modal, delete confirm
+- `src/pages/admin/Supplier.tsx`: Supplier list with clickable row navigation to detail page
+- `src/pages/admin/Stock.tsx`: Editable batch strips/qty, Add Batch, live Package totals, SimpleDatePicker for new batch dates
+- `src/App.tsx`: Route `/admin/supplier/:supplier_uuid` → SupplierDetail
+- `src/layout/AdminLayout.tsx`: `NavItem` uses `startsWith` for sidebar highlight on nested routes
+- `src/components/Topbar.tsx`: "Batch Expire" tab label
+- `src/locales/en/translation.json`: "Expired Meds" sidebar label

@@ -20,6 +20,7 @@ import {
   CheckmarkCircle01Icon,
   Logout01Icon,
   Cancel01Icon,
+  Alert01Icon,
 } from "@hugeicons/core-free-icons";
 
 // ============================================
@@ -37,7 +38,7 @@ interface NavItemProps {
 }
 
 function NavItem({ label, path, currentPath, icon, onClick, collapsed, iconElement, labelClassName }: NavItemProps) {
-  const active = currentPath === path;
+  const active = currentPath === path || currentPath.startsWith(path + "/");
   return (
     <button
       onClick={onClick}
@@ -233,6 +234,14 @@ function SidebarContent({ user, currentPath, navigate, t, onMobileClose, collaps
               currentPath={currentPath}
               iconElement={<HugeiconsIcon icon={UserGroupIcon} className="text-xl shrink-0" />}
               onClick={() => handleNavigate("/admin/customer")}
+              collapsed={collapsed}
+            />
+            <NavItem
+              label={t('adminLayout.nav.expiredMedicines')}
+              path="/admin/expired-medicines"
+              currentPath={currentPath}
+              iconElement={<HugeiconsIcon icon={Alert01Icon} className="text-xl shrink-0" />}
+              onClick={() => handleNavigate("/admin/expired-medicines")}
               collapsed={collapsed}
             />
           </NavSection>

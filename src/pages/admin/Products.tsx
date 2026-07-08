@@ -22,6 +22,7 @@ import {
 import { getSuppliers, createSupplier } from "../../renderer/services/supplierApi";
 import type { Supplier } from "../../renderer/services/supplierApi";
 import { createPurchase, getPurchases, updatePurchase } from "../../renderer/services/purchaseApi";
+import { apiGet } from "../../renderer/services/api";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { InformationCircleIcon } from "@hugeicons/core-free-icons";
 
@@ -348,7 +349,8 @@ export default function Products() {
   const [editingBatchUuid, setEditingBatchUuid] = useState<string | null>(null);
   const [editingPurchaseUuid, setEditingPurchaseUuid] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [stockFilter, setStockFilter] = useState<"all" | "in" | "low" | "out">("all");
+  const [stockFilter, setStockFilter] = useState<"all" | "in" | "low" | "out" | "expired">("all");
+  const [expiredProductUuids, setExpiredProductUuids] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -464,6 +466,7 @@ export default function Products() {
       if (stockFilter === "in") return (p.stock ?? 0) >= 10;
       if (stockFilter === "low") return (p.stock ?? 0) > 0 && (p.stock ?? 0) < 10;
       if (stockFilter === "out") return (p.stock ?? 0) === 0;
+      if (stockFilter === "expired") return expiredProductUuids.has(p.product_uuid);
       return true;
     });
     // Advanced filters
@@ -687,6 +690,10 @@ export default function Products() {
     try {
       const { products } = await getProducts(1, 5000);
       setProducts(products);
+      setBatchInfo({});
+      const json = await apiGet("/product-batches/expired");
+      const uuids = new Set<string>((json.data || []).map((b: any) => b.product_uuid));
+      setExpiredProductUuids(uuids);
     } catch (err) {
       console.error("Load products error:", err);
       setError(t("products.loadError"));
@@ -754,6 +761,13 @@ export default function Products() {
           expiredCount: expiredBatches.length,
         },
       }));
+      if (expiredBatches.length > 0) {
+        setExpiredProductUuids((prev) => {
+          const next = new Set(prev);
+          next.add(product_uuid);
+          return next;
+        });
+      }
     } catch (err) {
       console.error("Failed to load batch info:", err);
     } finally {
@@ -763,6 +777,27 @@ export default function Products() {
 
   useEffect(() => {
     loadProducts();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const json = await apiGet("/product-batches/expired");
+        const uuids = new Set<string>((json.data || []).map((b: any) => b.product_uuid));
+        setExpiredProductUuids(uuids);
+      } catch (_) {}
+    })();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        apiGet("/product-batches/expired").then((json) => {
+          const uuids = new Set<string>((json.data || []).map((b: any) => b.product_uuid));
+          setExpiredProductUuids(uuids);
+        }).catch(() => {});
+        setBatchInfo({});
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
   useEffect(() => {
@@ -887,6 +922,7 @@ export default function Products() {
         const updates: any = {
           batch_number: b.batch_number || "",
           strips: stripVal,
+          strips_per_box: stripVal,
           bottles: String(Math.floor(Number(tabletVal) / tsp)),
           total_tablets: tabletVal,
           ptr: String(b.ptr ?? b.purchase_price ?? ""),
@@ -1043,7 +1079,7 @@ export default function Products() {
     try {
       const f = formRef.current;
       const isSimple = ["Liquids", "Creams / Ointments", "Devices", "Piece"].includes(f.unit);
-      const tsp = Number(f.tablets_per_strip) || (isSimple ? 1 : 0);
+      const tsp = Number(f.tablets_per_strip) || 1;
       const payload: any = {
         name: f.name,
         price: Number(f.price_per_tablet) || 0,
@@ -1453,6 +1489,7 @@ export default function Products() {
               <SelectItem value="in" className="px-4 py-2.5 text-emerald-700 focus:bg-emerald-50 cursor-pointer">{t('products.inStock')}</SelectItem>
               <SelectItem value="low" className="px-4 py-2.5 text-amber-700 focus:bg-amber-50 cursor-pointer">{t('products.lowStock')}</SelectItem>
               <SelectItem value="out" className="px-4 py-2.5 text-red-700 focus:bg-red-50 cursor-pointer">{t('products.outOfStock')}</SelectItem>
+              <SelectItem value="expired" className="px-4 py-2.5 text-red-700 focus:bg-red-50 cursor-pointer">Expired</SelectItem>
             </SelectContent>
           </ShadSelect>
         </div>
@@ -1716,13 +1753,28 @@ export default function Products() {
                               <span className="text-[10px] text-red-500 font-medium">{batchInfoItem.expiredCount} expired</span>
                             )}
                           </div>
+                        ) : batchInfoItem && batchInfoItem.hasExpiredStock ? (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="inline-flex items-center gap-1">
+                              <span className="text-xs font-medium text-red-600">{batchInfoItem.expiredCount} expired</span>
+                              <button
+                                onClick={async (e) => { e.stopPropagation(); const data = await getProductBatches(p.product_uuid); setBatchModalProduct({ product_uuid: p.product_uuid, batches: data }); }}
+                                className="text-slate-400 hover:text-slate-600 transition-colors"
+                                title="View batches"
+                              >
+                                <HugeiconsIcon icon={InformationCircleIcon} size={17} />
+                              </button>
+                            </div>
+                          </div>
                         ) : (
                           <span className="text-xs text-slate-300">–</span>
                         )}
                       </TableCell>
                       {/* Status */}
                       <TableCell className="text-center">
-                        {isOutOfStock ? (
+                        {expiredProductUuids.has(p.product_uuid) ? (
+                          <Badge variant="danger">Expired</Badge>
+                        ) : isOutOfStock ? (
                           <Badge variant="danger">{t('products.outOfStockLabel')}</Badge>
                         ) : isLowStock ? (
                           <Badge variant="warning">{t('products.lowStockLabel')}</Badge>
@@ -1898,22 +1950,45 @@ export default function Products() {
                     <Dropdown label={t('products.productType')} options={UNIT_OPTIONS.map(u => ({ value: u, label: u }))} value={form.unit} onChange={(v: string) => setForm({ ...form, unit: v })} />
                   </div>
                   <div className="grid grid-cols-3 gap-x-4 gap-y-3">
-                    <Input label={t('products.boxEquals')} type="number" value={form.boxes} onChange={(e: any) => setForm({ ...form, boxes: e.target.value })} placeholder="0" />
-                    <Input label={isBottleMedicine ? t('products.boxBottles') : (isBandageType || isGeneralType) ? "1 box = pack" : t('products.boxStrips')} type="number" value={form.strips_per_box} onChange={(e: any) => setForm({ ...form, strips_per_box: e.target.value })} placeholder="0" />
-                    <Input label={isBottleMedicine ? t('products.bottleTablets') : isBandageType ? "1 pack = bandages" : isGeneralType ? "1 pack = pieces" : t('products.stripTablets')} type="number" value={form.tablets_per_strip} onChange={(e: any) => setForm({ ...form, tablets_per_strip: e.target.value })} placeholder="0" />
-                    <Input label={isBandageType ? "Extra bandages" : isGeneralType ? "Extra pieces" : t('products.extraTablets')} type="number" value={form.extra_tablets} onChange={(e: any) => setForm({ ...form, extra_tablets: e.target.value })} placeholder="0" />
+                    <Input label={t('products.boxEquals')} type="number" value={form.boxes} onChange={(e: any) => {
+                      const newBoxes = e.target.value;
+                      const spb = Number(newBoxes) || 1;
+                      const stripsVal = String(spb * (Number(form.strips_per_box) || 0));
+                      const tps = Number(form.tablets_per_strip) || 0;
+                      const tabletVal = String((Number(stripsVal) || 0) * tps + (Number(form.extra_tablets) || 0));
+                      setForm({ ...form, boxes: newBoxes, strips: stripsVal, total_tablets: tabletVal });
+                    }} placeholder="0" />
+                    <Input label={isBottleMedicine ? t('products.boxBottles') : (isBandageType || isGeneralType) ? "1 box = pack" : t('products.boxStrips')} type="number" value={form.strips_per_box} onChange={(e: any) => {
+                      const newSpb = e.target.value;
+                      const spb = Number(newSpb) || 0;
+                      const stripsVal = String((Number(form.boxes) || 1) * spb);
+                      const tps = Number(form.tablets_per_strip) || 0;
+                      const tabletVal = String((Number(stripsVal) || 0) * tps + (Number(form.extra_tablets) || 0));
+                      setForm({ ...form, strips_per_box: newSpb, strips: stripsVal, total_tablets: tabletVal });
+                    }} placeholder="0" />
+                    <Input label={isBottleMedicine ? t('products.bottleTablets') : isBandageType ? "1 pack = bandages" : isGeneralType ? "1 pack = pieces" : t('products.stripTablets')} type="number" value={form.tablets_per_strip} onChange={(e: any) => {
+                      const newTps = e.target.value;
+                      const tps = Number(newTps) || 0;
+                      const tabletVal = String((Number(form.strips) || 0) * tps + (Number(form.extra_tablets) || 0));
+                      setForm({ ...form, tablets_per_strip: newTps, total_tablets: tabletVal });
+                    }} placeholder="0" />
+                    <Input label={isBandageType ? "Extra bandages" : isGeneralType ? "Extra pieces" : t('products.extraTablets')} type="number" value={form.extra_tablets} onChange={(e: any) => {
+                      const newEt = e.target.value;
+                      const tabletVal = String((Number(form.strips) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(newEt) || 0));
+                      setForm({ ...form, extra_tablets: newEt, total_tablets: tabletVal });
+                    }} placeholder="0" />
                   </div>
                   <div className="mt-3 space-y-2">
                     <div className="px-4 py-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
                       <span className="text-sm font-medium text-slate-600">{(isBandageType || isGeneralType) ? "Total Packs" : t('products.totalStrips')}</span>
                       <span className="text-lg font-bold text-blue-600">
-                        {(Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0)}
+                        {batchRows.reduce((s, r) => s + (Number(r.strips) || 0), 0) + (Number(form.strips) || 0)}
                       </span>
                     </div>
                     <div className="px-4 py-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
                       <span className="text-sm font-medium text-slate-600">{isBandageType ? "Total Bandages" : isGeneralType ? "Total Pieces" : t('products.totalTablets')}</span>
                       <span className="text-lg font-bold text-emerald-600">
-                        {(Number(form.boxes) || 1) * (Number(form.strips_per_box) || 0) * (Number(form.tablets_per_strip) || 0) + (Number(form.extra_tablets) || 0)}
+                        {batchRows.reduce((s, r) => s + (Number(r.total_tablets) || 0), 0) + (Number(form.total_tablets) || 0)}
                       </span>
                     </div>
                   </div>

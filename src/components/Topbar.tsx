@@ -296,7 +296,7 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                                     ? "text-green-600 border-b-2 border-green-500"
                                     : "text-gray-400 hover:text-gray-600"}`}
                             >
-                                Batches
+                                Batch Expire
                                 {batchCount > 0 && (
                                     <span className="ml-1.5 px-1.5 py-0.5 bg-amber-500/10 text-amber-600 text-[10px] rounded-full">{batchCount}</span>
                                 )}

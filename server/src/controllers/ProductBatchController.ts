@@ -48,7 +48,9 @@ export class ProductBatchController {
 
         supplier_uuid,
 
-        purchase_uuid
+        purchase_uuid,
+
+        strips
 
       } = req.body;
 
@@ -115,7 +117,12 @@ export class ProductBatchController {
 
           supplier_uuid,
 
-          purchase_uuid
+          purchase_uuid,
+
+          strips:
+            strips !== undefined
+              ? Number(strips)
+              : undefined,
         });
 
       res.status(201).json({
@@ -289,6 +296,37 @@ export class ProductBatchController {
   };
 
   // =========================
+  // EXPIRED
+  // =========================
+
+  static expired = (
+    req: Request,
+    res: Response
+  ): void => {
+
+    try {
+
+      const data =
+        ProductBatchModel.getExpired();
+
+      res.json({
+        success: true,
+        count: data.length,
+        data
+      });
+
+    } catch (error) {
+
+      console.error(error);
+
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  };
+
+  // =========================
   // QUARANTINE EXPIRED
   // =========================
 
@@ -324,7 +362,7 @@ export class ProductBatchController {
       const batch_uuid = String(req.params.batch_uuid);
       const { batch_number, expiry_date, manufacture_date, quantity,
         supplier_uuid, purchase_uuid, mrp, ptr, rate, purchase_price,
-        selling_price, gst_percent, free_quantity } = req.body;
+        selling_price, gst_percent, free_quantity, strips } = req.body;
 
       const updates: Record<string, any> = {};
       if (batch_number !== undefined) updates.batch_number = batch_number;
@@ -340,6 +378,7 @@ export class ProductBatchController {
       if (selling_price !== undefined) updates.selling_price = Number(selling_price);
       if (gst_percent !== undefined) updates.gst_percent = Number(gst_percent);
       if (free_quantity !== undefined) updates.free_quantity = Number(free_quantity);
+      if (strips !== undefined) updates.strips = Number(strips);
 
       const updated = ProductBatchModel.update(batch_uuid, updates);
       if (!updated) {

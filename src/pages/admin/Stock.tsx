@@ -1,7 +1,10 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { getStock, updateStock } from "../../renderer/services/stockApi";
+import { format } from "date-fns";
+import { getStock } from "../../renderer/services/stockApi";
+import { getProductBatches, updateProductBatch, createProductBatch } from "../../renderer/services/productApi";
+import { apiGet } from "../../renderer/services/api";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   CheckmarkCircle01Icon,
@@ -11,6 +14,7 @@ import {
   CubeIcon,
   Search01Icon,
 } from "@hugeicons/core-free-icons";
+import SimpleDatePicker from "../../components/SimpleDatePicker";
 
 // shadcn/ui components
 import { Input } from "@/components/ui/input";
@@ -36,7 +40,6 @@ export default function Stock() {
   const { t } = useTranslation();
   const [items, setItems] = useState<StockItem[]>([]);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
-  const [newStock, setNewStock] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "low" | "ok" | "out">("all");
@@ -44,6 +47,36 @@ export default function Stock() {
   const [modalOpen, setModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 10;
+  const [expiredProductUuids, setExpiredProductUuids] = useState<Set<string>>(new Set());
+  const [editBatches, setEditBatches] = useState<any[]>([]);
+  const [editProductDetail, setEditProductDetail] = useState<any>(null);
+  const [loadingBatches, setLoadingBatches] = useState(false);
+  const [editBatchQty, setEditBatchQty] = useState<Record<string, number>>({});
+  const [editBatchStrips, setEditBatchStrips] = useState<Record<string, number>>({});
+
+  interface NewBatchRow {
+    tempId: number;
+    batch_number: string;
+    strips: number;
+    quantity: number;
+    manufacture_date: string;
+    expiry_date: string;
+  }
+  const [newBatchRows, setNewBatchRows] = useState<NewBatchRow[]>([]);
+  const nextTempId = useRef(0);
+  const [newBatchDatePicker, setNewBatchDatePicker] = useState<{ tempId: number; field: 'mfg' | 'exp'; top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    if (!newBatchDatePicker) return;
+    const handler = (e: MouseEvent) => {
+      const el = document.getElementById("nb-date-popup");
+      if (el && !el.contains(e.target as Node)) {
+        setNewBatchDatePicker(null);
+      }
+    };
+    const timer = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => { clearTimeout(timer); document.removeEventListener("mousedown", handler); };
+  }, [newBatchDatePicker]);
 
   // Dashboard stats
   const totalProducts = items.length;
@@ -135,6 +168,12 @@ export default function Stock() {
 
   useEffect(() => {
     loadStock();
+    (async () => {
+      try {
+        const json = await apiGet("/product-batches/expired");
+        setExpiredProductUuids(new Set((json.data || []).map((b: any) => b.product_uuid)));
+      } catch (_) {}
+    })();
     const handler = () => loadStock();
     window.addEventListener('stock-updated', handler);
     return () => window.removeEventListener('stock-updated', handler);
@@ -149,10 +188,37 @@ export default function Stock() {
     try {
       setLoading(true);
       setError(null);
-      await updateStock(editingItem.product_uuid, newStock);
+      const promises: Promise<any>[] = [];
+
+      for (const batch of editBatches) {
+        const newQty = editBatchQty[batch.batch_uuid];
+        const oldQty = batch.total_tablets || batch.quantity || 0;
+        if (newQty !== undefined && newQty !== oldQty) {
+          promises.push(updateProductBatch(batch.batch_uuid, { quantity: newQty }));
+        }
+        const newStrips = editBatchStrips[batch.batch_uuid];
+        const oldStrips = batch.strips || 0;
+        if (newStrips !== undefined && newStrips !== oldStrips) {
+          promises.push(updateProductBatch(batch.batch_uuid, { strips: newStrips }));
+        }
+      }
+
+      for (const row of newBatchRows) {
+        promises.push(createProductBatch({
+          product_uuid: editingItem.product_uuid,
+          batch_number: row.batch_number,
+          expiry_date: row.expiry_date,
+          manufacture_date: row.manufacture_date || undefined,
+          mrp: 0,
+          ptr: 0,
+          quantity: row.quantity,
+          strips: row.strips,
+        }));
+      }
+
+      await Promise.all(promises);
       setModalOpen(false);
       setEditingItem(null);
-      setNewStock(0);
       await loadStock();
     } catch (err: any) {
       console.error("Stock update error:", err);
@@ -179,7 +245,15 @@ export default function Stock() {
 
 
   // Helper to get status badge
-  const getStatusBadge = (stock: number) => {
+  const getStatusBadge = (stock: number, productUuid: string) => {
+    if (expiredProductUuids.has(productUuid)) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">
+          <HugeiconsIcon icon={CancelCircleIcon} className="text-xs" />
+          Expired
+        </span>
+      );
+    }
     if (stock === 0) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">
@@ -385,14 +459,38 @@ export default function Stock() {
                       {item.unit && <span className="text-xs text-slate-400 ml-1">{item.unit}</span>}
                     </td>
                     <td className="px-5 py-3.5 text-center">
-                      <div className="flex justify-center">{getStatusBadge(stock)}</div>
+                      <div className="flex justify-center">{getStatusBadge(stock, item.product_uuid)}</div>
                     </td>
                     <td className="px-5 py-3.5 text-center">
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           setEditingItem(item);
-                          setNewStock(item.stock);
                           setModalOpen(true);
+                          setLoadingBatches(true);
+                          try {
+                            const [productRes, batches] = await Promise.all([
+                              apiGet(`/products/${item.product_uuid}`),
+                              getProductBatches(item.product_uuid),
+                            ]);
+                            const product = productRes?.data || productRes?.product || null;
+                            setEditProductDetail(product);
+                            const batchList = Array.isArray(batches) ? batches : [];
+                            setEditBatches(batchList);
+                            const qtyMap: Record<string, number> = {};
+                            const stripsMap: Record<string, number> = {};
+                            for (const b of batchList) {
+                              qtyMap[b.batch_uuid] = b.total_tablets || b.quantity || 0;
+                              stripsMap[b.batch_uuid] = b.strips || 0;
+                            }
+                            setEditBatchQty(qtyMap);
+                            setEditBatchStrips(stripsMap);
+                            setNewBatchRows([]);
+                          } catch (_) {
+                            setEditProductDetail(null);
+                            setEditBatches([]);
+                          } finally {
+                            setLoadingBatches(false);
+                          }
                         }}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
                       >
@@ -492,89 +590,322 @@ export default function Stock() {
           className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={(e) => e.target === e.currentTarget && setModalOpen(false)}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">{t('stock.updateTitle')}</h3>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center shrink-0">
+              <h3 className="text-lg font-bold text-slate-800">{editingItem.name}</h3>
               <button onClick={() => setModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
-                <HugeiconsIcon icon={Cancel01Icon} className="text-2xl"  />
+                <HugeiconsIcon icon={Cancel01Icon} className="text-2xl" />
               </button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="pb-3 border-b border-slate-100">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">{t('stock.productDetails')}</p>
-                <p className="text-base font-semibold text-slate-800">{editingItem.name}</p>
-                {editingItem.sku && (
-                  <p className="text-xs text-slate-400 mt-1 font-mono">
-                    {t('stock.skuLabel')}: {editingItem.sku}
-                  </p>
-                )}
-              </div>
+            <div className="p-6 space-y-5 overflow-y-auto">
+              {loadingBatches ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+                </div>
+              ) : editProductDetail ? (
+                <>
+                  {(() => {
+                    const unit = editProductDetail.unit || "General";
+                    const isSimpleType = ["Liquids", "Creams / Ointments", "Devices", "Piece"].includes(unit);
+                    const isBandageType = unit === "Bandage";
+                    const isGeneralType = unit === "General";
+                    const hasPackage = !isSimpleType;
 
-              {/* Current Stock (highlighted) */}
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1 text-center">{t('stock.currentStockLabel')}</p>
-                <div className="flex items-baseline justify-center gap-2">
-                  <span className="text-3xl font-bold text-slate-900">{editingItem.stock}</span>
-                  {editingItem.unit && (
-                    <span className="text-sm text-slate-500 font-medium">{editingItem.unit}</span>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">{t('stock.newStockQuantity')}</label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10 rounded-lg border-slate-200 hover:bg-slate-50"
-                    onClick={() => setNewStock(prev => Math.max(0, prev - 1))}
-                    disabled={newStock <= 0}
-                  >
-                    <span className="text-lg font-bold">−</span>
-                  </Button>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={newStock}
-                    onChange={(e) => setNewStock(Math.max(0, Number(e.target.value)))}
-                    className="w-full text-center text-lg font-semibold bg-white border-slate-300 text-slate-900 focus-visible:ring-2 focus-visible:ring-green-500/20 focus-visible:border-green-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    autoFocus
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10 rounded-lg border-slate-200 hover:bg-slate-50"
-                    onClick={() => setNewStock(prev => prev + 1)}
-                  >
-                    <span className="text-lg font-bold">+</span>
-                  </Button>
-                </div>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <Button
-                  onClick={() => setModalOpen(false)}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  onClick={handleUpdate}
-                  disabled={loading}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                  ) : (
-                    <>
-                      {/* <HugeiconsIcon icon={SaveIcon} className="text-lg mr-2"  /> */}
-                      {t('stock.saveChanges')}
-                    </>
-                  )}
-                </Button>
-              </div>
+                    return (
+                      <>
+                        {/* Product Type */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400">Product Type:</span>
+                          <span className="text-sm font-semibold text-slate-700">{unit}</span>
+                        </div>
+
+                        {/* Simple Type: show price & stock directly */}
+                        {isSimpleType && (
+                          <div className="flex flex-wrap gap-3">
+                            <div className="px-3 py-2 bg-slate-50 rounded-xl text-sm">
+                              <span className="text-slate-500">Price per product: </span>
+                              <span className="font-semibold text-slate-800">₹{Number(editProductDetail.price_per_tablet || editProductDetail.price || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="px-3 py-2 bg-slate-50 rounded-xl text-sm">
+                              <span className="text-slate-500">Total stock: </span>
+                              <span className="font-semibold text-slate-800">{editingItem.stock}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Non-Simple Types: Package + Pricing */}
+                        {hasPackage && (
+                          <>
+                            {(() => {
+                              const livePacks = editBatches.reduce((sum, b) => sum + (editBatchStrips[b.batch_uuid] ?? (b.strips || 0)), 0) + newBatchRows.reduce((sum, r) => sum + r.strips, 0);
+                              const liveQty = editBatches.reduce((sum, b) => sum + (editBatchQty[b.batch_uuid] ?? (b.total_tablets || b.quantity || 0)), 0) + newBatchRows.reduce((sum, r) => sum + r.quantity, 0);
+                              return (
+                            <div>
+                              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Package</p>
+                              <div className="flex flex-wrap gap-3">
+                                <div className="px-3 py-2 bg-slate-50 rounded-xl text-sm">
+                                  <span className="text-slate-500">Box = </span>
+                                  <span className="font-semibold text-slate-800">{editProductDetail.boxes || 0}</span>
+                                </div>
+                                <div className="px-3 py-2 bg-slate-50 rounded-xl text-sm">
+                                  <span className="text-slate-500">1 box = {isGeneralType ? "pack" : isBandageType ? "pack" : "pack"} </span>
+                                  <span className="font-semibold text-slate-800">{editProductDetail.strips_per_box || 0}</span>
+                                </div>
+                                <div className="px-3 py-2 bg-slate-50 rounded-xl text-sm">
+                                  <span className="text-slate-500">1 pack = {isBandageType ? "bandages" : isGeneralType ? "pieces" : "pieces"} </span>
+                                  <span className="font-semibold text-slate-800">{editProductDetail.tablets_per_strip || 0}</span>
+                                </div>
+                                <div className="px-3 py-2 bg-slate-50 rounded-xl text-sm">
+                                  <span className="text-slate-500">{isBandageType ? "Extra bandages" : isGeneralType ? "Extra pieces" : "Extra pieces"} </span>
+                                  <span className="font-semibold text-slate-800">{editProductDetail.extra_tablets || 0}</span>
+                                </div>
+                              </div>
+                              <div className="flex gap-4 mt-2">
+                                <div className="px-3 py-2 bg-blue-50 rounded-xl text-sm">
+                                  <span className="text-blue-600">Total Packs: </span>
+                                  <span className="font-bold text-blue-700">{livePacks}</span>
+                                </div>
+                                <div className="px-3 py-2 bg-emerald-50 rounded-xl text-sm">
+                                  <span className="text-emerald-600">Total {isBandageType ? "Bandages" : "Pieces"}: </span>
+                                  <span className="font-bold text-emerald-700">{liveQty}</span>
+                                </div>
+                              </div>
+                            </div>
+                              );
+                            })()}
+
+                            {/* Pricing */}
+                            <div>
+                              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Pricing</p>
+                              <div className="flex flex-wrap gap-3">
+                                <div className="px-3 py-2 bg-slate-50 rounded-xl text-sm">
+                                  <span className="text-slate-500">Price per box: </span>
+                                  <span className="font-semibold text-slate-800">₹{Number(editProductDetail.price_per_box || 0).toFixed(2)}</span>
+                                </div>
+                                <div className="px-3 py-2 bg-slate-50 rounded-xl text-sm">
+                                  <span className="text-slate-500">Price per pack: </span>
+                                  <span className="font-semibold text-slate-800">₹{Number(editProductDetail.price_per_strip || 0).toFixed(2)}</span>
+                                </div>
+                                <div className="px-3 py-2 bg-slate-50 rounded-xl text-sm">
+                                  <span className="text-slate-500">Price per piece: </span>
+                                  <span className="font-semibold text-slate-800">₹{Number(editProductDetail.price_per_tablet || 0).toFixed(2)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Batches */}
+                        <div>
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Batches ({editBatches.length})</p>
+                          {editBatches.length === 0 ? (
+                            <p className="text-sm text-slate-400 py-3">No batches found</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {editBatches.map((batch: any) => {
+                                const daysLeft = Math.ceil((new Date(batch.expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                                const isExpired = daysLeft <= 0;
+                                return (
+                                  <div key={batch.batch_uuid} className={`border rounded-xl p-3 ${isExpired ? 'border-red-200 bg-red-50/50' : 'border-slate-200 bg-white'}`}>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 text-sm">
+                                      <div>
+                                        <span className="text-xs text-slate-400 block">Batch No</span>
+                                        <span className="font-semibold text-slate-800 font-mono">{batch.batch_number}</span>
+                                      </div>
+                                      {!isSimpleType && (
+                                        <div>
+                                          <span className="text-xs text-slate-400 block">Packs</span>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            value={editBatchStrips[batch.batch_uuid] ?? (batch.strips || 0)}
+                                            onChange={(e) => {
+                                              const tps = Number(editProductDetail?.tablets_per_strip) || 0;
+                                              const newStrips = Math.max(0, Number(e.target.value));
+                                              setEditBatchStrips(prev => ({ ...prev, [batch.batch_uuid]: newStrips }));
+                                              if (tps > 0) {
+                                                setEditBatchQty(prev => ({ ...prev, [batch.batch_uuid]: newStrips * tps }));
+                                              }
+                                            }}
+                                            className="w-20 px-2 py-0.5 text-sm font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                          />
+                                        </div>
+                                      )}
+                                      <div>
+                                        <span className="text-xs text-slate-400 block">{isSimpleType ? "Qty" : "Total Pieces"}</span>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={editBatchQty[batch.batch_uuid] ?? (batch.total_tablets || batch.quantity || 0)}
+                                          onChange={(e) => setEditBatchQty(prev => ({ ...prev, [batch.batch_uuid]: Math.max(0, Number(e.target.value)) }))}
+                                          className="w-20 px-2 py-0.5 text-sm font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                        />
+                                      </div>
+                                      <div>
+                                        <span className="text-xs text-slate-400 block">PTR</span>
+                                        <span className="font-semibold text-slate-800">₹{Number(batch.ptr || 0).toFixed(2)}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-xs text-slate-400 block">Mfg Date</span>
+                                        <span className="text-slate-600">{batch.manufacture_date || "-"}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-xs text-slate-400 block">Expiry Date</span>
+                                        <span className={`font-medium ${isExpired ? 'text-red-600' : 'text-slate-600'}`}>
+                                          {batch.expiry_date}
+                                          {isExpired && <span className="ml-1 text-xs text-red-500">(Expired)</span>}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Add Batch Button & New Batch Rows */}
+                          <div className="mt-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const id = ++nextTempId.current;
+                                setNewBatchRows(prev => [...prev, {
+                                  tempId: id,
+                                  batch_number: '',
+                                  strips: 0,
+                                  quantity: 0,
+                                  manufacture_date: '',
+                                  expiry_date: '',
+                                }]);
+                              }}
+                              className="text-sm"
+                            >
+                              + Add Batch
+                            </Button>
+                            {newBatchRows.map((row) => (
+                              <div key={row.tempId} className="mt-2 border border-dashed border-green-300 rounded-xl p-3 bg-green-50/50">
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-2 text-sm">
+                                  <div>
+                                    <span className="text-xs text-slate-400 block">Batch No</span>
+                                    <input
+                                      type="text"
+                                      value={row.batch_number}
+                                      onChange={(e) => setNewBatchRows(prev => prev.map(r => r.tempId === row.tempId ? { ...r, batch_number: e.target.value } : r))}
+                                      className="w-full px-2 py-0.5 text-sm font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400"
+                                      placeholder="e.g. BATCH-001"
+                                    />
+                                  </div>
+                                  {!isSimpleType && (
+                                    <div>
+                                      <span className="text-xs text-slate-400 block">Packs</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={row.strips}
+                                        onChange={(e) => {
+                                          const newStrips = Math.max(0, Number(e.target.value));
+                                          const tps = Number(editProductDetail?.tablets_per_strip) || 0;
+                                          setNewBatchRows(prev => prev.map(r =>
+                                            r.tempId === row.tempId
+                                              ? { ...r, strips: newStrips, quantity: tps > 0 ? newStrips * tps : r.quantity }
+                                              : r
+                                          ));
+                                        }}
+                                        className="w-full px-2 py-0.5 text-sm font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                      />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <span className="text-xs text-slate-400 block">{isSimpleType ? "Qty" : "Total Pieces"}</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={row.quantity}
+                                      onChange={(e) => setNewBatchRows(prev => prev.map(r => r.tempId === row.tempId ? { ...r, quantity: Math.max(0, Number(e.target.value)) } : r))}
+                                      className="w-full px-2 py-0.5 text-sm font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <span className="text-xs text-slate-400 block">Mfg Date</span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const fitsBelow = rect.bottom + 4 + 300 <= window.innerHeight;
+                                        setNewBatchDatePicker({ tempId: row.tempId, field: 'mfg', top: fitsBelow ? rect.bottom + 4 : rect.top - 300, right: document.documentElement.clientWidth - rect.right });
+                                      }}
+                                      className="flex h-9 w-full items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-700 hover:border-slate-300 transition-colors"
+                                    >
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                      <span className="truncate">{row.manufacture_date ? format(new Date(row.manufacture_date + "T00:00:00"), "dd MMM yyyy") : "Select date"}</span>
+                                    </button>
+                                    {newBatchDatePicker?.tempId === row.tempId && newBatchDatePicker?.field === 'mfg' && (
+                                      <div id="nb-date-popup" className="fixed z-[70]" style={{ top: newBatchDatePicker.top, right: newBatchDatePicker.right }}>
+                                        <SimpleDatePicker date={row.manufacture_date ? new Date(row.manufacture_date + "T00:00:00") : undefined} onSelect={(d) => { setNewBatchRows(prev => prev.map(r => r.tempId === row.tempId ? { ...r, manufacture_date: format(d, "yyyy-MM-dd") } : r)); setNewBatchDatePicker(null); }} />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <span className="text-xs text-slate-400 block">Expiry Date</span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const fitsBelow = rect.bottom + 4 + 300 <= window.innerHeight;
+                                        setNewBatchDatePicker({ tempId: row.tempId, field: 'exp', top: fitsBelow ? rect.bottom + 4 : rect.top - 300, right: document.documentElement.clientWidth - rect.right });
+                                      }}
+                                      className="flex h-9 w-full items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-700 hover:border-slate-300 transition-colors"
+                                    >
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                      <span className="truncate">{row.expiry_date ? format(new Date(row.expiry_date + "T00:00:00"), "dd MMM yyyy") : "Select date"}</span>
+                                    </button>
+                                    {newBatchDatePicker?.tempId === row.tempId && newBatchDatePicker?.field === 'exp' && (
+                                      <div id="nb-date-popup" className="fixed z-[70]" style={{ top: newBatchDatePicker.top, right: newBatchDatePicker.right }}>
+                                        <SimpleDatePicker date={row.expiry_date ? new Date(row.expiry_date + "T00:00:00") : undefined} onSelect={(d) => { setNewBatchRows(prev => prev.map(r => r.tempId === row.tempId ? { ...r, expiry_date: format(d, "yyyy-MM-dd") } : r)); setNewBatchDatePicker(null); }} disableFuture={false} />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewBatchRows(prev => prev.filter(r => r.tempId !== row.tempId))}
+                                  className="mt-2 text-xs text-red-500 hover:text-red-700"
+                                >
+                                  ✕ Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </>
+              ) : (
+                <p className="text-sm text-slate-400 py-3 text-center">Failed to load product details</p>
+              )}
+            </div>
+            <div className="flex gap-3 px-6 py-4 border-t border-slate-100 shrink-0">
+              <Button
+                onClick={() => setModalOpen(false)}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdate}
+                disabled={loading || loadingBatches}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
             </div>
           </div>
         </div>

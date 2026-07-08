@@ -184,7 +184,7 @@ export class ProductBatchModel {
     const result = db.prepare(`
       SELECT COALESCE(SUM(quantity), 0) as total
       FROM product_batches
-      WHERE product_uuid = ? AND quantity > 0 AND is_quarantined = 0 AND expiry_date > DATE('now')
+      WHERE product_uuid = ? AND quantity > 0
     `).get(product_uuid) as { total: number };
 
     db.prepare(`
@@ -304,6 +304,28 @@ export class ProductBatchModel {
       ORDER BY pb.expiry_date ASC
     `);
     return stmt.all(this.NEAR_EXPIRY_DAYS) as any[];
+  }
+
+  // =========================
+  // GET EXPIRED (not quarantined)
+  // =========================
+
+  static getExpired(): Array<{
+    product_uuid: string; product_name: string; batch_uuid: string;
+    batch_number: string; expiry_date: string; quantity: number; mrp: number;
+  }> {
+    const stmt = db.prepare(`
+      SELECT
+        pb.batch_uuid, pb.product_uuid, p.name as product_name,
+        pb.batch_number, pb.expiry_date, pb.quantity, pb.mrp
+      FROM product_batches pb
+      INNER JOIN products p ON p.product_uuid = pb.product_uuid
+      WHERE
+        pb.expiry_date <= DATE('now')
+        AND pb.quantity > 0
+      ORDER BY pb.expiry_date ASC
+    `);
+    return stmt.all() as any[];
   }
 
   // =========================

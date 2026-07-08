@@ -777,3 +777,10 @@ export interface ProductTemplateUpdateInput {
   packaging_json?: any;
   is_active?: number;
 }
+
+export interface SupplierBill {
+  bill_uuid: string;
+  supplier_uuid: string;
+  bill_image?: string;
+  created_at: string;
+}
