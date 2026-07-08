@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { getStock } from "../../renderer/services/stockApi";
-import { getProductBatches, updateProductBatch, createProductBatch } from "../../renderer/services/productApi";
+import { getProductBatches, updateProductBatch, createProductBatch, updateProduct } from "../../renderer/services/productApi";
 import { apiGet } from "../../renderer/services/api";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -53,6 +53,7 @@ export default function Stock() {
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [editBatchQty, setEditBatchQty] = useState<Record<string, number>>({});
   const [editBatchStrips, setEditBatchStrips] = useState<Record<string, number>>({});
+  const [editExtraTablets, setEditExtraTablets] = useState<number>(0);
 
   interface NewBatchRow {
     tempId: number;
@@ -214,6 +215,10 @@ export default function Stock() {
           quantity: row.quantity,
           strips: row.strips,
         }));
+      }
+
+      if (editExtraTablets !== (editProductDetail?.extra_tablets || 0)) {
+        promises.push(updateProduct(editingItem.product_uuid, { extra_tablets: editExtraTablets }));
       }
 
       await Promise.all(promises);
@@ -474,6 +479,7 @@ export default function Stock() {
                             ]);
                             const product = productRes?.data || productRes?.product || null;
                             setEditProductDetail(product);
+                            setEditExtraTablets(product?.extra_tablets || 0);
                             const batchList = Array.isArray(batches) ? batches : [];
                             setEditBatches(batchList);
                             const qtyMap: Record<string, number> = {};
@@ -657,7 +663,13 @@ export default function Stock() {
                                 </div>
                                 <div className="px-3 py-2 bg-slate-50 rounded-xl text-sm">
                                   <span className="text-slate-500">{isBandageType ? "Extra bandages" : isGeneralType ? "Extra pieces" : "Extra pieces"} </span>
-                                  <span className="font-semibold text-slate-800">{editProductDetail.extra_tablets || 0}</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={editExtraTablets}
+                                    onChange={(e) => setEditExtraTablets(Math.max(0, Number(e.target.value)))}
+                                    className="w-16 px-2 py-0.5 text-sm font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                  />
                                 </div>
                               </div>
                               <div className="flex gap-4 mt-2">
