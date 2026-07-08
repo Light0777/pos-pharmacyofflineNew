@@ -297,8 +297,10 @@ export class PurchaseController {
 
     try {
 
-      const purchases =
-        PurchaseModel.findAll();
+      const { supplier_uuid } = req.query;
+      const purchases = supplier_uuid
+        ? PurchaseModel.findBySupplier(String(supplier_uuid))
+        : PurchaseModel.findAll();
 
       res.json(purchases);
 

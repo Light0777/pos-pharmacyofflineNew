@@ -21,11 +21,12 @@ export async function updatePurchase(purchase_uuid: string, data: any) {
   return response;
 }
 
-export async function getPurchases() {
+export async function getPurchases(supplier_uuid?: string) {
   console.log("🔵 getPurchases - Starting...");
   
   try {
-    const response = await apiGet("/purchases");
+    const params = supplier_uuid ? `?supplier_uuid=${encodeURIComponent(supplier_uuid)}` : '';
+    const response = await apiGet(`/purchases${params}`);
     console.log("🟢 getPurchases - Response:", response);
     
     if (Array.isArray(response)) {
