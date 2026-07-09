@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import * as XLSX from "xlsx";
 import {
   getTopProducts,
+  getRecentPurchases,
   getStockReport,
   getProfitReport,
   getDashboardReport,
@@ -16,6 +18,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Alert01Icon,
   CancelCircleIcon,
+  ArrowExpandDiagonal01Icon,
+  Download01Icon,
 } from "@hugeicons/core-free-icons";
 import {
   AreaChart,
@@ -72,6 +76,12 @@ export default function Reports() {
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [hoveredPaymentIdx, setHoveredPaymentIdx] = useState<number | null>(null);
   const [selectedStat, setSelectedStat] = useState<string | null>(null);
+  const [showAllTopProducts, setShowAllTopProducts] = useState(false);
+  const [allTopProducts, setAllTopProducts] = useState<any[]>([]);
+  const [allTopProductsLoading, setAllTopProductsLoading] = useState(false);
+  const [showAllPurchases, setShowAllPurchases] = useState(false);
+  const [allPurchases, setAllPurchases] = useState<any[]>([]);
+  const [allPurchasesLoading, setAllPurchasesLoading] = useState(false);
 
   const loadReports = async () => {
     try {
@@ -603,9 +613,29 @@ export default function Reports() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-8">
           {/* Top Selling Products - 1 col */}
           <div className="md:col-span-1 bg-white border border-gray-200 rounded-2xl p-5 shadow-sm flex flex-col text-left">
-            <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-0.5">{t('reports.statistics')}</p>
-              <h2 className="text-lg font-bold text-gray-800">{t('reports.topSellingProducts')}</h2>
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-0.5">{t('reports.statistics')}</p>
+                <h2 className="text-lg font-bold text-gray-800">{t('reports.topSellingProducts')}</h2>
+              </div>
+              <button
+                onClick={async () => {
+                  setShowAllTopProducts(true);
+                  setAllTopProductsLoading(true);
+                  try {
+                    const data = await getTopProducts(1000);
+                    setAllTopProducts(Array.isArray(data) ? data : []);
+                  } catch (_) {
+                    setAllTopProducts([]);
+                  } finally {
+                    setAllTopProductsLoading(false);
+                  }
+                }}
+                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+                title="View all"
+              >
+                <HugeiconsIcon icon={ArrowExpandDiagonal01Icon} className="text-lg" />
+              </button>
             </div>
             {top.length === 0 ? (
               <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">{t('reports.noSalesData')}</div>
@@ -659,9 +689,29 @@ export default function Reports() {
             const maxTotal = Math.max(...purchases.map((p: any) => Number(p.total || 0)), 1);
             return (
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-200 flex flex-col text-left">
-                <div className="mb-4">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-0.5">{t('reports.statistics')}</p>
-                  <h2 className="text-lg font-bold text-gray-800">{t('reports.recentPurchases')}</h2>
+                <div className="mb-4 flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-0.5">{t('reports.statistics')}</p>
+                    <h2 className="text-lg font-bold text-gray-800">{t('reports.recentPurchases')}</h2>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setShowAllPurchases(true);
+                      setAllPurchasesLoading(true);
+                      try {
+                        const data = await getRecentPurchases(1000);
+                        setAllPurchases(Array.isArray(data) ? data : []);
+                      } catch (_) {
+                        setAllPurchases([]);
+                      } finally {
+                        setAllPurchasesLoading(false);
+                      }
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+                    title="View all"
+                  >
+                    <HugeiconsIcon icon={ArrowExpandDiagonal01Icon} className="text-lg" />
+                  </button>
                 </div>
                 <div className="flex flex-col gap-3">
                   {purchases.map((purchase: any, idx: number) => {
@@ -791,6 +841,179 @@ export default function Reports() {
           </Card>
 
       </div>
+
+      {/* All Recent Purchases Modal */}
+      {showAllPurchases && createPortal(
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowAllPurchases(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
+              <h2 className="text-lg font-bold text-slate-800">Recent Purchases</h2>
+              <div className="flex items-center gap-2">
+                {allPurchases.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const ws = XLSX.utils.json_to_sheet(allPurchases.map((p: any) => ({
+                        Supplier: p.supplier_name || "Unknown",
+                        "Invoice #": p.invoice_number || "",
+                        "Invoice Date": p.invoice_date || "",
+                        "Total (₹)": p.total || 0,
+                        Date: p.created_at ? new Date(p.created_at).toLocaleDateString() : "",
+                      })));
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, ws, "Purchases");
+                      XLSX.writeFile(wb, "recent-purchases.xlsx");
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
+                  >
+                    <HugeiconsIcon icon={Download01Icon} className="text-sm" />
+                    Export XLSX
+                  </button>
+                )}
+                <button onClick={() => setShowAllPurchases(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                  <HugeiconsIcon icon={CancelCircleIcon} className="text-xl" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {allPurchasesLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500" />
+                </div>
+              ) : allPurchases.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-12">No purchase records found</p>
+              ) : (
+                <div className="space-y-4">
+                  {(() => {
+                    const maxTotal = Math.max(...allPurchases.map((p: any) => Number(p.total || 0)), 1);
+                    return allPurchases.map((p: any, idx: number) => {
+                      const pct = (Number(p.total || 0) / maxTotal) * 100;
+                      const isFirst = idx === 0;
+                      return (
+                        <div key={p.purchase_uuid || idx}>
+                          <div className="flex justify-between items-center mb-1">
+                            <div className="min-w-0 flex-1">
+                              <span className="text-sm font-medium text-gray-700 truncate block">{p.supplier_name || "Unknown Supplier"}</span>
+                              <span className="text-xs text-gray-400">{new Date(p.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <span className={`text-sm font-semibold shrink-0 ml-2 ${isFirst ? 'text-green-600' : 'text-gray-400'}`}>
+                              ₹{Number(p.total || 0).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-1000"
+                              style={{
+                                width: `${pct}%`,
+                                background: isFirst
+                                  ? 'linear-gradient(90deg, #22c55e 0%, #16a34a 100%)'
+                                  : '#d1d5db'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
+            </div>
+            {allPurchases.length > 0 && (
+              <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 text-[11px] text-gray-400 font-medium shrink-0">
+                <span>₹0</span>
+                <span>₹{Math.round(Math.max(...allPurchases.map((p: any) => Number(p.total || 0)), 1) / 2).toLocaleString()}</span>
+                <span>₹{Math.round(Math.max(...allPurchases.map((p: any) => Number(p.total || 0)), 1)).toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      , document.body)}
+
+      {/* All Top Products Modal */}
+      {showAllTopProducts && createPortal(
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowAllTopProducts(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
+              <h2 className="text-lg font-bold text-slate-800">Top Selling Products</h2>
+              <div className="flex items-center gap-2">
+                {allTopProducts.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const ws = XLSX.utils.json_to_sheet(allTopProducts.map((p: any) => ({
+                        Name: p.name || "Unknown",
+                        Manufacturer: p.manufacturerName || "",
+                        "Units Sold": p.total_qty || 0,
+                        Revenue: p.total_revenue || 0,
+                        Cost: p.total_cost || 0,
+                        Profit: p.total_profit || 0,
+                      })));
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, ws, "Top Products");
+                      XLSX.writeFile(wb, "top-selling-products.xlsx");
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
+                  >
+                    <HugeiconsIcon icon={Download01Icon} className="text-sm" />
+                    Export XLSX
+                  </button>
+                )}
+                <button onClick={() => setShowAllTopProducts(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                  <HugeiconsIcon icon={CancelCircleIcon} className="text-xl" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {allTopProductsLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500" />
+                </div>
+              ) : allTopProducts.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-12">No sales data available</p>
+              ) : (
+                <div className="space-y-4">
+                  {(() => {
+                    const maxQty = Math.max(...allTopProducts.map((p: any) => Number(p.total_qty || 0)), 1);
+                    return allTopProducts.map((p: any, idx: number) => {
+                      const pct = (Number(p.total_qty || 0) / maxQty) * 100;
+                      const isFirst = idx === 0;
+                      return (
+                        <div key={p.product_uuid || idx}>
+                          <div className="flex justify-between items-center mb-1">
+                            <div className="min-w-0 flex-1">
+                              <span className="text-sm font-medium text-gray-700 truncate block">{p.name || "Unknown"}</span>
+                              {p.manufacturerName && <span className="text-xs text-gray-400">{p.manufacturerName}</span>}
+                            </div>
+                            <span className="text-sm font-semibold shrink-0 ml-2 text-gray-500">
+                              {p.total_qty || 0} units
+                            </span>
+                          </div>
+                          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-1000"
+                              style={{
+                                width: `${pct}%`,
+                                background: isFirst
+                                  ? 'linear-gradient(90deg, #22c55e 0%, #16a34a 100%)'
+                                  : '#d1d5db'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
+            </div>
+            {allTopProducts.length > 0 && (
+              <div className="flex justify-between px-6 py-3 border-t border-slate-100 text-[11px] text-gray-400 font-medium shrink-0">
+                <span>0%</span>
+                <span>50%</span>
+                <span>100%</span>
+              </div>
+            )}
+          </div>
+        </div>
+      , document.body)}
 
       {selectedStat && createPortal(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedStat(null)}>

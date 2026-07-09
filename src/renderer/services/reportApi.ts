@@ -42,14 +42,28 @@ export async function getDashboardReport() {
   }
 }
 
-export async function getTopProducts() {
+export async function getTopProducts(limit?: number) {
   try {
-    const response: any = await apiGet("/reports/top-products");
+    const params = limit ? `?limit=${limit}` : '';
+    const response: any = await apiGet(`/reports/top-products${params}`);
     if (response?.success && Array.isArray(response.data)) return response.data;
     if (Array.isArray(response)) return response;
     return [];
   } catch (error) {
     console.error("Top products API error:", error);
+    return [];
+  }
+}
+
+export async function getRecentPurchases(limit?: number) {
+  try {
+    const params = limit ? `?limit=${limit}` : '';
+    const response: any = await apiGet(`/reports/recent-purchases${params}`);
+    if (response?.success && Array.isArray(response.data)) return response.data;
+    if (Array.isArray(response)) return response;
+    return [];
+  } catch (error) {
+    console.error("Recent purchases API error:", error);
     return [];
   }
 }

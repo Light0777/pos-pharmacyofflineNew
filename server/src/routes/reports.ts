@@ -10,6 +10,7 @@ router.use(authenticate);
 // Main report routes (matching PHP)
 router.get('/dashboard', ReportController.dashboard);
 router.get('/top-products', ReportController.topProducts);
+router.get('/recent-purchases', ReportController.recentPurchases);
 router.get('/stock', ReportController.stock);
 router.get('/profit', ReportController.profit);
 router.get('/sales-trend', ReportController.salesTrend);

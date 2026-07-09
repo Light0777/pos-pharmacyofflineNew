@@ -18,10 +18,23 @@ export class ReportController {
   // Top products
   static topProducts = (req: AuthRequest, res: Response): void => {
     try {
-      const products = ReportModel.getTopProducts();
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 5;
+      const products = ReportModel.getTopProducts(limit);
       res.json(products);
     } catch (error) {
       console.error('Top products error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
+
+  // Recent purchases report
+  static recentPurchases = (req: AuthRequest, res: Response): void => {
+    try {
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 5;
+      const data = ReportModel.getRecentPurchases(limit);
+      res.json({ success: true, data });
+    } catch (error) {
+      console.error('Recent purchases error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   };

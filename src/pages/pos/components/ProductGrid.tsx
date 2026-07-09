@@ -32,6 +32,7 @@ interface BatchInfo {
   quantity: number;
   sold_quantity: number;
   available: number;
+  is_expired?: boolean;
 }
 
 interface ProductUnit {
@@ -97,8 +98,9 @@ function UnitSelectionModal({
   }, [selectedUnit, selectedBatchUuid]);
 
   useEffect(() => {
-    if (batches.length > 0) {
-      setSelectedBatchUuid(batches[0].batch_uuid);
+    const firstSellable = batches.find(b => !b.is_expired);
+    if (firstSellable) {
+      setSelectedBatchUuid(firstSellable.batch_uuid);
     } else {
       setSelectedBatchUuid("");
     }
@@ -110,8 +112,8 @@ function UnitSelectionModal({
   };
   const totalPrice = selectedUnit ? (getUnitPrice(selectedUnit) * quantity).toFixed(2) : "0.00";
 
-  const selectedBatch = batches.find(b => b.batch_uuid === (selectedBatchUuid || batches[0]?.batch_uuid));
-  const batchTabletQty = selectedBatch?.quantity ?? 0;
+  const selectedBatch = batches.find(b => b.batch_uuid === (selectedBatchUuid || batches.find(b => !b.is_expired)?.batch_uuid));
+  const batchTabletQty = selectedBatch && !selectedBatch.is_expired ? selectedBatch.quantity : 0;
   const availableForUnit = selectedUnit
     ? Math.floor(batchTabletQty / (selectedUnit.conversion_factor || 1))
     : 0;
@@ -156,32 +158,34 @@ function UnitSelectionModal({
           </div>
 
           {/* Batch Selection */}
-          {batches.length > 1 && (
+          {batches.length > 0 && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Select Batch
+                {batches.length > 1 ? 'Select Batch' : 'Batch'}
               </label>
               <div className="max-h-52 overflow-y-auto space-y-2 border border-gray-200 rounded-xl p-2.5 bg-gray-50/50">
                 {batches.map((batch) => {
                   const daysLeft = getDaysUntilExpiry(batch.expiry_date);
                   const isExpiringSoon = daysLeft <= 90 && daysLeft > 0;
-                  const isExpired = daysLeft <= 0;
+                  const isExpired = batch.is_expired || daysLeft <= 0;
                   const barWidth = daysLeft > 365 ? 100 : Math.max(5, Math.round((daysLeft / 365) * 100));
                   const barColor = isExpired ? 'bg-red-500' : isExpiringSoon ? 'bg-amber-400' : 'bg-green-500';
-                  const qty = (batch as any).quantity ?? 0;
+                  const qty = batch.quantity ?? 0;
                   return (
                     <div
                       key={batch.batch_uuid}
-                      onClick={() => setSelectedBatchUuid(batch.batch_uuid)}
-                      className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all ${
-                        selectedBatchUuid === batch.batch_uuid
-                          ? 'bg-white ring-2 ring-green-500 shadow-sm'
-                          : 'bg-white hover:ring-1 hover:ring-gray-300'
+                      onClick={() => { if (!isExpired) setSelectedBatchUuid(batch.batch_uuid); }}
+                      className={`flex items-start gap-3 p-3 rounded-xl transition-all ${
+                        isExpired
+                          ? 'bg-gray-100 opacity-60 cursor-not-allowed'
+                          : selectedBatchUuid === batch.batch_uuid
+                            ? 'bg-white ring-2 ring-green-500 shadow-sm cursor-pointer'
+                            : 'bg-white hover:ring-1 hover:ring-gray-300 cursor-pointer'
                       }`}
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-sm text-gray-900">{batch.batch_number}</span>
+                          <span className={`font-semibold text-sm ${isExpired ? 'text-gray-500' : 'text-gray-900'}`}>{batch.batch_number}</span>
                           {!isExpired && (
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                               isExpiringSoon
@@ -198,7 +202,7 @@ function UnitSelectionModal({
                           )}
                         </div>
                         <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
-                          <span>Qty: <span className="font-medium text-gray-700">{qty}</span></span>
+                          <span>Qty: <span className={`font-medium ${isExpired ? 'text-gray-400' : 'text-gray-700'}`}>{qty}</span></span>
                           <span className="text-gray-300">|</span>
                           <span>Exp: {new Date(batch.expiry_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         </div>
@@ -299,7 +303,7 @@ function UnitSelectionModal({
             <Button
               type="button"
               onClick={() => {
-                if (selectedUnit) {
+                if (selectedUnit && selectedBatch && !selectedBatch.is_expired) {
                   onConfirm(
                     selectedUnitUuid,
                     quantity,
@@ -328,6 +332,9 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
   const [batchInfo, setBatchInfo] = useState<Record<string, BatchInfo[]>>({});
   const [loadingBatch, setLoadingBatch] = useState<Record<string, boolean>>({});
   const [hasExpiredStock, setHasExpiredStock] = useState<Record<string, boolean>>({});
+  const [expiredQuantities, setExpiredQuantities] = useState<Record<string, number>>({});
+  const [totalBatchCounts, setTotalBatchCounts] = useState<Record<string, number>>({});
+  const [cacheVersion, setCacheVersion] = useState(0);
   
   // Unit selection modal state
   const [showUnitModal, setShowUnitModal] = useState(false);
@@ -364,6 +371,29 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Invalidate batch cache and trigger refresh
+  const invalidateBatchCache = useCallback(() => {
+    setBatchInfo({});
+    setHasExpiredStock({});
+    setExpiredQuantities({});
+    setTotalBatchCounts({});
+    setCacheVersion(v => v + 1);
+  }, []);
+
+  // Listen for stock-updated events and visibility changes to invalidate cache
+  useEffect(() => {
+    const handler = () => invalidateBatchCache();
+    window.addEventListener('stock-updated', handler);
+    const visHandler = () => {
+      if (document.visibilityState === 'visible') invalidateBatchCache();
+    };
+    document.addEventListener('visibilitychange', visHandler);
+    return () => {
+      window.removeEventListener('stock-updated', handler);
+      document.removeEventListener('visibilitychange', visHandler);
+    };
+  }, [invalidateBatchCache]);
+
   // Load batch info for products
   const loadBatchInfoForProduct = async (productUuid: string) => {
     if (batchInfo[productUuid] || loadingBatch[productUuid]) return;
@@ -371,6 +401,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
     setLoadingBatch(prev => ({ ...prev, [productUuid]: true }));
     try {
       const batches = await getProductBatches(productUuid);
+      setTotalBatchCounts(prev => ({ ...prev, [productUuid]: batches.length }));
       const availableBatches = batches
         .filter((b: any) => {
           return (b.quantity || 0) > 0 && new Date(b.expiry_date) > new Date();
@@ -387,6 +418,10 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
         (b: any) => (b.quantity || 0) > 0 && new Date(b.expiry_date) <= new Date()
       );
       setHasExpiredStock(prev => ({ ...prev, [productUuid]: expiredFound }));
+      const expiredQty = batches
+        .filter((b: any) => (b.quantity || 0) > 0 && new Date(b.expiry_date) <= new Date())
+        .reduce((sum: number, b: any) => sum + (b.quantity || 0), 0);
+      setExpiredQuantities(prev => ({ ...prev, [productUuid]: expiredQty }));
     } catch (err) {
       console.error("Failed to load batches:", err);
     } finally {
@@ -423,16 +458,29 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
       return;
     }
     
-    const batches = await getAvailableBatches(product.product_uuid);
+    // Fetch ALL batches (including expired) so the modal shows full info
+    const allBatches = await getProductBatches(product.product_uuid);
 
     if (seq !== clickSeqRef.current) return;
 
-    if (batches.length === 0) {
-      if (hasExpiredStock[product.product_uuid]) {
-        showToast(`"${product.name}" has expired and cannot be sold.`);
-      } else {
-        showToast(`"${product.name}" is out of stock.`);
-      }
+    const batches = allBatches
+      .filter((b: any) => (b.quantity || 0) > 0)
+      .map((b: any) => ({
+        batch_uuid: b.batch_uuid,
+        batch_number: b.batch_number,
+        expiry_date: b.expiry_date,
+        selling_price: b.selling_price || b.ptr || 0,
+        quantity: b.quantity || 0,
+        is_expired: new Date(b.expiry_date) <= new Date(),
+        available: b.quantity || 0,
+        sold_quantity: b.sold_quantity || 0,
+      }))
+      .sort((a: any, b: any) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
+
+    const hasSellable = batches.some((b: any) => !b.is_expired);
+
+    if (!hasSellable) {
+      showToast(`"${product.name}" has expired and cannot be sold.`);
       return;
     }
     
@@ -468,7 +516,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
         }
       });
     }
-  }, [products]);
+  }, [products, cacheVersion]);
 
   // Server-side search when user types (debounced)
   useEffect(() => {
@@ -680,11 +728,16 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
               const col = actualIndex % COLS;
               const stock = p.stock ?? 0;
               const productBatches = batchInfo[p.product_uuid] || [];
-              const hasBatches = productBatches.length > 0;
-              const nearestExpiry = hasBatches ? productBatches[0] : null;
+              const totalCount = totalBatchCounts[p.product_uuid] ?? productBatches.length;
+              const hasBatches = totalCount > 0;
+              const nearestExpiry = productBatches.length > 0 ? productBatches[0] : null;
               const daysUntilExpiry = nearestExpiry ? getDaysUntilExpiry(nearestExpiry.expiry_date) : null;
               const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
-              const batchCount = productBatches.length;
+              const batchCount = totalCount;
+              const onlyExpired = hasExpiredStock[p.product_uuid] && productBatches.length === 0;
+              const sellableStock = productBatches.length > 0
+                ? productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0)
+                : stock;
               const hasImage = !!(p as any).image;
 
               return (
@@ -736,7 +789,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                           <span>{batchCount} batch{batchCount > 1 ? 'es' : ''}</span>
                         </div>
                       )}
-                      {stock > 0 && (
+                      {productBatches.length > 0 && (
                         <div className={`text-[10px] flex items-center gap-0.5 ${isExpiringSoon ? 'text-orange-600' : 'text-gray-500'}`}>
                           {isExpiringSoon ? (
                             <>
@@ -764,24 +817,28 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
 
                     {/* Stock Badge */}
                     <div className="flex flex-wrap gap-1">
-                      {hasExpiredStock[p.product_uuid] && (
+                      {onlyExpired ? (
                         <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
                           Expired
                         </span>
-                      )}
-                      {stock === 0 && !hasExpiredStock[p.product_uuid] ? (
+                      ) : sellableStock === 0 ? (
                         <span className="text-[9px] bg-gray-700 text-white px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
                           Out of Stock
                         </span>
-                      ) : stock < 10 && stock > 0 && !hasExpiredStock[p.product_uuid] ? (
+                      ) : sellableStock < 10 ? (
                         <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
-                          Only {stock} left
+                          Only {sellableStock} left
                         </span>
-                      ) : stock > 0 && !hasExpiredStock[p.product_uuid] ? (
+                      ) : (
                         <span className="text-[9px] bg-green-700 text-white px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
-                          {stock} remaining
+                          {sellableStock} remaining
                         </span>
-                      ) : null}
+                      )}
+                      {hasExpiredStock[p.product_uuid] && !onlyExpired && (expiredQuantities[p.product_uuid] || 0) > 0 && (
+                        <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
+                          {expiredQuantities[p.product_uuid]} expired
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

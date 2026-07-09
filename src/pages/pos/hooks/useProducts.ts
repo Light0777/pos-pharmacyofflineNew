@@ -4,21 +4,51 @@ import type { Product } from "../../../renderer/types/product";
 
 const LIMIT = 20;
 
+async function waitForBackend(
+  maxRetries = 30,
+  delayMs = 2000
+): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const res = await fetch("http://127.0.0.1:3000/health");
+      if (res.ok) return true;
+    } catch {
+      // not ready yet
+    }
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+  return false;
+}
+
 export function useProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const fetchProducts = useCallback(async (p: number, retries = 2) => {
+  const fetchProducts = useCallback(async (p: number) => {
     setLoading(true);
-    const result = await getProducts(p, LIMIT);
-    if (result.products.length === 0 && result.total === 0 && retries > 0) {
-      await new Promise(r => setTimeout(r, 1000));
-      return fetchProducts(p, retries - 1);
+
+    const backendReady = await waitForBackend();
+    if (!backendReady) {
+      setLoading(false);
+      return;
     }
-    setProducts(result.products);
-    setTotalPages(Math.ceil(result.total / LIMIT) || 1);
+
+    for (let retry = 0; retry < 5; retry++) {
+      try {
+        const result = await getProducts(p, LIMIT);
+        if (result.products.length > 0 || result.total > 0 || retry >= 4) {
+          setProducts(result.products);
+          setTotalPages(Math.ceil(result.total / LIMIT) || 1);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // transient error, retry
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
     setLoading(false);
   }, []);
 

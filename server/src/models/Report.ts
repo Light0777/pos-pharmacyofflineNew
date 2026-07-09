@@ -149,7 +149,7 @@ export class ReportModel {
   }
 
   // Top products report
-  static getTopProducts() {
+  static getTopProducts(limit = 5) {
     const topProducts = db.prepare(`
       SELECT 
         p.product_uuid,
@@ -168,8 +168,8 @@ export class ReportModel {
       LEFT JOIN product_batches pb ON si.batch_uuid = pb.batch_uuid
       GROUP BY si.product_uuid
       ORDER BY total_qty DESC
-      LIMIT 5
-    `).all();
+      LIMIT ?
+    `).all(limit);
 
     return topProducts.map((item: any) => ({
       product_uuid: item.product_uuid,
@@ -184,6 +184,17 @@ export class ReportModel {
       total_cost: Math.round(item.total_cost * 100) / 100,
       total_profit: Math.round((item.total_revenue - item.total_cost) * 100) / 100
     }));
+  }
+
+  // Recent purchases report
+  static getRecentPurchases(limit = 5) {
+    return db.prepare(`
+      SELECT p.*, s.name as supplier_name
+      FROM purchases p
+      LEFT JOIN suppliers s ON p.supplier_uuid = s.supplier_uuid
+      ORDER BY p.created_at DESC
+      LIMIT ?
+    `).all(limit) as any[];
   }
 
   // Stock report

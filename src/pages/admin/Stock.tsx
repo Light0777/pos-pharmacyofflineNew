@@ -48,6 +48,7 @@ export default function Stock() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [expiredProductUuids, setExpiredProductUuids] = useState<Set<string>>(new Set());
+  const [expiredStockPerProduct, setExpiredStockPerProduct] = useState<Record<string, number>>({});
   const [editBatches, setEditBatches] = useState<any[]>([]);
   const [editProductDetail, setEditProductDetail] = useState<any>(null);
   const [loadingBatches, setLoadingBatches] = useState(false);
@@ -60,6 +61,7 @@ export default function Stock() {
     batch_number: string;
     strips: number;
     quantity: number;
+    ptr: number;
     manufacture_date: string;
     expiry_date: string;
   }
@@ -172,7 +174,13 @@ export default function Stock() {
     (async () => {
       try {
         const json = await apiGet("/product-batches/expired");
-        setExpiredProductUuids(new Set((json.data || []).map((b: any) => b.product_uuid)));
+        const expiredBatches: any[] = json.data || [];
+        setExpiredProductUuids(new Set(expiredBatches.map((b: any) => b.product_uuid)));
+        const qtyMap: Record<string, number> = {};
+        for (const b of expiredBatches) {
+          qtyMap[b.product_uuid] = (qtyMap[b.product_uuid] || 0) + (b.quantity || 0);
+        }
+        setExpiredStockPerProduct(qtyMap);
       } catch (_) {}
     })();
     const handler = () => loadStock();
@@ -211,7 +219,7 @@ export default function Stock() {
           expiry_date: row.expiry_date,
           manufacture_date: row.manufacture_date || undefined,
           mrp: 0,
-          ptr: 0,
+          ptr: row.ptr,
           quantity: row.quantity,
           strips: row.strips,
         }));
@@ -225,6 +233,7 @@ export default function Stock() {
       setModalOpen(false);
       setEditingItem(null);
       await loadStock();
+      window.dispatchEvent(new CustomEvent('stock-updated'));
     } catch (err: any) {
       console.error("Stock update error:", err);
       setError(err.message || t('stock.updateError'));
@@ -251,7 +260,10 @@ export default function Stock() {
 
   // Helper to get status badge
   const getStatusBadge = (stock: number, productUuid: string) => {
-    if (expiredProductUuids.has(productUuid)) {
+    const expiredQty = expiredStockPerProduct[productUuid] || 0;
+    const goodStock = Math.max(0, stock - expiredQty);
+    const hasExpired = expiredProductUuids.has(productUuid);
+    if (hasExpired && goodStock === 0) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">
           <HugeiconsIcon icon={CancelCircleIcon} className="text-xs" />
@@ -259,7 +271,15 @@ export default function Stock() {
         </span>
       );
     }
-    if (stock === 0) {
+    if (hasExpired) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
+          <HugeiconsIcon icon={Alert01Icon} className="text-xs" />
+          {expiredQty} Expired
+        </span>
+      );
+    }
+    if (goodStock === 0) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">
           <HugeiconsIcon icon={CancelCircleIcon} className="text-xs"  />
@@ -267,7 +287,7 @@ export default function Stock() {
         </span>
       );
     }
-    if (stock < 10) {
+    if (goodStock < 10) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
           <HugeiconsIcon icon={Alert01Icon} className="text-xs"  />
@@ -446,8 +466,10 @@ export default function Stock() {
             ) : (
               paginatedItems.map((item) => {
                 const stock = item.stock;
-                const isLow = stock < 10 && stock > 0;
-                const isOut = stock === 0;
+                const expiredQty = expiredStockPerProduct[item.product_uuid] || 0;
+                const goodStock = Math.max(0, stock - expiredQty);
+                const isLow = goodStock < 10 && goodStock > 0;
+                const isOut = goodStock === 0;
 
                 return (
                   <tr key={item.product_uuid} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
@@ -459,9 +481,14 @@ export default function Stock() {
                     </td>
                     <td className="px-5 py-3.5 text-center">
                       <span className={`text-lg font-bold ${isOut ? "text-red-600" : isLow ? "text-amber-600" : "text-emerald-600"}`}>
-                        {stock}
+                        {goodStock}
                       </span>
                       {item.unit && <span className="text-xs text-slate-400 ml-1">{item.unit}</span>}
+                      {expiredQty > 0 && (
+                        <div className="text-[11px] text-red-500 mt-0.5">
+                          {expiredQty} expired
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-3.5 text-center">
                       <div className="flex justify-center">{getStatusBadge(stock, item.product_uuid)}</div>
@@ -788,6 +815,7 @@ export default function Stock() {
                                   batch_number: '',
                                   strips: 0,
                                   quantity: 0,
+                                  ptr: 0,
                                   manufacture_date: '',
                                   expiry_date: '',
                                 }]);
@@ -798,7 +826,7 @@ export default function Stock() {
                             </Button>
                             {newBatchRows.map((row) => (
                               <div key={row.tempId} className="mt-2 border border-dashed border-green-300 rounded-xl p-3 bg-green-50/50">
-                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-2 text-sm">
+                                <div className="grid grid-cols-2 sm:grid-cols-6 gap-x-4 gap-y-2 text-sm">
                                   <div>
                                     <span className="text-xs text-slate-400 block">Batch No</span>
                                     <input
@@ -834,10 +862,24 @@ export default function Stock() {
                                     <input
                                       type="number"
                                       min="0"
-                                      value={row.quantity}
+                                      value={row.quantity || ""}
                                       onChange={(e) => setNewBatchRows(prev => prev.map(r => r.tempId === row.tempId ? { ...r, quantity: Math.max(0, Number(e.target.value)) } : r))}
                                       className="w-full px-2 py-0.5 text-sm font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                     />
+                                  </div>
+                                  <div>
+                                    <span className="text-xs text-slate-400 block">PTR</span>
+                                    <div className="relative">
+                                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₹</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={row.ptr || ""}
+                                        onChange={(e) => setNewBatchRows(prev => prev.map(r => r.tempId === row.tempId ? { ...r, ptr: Math.max(0, Number(e.target.value)) } : r))}
+                                        className="w-full pl-6 pr-2 py-0.5 text-sm font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                      />
+                                    </div>
                                   </div>
                                   <div>
                                     <span className="text-xs text-slate-400 block">Mfg Date</span>
