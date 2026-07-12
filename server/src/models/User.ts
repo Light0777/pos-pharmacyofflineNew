@@ -131,11 +131,11 @@ export class UserModel {
     return this.findById(uuid)!;
   }
 
-  // Get all staff members (managers and cashiers only) - returns full User objects
+  // Get all staff members (including admin, managers, and cashiers) - returns full User objects
   static getAllStaff(): User[] {
     return db.prepare(`
       SELECT * FROM users 
-      WHERE role IN ('manager', 'cashier')
+      WHERE role IN ('admin', 'manager', 'cashier')
       ORDER BY created_at DESC
     `).all() as User[];
   }
@@ -151,11 +151,6 @@ export class UserModel {
   }): User | undefined {
     const user = this.findById(uuid);
     if (!user) return undefined;
-
-    // Check if user is staff (not owner)
-    if (user.role === 'owner') {
-      throw new Error('Cannot modify owner account through staff management');
-    }
 
     // Validate role if provided
     if (data.role && !['manager', 'cashier'].includes(data.role)) {
@@ -212,22 +207,16 @@ export class UserModel {
     return this.findById(uuid);
   }
 
-  // Delete staff user (prevents deleting owner)
+  // Delete staff user
   static deleteStaff(uuid: string): boolean {
     const user = this.findById(uuid);
     if (!user) return false;
 
-    // Prevent deleting owner
-    if (user.role === 'owner') {
-      throw new Error('Cannot delete owner account');
-    }
-
-    const result = db.prepare('DELETE FROM users WHERE user_uuid = ? AND role != ?').run(uuid, 'owner');
-    return result.changes > 0;
+    return this.delete(uuid);
   }
 
   // Get staff members by specific role - returns full User objects
-  static getStaffByRole(role: 'manager' | 'cashier'): User[] {
+  static getStaffByRole(role: 'admin' | 'manager' | 'cashier'): User[] {
     return db.prepare(`
       SELECT * FROM users 
       WHERE role = ?
@@ -240,15 +229,15 @@ export class UserModel {
     return db.prepare(`
       SELECT role, COUNT(*) as count
       FROM users 
-      WHERE role IN ('manager', 'cashier')
+      WHERE role IN ('admin', 'manager', 'cashier')
       GROUP BY role
     `).all() as Array<{ role: string; count: number }>;
   }
 
-  // Check if user is owner
-  static isOwner(uuid: string): boolean {
+  // Check if user is admin
+  static isAdmin(uuid: string): boolean {
     const user = this.findById(uuid);
-    return user?.role === 'owner';
+    return user?.role === 'admin';
   }
 
   // ==================== Utility Methods ====================

@@ -1,27 +1,21 @@
 import { Router } from 'express';
 import { CustomerController } from '../controllers/customerController';
 import { CustomerPaymentController } from '../controllers/customerPaymentController';
-import { authenticate } from '../middleware/auth';
+import { authenticate, authorize } from '../middleware/auth';
 
 const router = Router();
 
 // All customer routes require authentication
 router.use(authenticate);
 
-// Customer CRUD
-router.post('/', CustomerController.store);
+// Read routes — any authenticated user
 router.get('/', CustomerController.index);
-
-// Search (before parameterized routes)
 router.get('/search', CustomerController.search);
 router.get('/summary', CustomerController.summary);
 router.get('/aging', CustomerController.aging);
 router.get('/reminders', CustomerController.reminders);
 router.get('/credit-trend', CustomerController.creditTrend);
-
-// Parameterized routes
 router.get('/:customer_uuid', (req, res) => {
-  // Get single customer
   const { CustomerModel } = require('../models/Customer');
   const customer = CustomerModel.findById(String(req.params.customer_uuid));
   if (!customer) {
@@ -30,14 +24,12 @@ router.get('/:customer_uuid', (req, res) => {
   }
   res.json({ success: true, data: customer });
 });
-
-router.put('/:customer_uuid', CustomerController.update);
-router.delete('/:customer_uuid', CustomerController.destroy);
-
-// Ledger
 router.get('/:customer_uuid/ledger', CustomerController.ledger);
 
-// Payment
-router.post('/:customer_uuid/payments', CustomerPaymentController.store);
+// Write routes — admin only
+router.post('/', authorize('admin'), CustomerController.store);
+router.put('/:customer_uuid', authorize('admin'), CustomerController.update);
+router.delete('/:customer_uuid', authorize('admin'), CustomerController.destroy);
+router.post('/:customer_uuid/payments', authorize('admin'), CustomerPaymentController.store);
 
 export default router;

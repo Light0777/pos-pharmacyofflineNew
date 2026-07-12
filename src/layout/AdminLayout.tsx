@@ -137,7 +137,7 @@ function SidebarContent({ user, currentPath, navigate, t, onMobileClose, collaps
       {/* Navigation */}
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto overflow-x-hidden pt-2 px-3 pb-2 space-y-2" style={{ marginRight: '-17px', paddingRight: 'calc(0.75rem + 17px)' }}>
-        {user.role === "owner" && (
+        {["admin", "manager"].includes(user.role) && (
           <NavItem
             label={t('adminLayout.nav.dashboard')}
             path="/admin/dashboard"
@@ -148,7 +148,7 @@ function SidebarContent({ user, currentPath, navigate, t, onMobileClose, collaps
           />
         )}
 
-        {user.role === "owner" && (
+        {["admin", "manager"].includes(user.role) && (
           <NavSection title={t('adminLayout.sections.business')} collapsed={collapsed}>
             <NavItem
               label={t('adminLayout.nav.reports')}
@@ -202,7 +202,7 @@ function SidebarContent({ user, currentPath, navigate, t, onMobileClose, collaps
           </NavSection>
         )}
 
-        {["owner", "manager", "admin"].includes(user.role) && (
+        {["admin", "manager"].includes(user.role) && (
           <NavSection title={t('adminLayout.sections.management')} collapsed={collapsed}>
             <NavItem
               label={t('adminLayout.nav.products')}

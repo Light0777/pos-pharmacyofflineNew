@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../../context/AuthContext";
 import {
   getStaff,
   createStaff,
@@ -50,6 +51,7 @@ import {
 
 export default function StaffPage() {
   const { t } = useTranslation();
+  const { user: currentUser } = useAuth();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [editing, setEditing] = useState<Staff | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -206,6 +208,7 @@ export default function StaffPage() {
   );
 
   const totalStaff = staff.length;
+  const admins = staff.filter((s) => s.role === "admin").length;
   const managers = staff.filter((s) => s.role === "manager").length;
   const cashiers = staff.filter((s) => s.role === "cashier").length;
 
@@ -291,7 +294,7 @@ export default function StaffPage() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-start">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-start">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 flex items-center gap-6 relative">
           <button onClick={() => setSelectedStat('total')} className="absolute top-2 right-2 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -328,6 +331,18 @@ export default function StaffPage() {
             <p className="text-5xl font-bold text-gray-900 leading-none">{cashiers}</p>
           </div>
         </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 flex items-center gap-6 relative">
+          <button onClick={() => setSelectedStat('admin')} className="absolute top-2 right-2 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 17L17 7M7 7h10v10" />
+            </svg>
+          </button>
+          <div className="flex-shrink-0">
+            <p className="text-xs text-gray-400 mb-0.5">Statistics</p>
+            <p className="text-sm font-semibold text-gray-700 mb-3">{t('staff.admins')}</p>
+            <p className="text-5xl font-bold text-gray-900 leading-none">{admins}</p>
+          </div>
+        </div>
       </div>
 
       {/* Search Bar + Add Button */}
@@ -349,12 +364,10 @@ export default function StaffPage() {
             </button>
           )}
         </div>
-        {staff.length < 2 && (
-        <Button onClick={() => { resetForm(); setModalOpen(true); }} className="gap-2 bg-green-600 hover:bg-green-700 text-white shrink-0">
+        <Button onClick={() => { resetForm(); setModalOpen(true); }} disabled={currentUser?.role !== 'admin'} className="gap-2 bg-green-600 hover:bg-green-700 text-white shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
           <HugeiconsIcon icon={Add01Icon} className="text-xl"  />
           {t('staff.addStaff')}
         </Button>
-        )}
       </div>
 
       {/* Staff Table */}
@@ -410,17 +423,24 @@ export default function StaffPage() {
                   </td>
                   <td className="px-5 py-3.5 text-center">
                     <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
-                      s.role === "manager"
+                      s.role === "admin"
+                        ? "bg-rose-100 text-rose-700 border border-rose-200"
+                        : s.role === "manager"
                         ? "bg-purple-100 text-purple-700 border border-purple-200"
                         : "bg-blue-100 text-blue-700 border border-blue-200"
                     }`}>
-                      {s.role === "manager" ? t('staff.roleManager') : t('staff.roleCashier')}
+                      {s.role === "admin" ? "Admin" : s.role === "manager" ? t('staff.roleManager') : t('staff.roleCashier')}
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-center">
                     <button
                       onClick={() => startEdit(s)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                      disabled={currentUser?.role !== 'admin'}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        currentUser?.role !== 'admin'
+                          ? 'text-slate-400 bg-slate-50 border border-slate-200 cursor-not-allowed'
+                          : 'text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100'
+                      }`}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
                       Edit
@@ -550,7 +570,7 @@ export default function StaffPage() {
 
             <div className="border-t border-slate-200 px-6 py-4 flex justify-between gap-3 bg-white">
               {editing && (
-                <Button variant="outline" onClick={() => handleDelete(editing.user_uuid)} className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
+                <Button variant="outline" onClick={() => handleDelete(editing.user_uuid)} disabled={currentUser?.role !== 'admin'} className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed">
                   <HugeiconsIcon icon={Delete01Icon} className="text-lg mr-1"  />
                   {t('staff.deleteTitle')}
                 </Button>
@@ -561,8 +581,8 @@ export default function StaffPage() {
                 </Button>
                 <Button
                   onClick={editing ? handleUpdate : handleCreate}
-                  disabled={loading}
-                  className="bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-900/20"
+                  disabled={currentUser?.role !== 'admin' || loading}
+                  className="bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
@@ -630,6 +650,21 @@ export default function StaffPage() {
                 </div>
                 <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
                   <Sparkline data={trendData.cash} width={400} height={180} color="#10b981" />
+                </div>
+              </>
+            )}
+
+            {selectedStat === 'admin' && (
+              <>
+                <div className="flex-1 flex flex-col justify-center text-center px-4">
+                  <p className="text-base" style={{ color: "#888888" }}>Admins</p>
+                  <p className="text-5xl font-bold leading-none tracking-tight text-white mt-3">{admins.toLocaleString()}</p>
+                  <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full mt-3 mx-auto" style={{ background: "#e11d48", color: "#fff" }}>
+                    Admin Role
+                  </span>
+                </div>
+                <div className="relative -mx-5 -mb-3" style={{ height: 180 }}>
+                  <Sparkline data={trendData.cash} width={400} height={180} color="#e11d48" />
                 </div>
               </>
             )}

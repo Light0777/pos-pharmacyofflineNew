@@ -107,12 +107,6 @@ export class StaffController {
         return;
       }
 
-      // Check if trying to modify owner
-      if (existingUser.role === 'owner') {
-        res.status(403).json({ error: 'Cannot modify owner account through staff management' });
-        return;
-      }
-
       // Validate required fields for update
       if (!name || !email || !role) {
         res.status(400).json({ 
@@ -178,12 +172,6 @@ export class StaffController {
       res.json(safeUser);
     } catch (error: any) {
       console.error('Update staff error:', error);
-      
-      if (error.message === 'Cannot modify owner account through staff management') {
-        res.status(403).json({ error: error.message });
-        return;
-      }
-      
       res.status(500).json({ error: 'Internal server error' });
     }
   };
@@ -197,12 +185,6 @@ export class StaffController {
       const existingUser = UserModel.findById(userUuid);
       if (!existingUser) {
         res.status(404).json({ error: 'User not found' });
-        return;
-      }
-
-      // Prevent deleting owner
-      if (existingUser.role === 'owner') {
-        res.status(403).json({ error: 'Cannot delete owner account' });
         return;
       }
 
@@ -222,12 +204,6 @@ export class StaffController {
       res.json({ message: 'Staff deleted' });
     } catch (error: any) {
       console.error('Delete staff error:', error);
-      
-      if (error.message === 'Cannot delete owner account') {
-        res.status(403).json({ error: error.message });
-        return;
-      }
-      
       res.status(500).json({ error: 'Internal server error' });
     }
   };
@@ -242,7 +218,7 @@ export class StaffController {
         return;
       }
 
-      const users = UserModel.getStaffByRole(role as 'manager' | 'cashier');
+      const users = UserModel.getStaffByRole(role as 'admin' | 'manager' | 'cashier');
       const safeUsers = users.map(user => UserModel.toSafeUser(user));
 
       res.json(safeUsers);

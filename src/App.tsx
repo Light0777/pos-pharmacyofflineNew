@@ -64,7 +64,7 @@ export default function App() {
       <Route
         path="/admin"
         element={
-          <ProtectedRoute allowedRoles={["owner", "manager", "admin"]}>
+          <ProtectedRoute allowedRoles={["admin", "manager"]}>
             <AdminLayout />
           </ProtectedRoute>
         }
@@ -83,8 +83,8 @@ export default function App() {
         <Route path="settings" element={<Settings />} />
         <Route path="daily-report" element={<Navigate to="/admin/gst-report" replace />} />
         <Route path="gst-report" element={<GSTReport />} />
-        <Route path="h1-register" element={<RequireRole roles={["owner", "manager"]}><H1Register /></RequireRole>} />
-        <Route path="audit-logs" element={<RequireRole roles={["owner", "manager"]}><AuditLogs /></RequireRole>} />
+        <Route path="h1-register" element={<RequireRole roles={["admin", "manager"]}><H1Register /></RequireRole>} />
+        <Route path="audit-logs" element={<RequireRole roles={["admin", "manager"]}><AuditLogs /></RequireRole>} />
         <Route path="stock-adjustments" element={<StockAdjustments />} />
         <Route path="expired-medicines" element={<ExpiredMedicines />} />
       </Route>

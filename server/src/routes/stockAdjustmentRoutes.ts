@@ -22,6 +22,7 @@ router.get(
 // CREATE
 router.post(
   '/',
+  authorize('admin'),
   StockAdjustmentController.create
 );
 

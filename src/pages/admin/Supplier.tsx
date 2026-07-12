@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
   getSuppliers,
@@ -30,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 export default function SupplierPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -288,7 +290,7 @@ export default function SupplierPage() {
               <Button variant="outline" onClick={() => setAddDialogOpen(false)} className="border-slate-300 text-slate-700 hover:bg-slate-100">
                 {t('common.cancel')}
               </Button>
-              <Button onClick={handleCreate} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-900/20">
+              <Button onClick={handleCreate} disabled={user?.role !== 'admin' || loading} className="bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-900/20">
                 {loading ? t('suppliers.adding') : t('suppliers.addSupplier')}
               </Button>
             </div>
@@ -356,7 +358,7 @@ export default function SupplierPage() {
             </button>
           )}
         </div>
-        <Button onClick={() => setAddDialogOpen(true)} className="gap-2 bg-green-500 text-white shrink-0">
+        <Button onClick={() => setAddDialogOpen(true)} disabled={user?.role !== 'admin'} className="gap-2 bg-green-500 text-white shrink-0">
           <HugeiconsIcon icon={Add01Icon} className="text-xl"  />
           {t('suppliers.addSupplier')}
         </Button>
@@ -442,7 +444,8 @@ export default function SupplierPage() {
                   <td className="px-5 py-3.5 text-center">
                     <button
                       onClick={(e) => { e.stopPropagation(); startEdit(s); }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                      disabled={user?.role !== 'admin'}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
                       {t('suppliers.editTitle')}
@@ -566,13 +569,13 @@ export default function SupplierPage() {
               </div>
             </div>
             <div className="border-t border-slate-200 px-6 py-4 flex justify-between gap-3 bg-white">
-              <Button variant="outline" onClick={() => editingId && handleDelete(editingId)} className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
+              <Button variant="outline" onClick={() => editingId && handleDelete(editingId)} disabled={user?.role !== 'admin'} className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
                 <HugeiconsIcon icon={Delete01Icon} className="text-lg mr-1"  />
                 {t('suppliers.deleteTitle')}
               </Button>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setEditingId(null)} className="border-slate-300 text-slate-700 hover:bg-slate-100">{t('common.cancel')}</Button>
-                <Button onClick={() => editingId && handleUpdate(editingId)} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-900/20">
+                <Button onClick={() => editingId && handleUpdate(editingId)} disabled={user?.role !== 'admin' || loading} className="bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-900/20">
                   {loading ? t('suppliers.saving') : t('suppliers.saveChanges')}
                 </Button>
               </div>

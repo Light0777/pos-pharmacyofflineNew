@@ -66,7 +66,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
 
   const getRoleTranslation = (role?: string) => {
     switch (role) {
-      case 'owner': return t('topbar.roles.owner');
+      case 'admin': return t('topbar.roles.admin');
       case 'manager': return t('topbar.roles.manager');
       case 'cashier': return t('topbar.roles.cashier');
       default: return t('topbar.roles.user');

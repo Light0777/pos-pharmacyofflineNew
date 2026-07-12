@@ -881,6 +881,7 @@
     "totalStaff": "Total Staff",
     "managers": "Managers",
     "cashiers": "Cashiers",
+    "admins": "Admins",
     "searchPlaceholder": "Search staff by name or email...",
     "loadError": "Failed to load staff members",
     "validationRequired": "Name, email, and password are required",
@@ -1034,7 +1035,7 @@
     "daysRemaining_one": "{{days}} day remaining",
     "daysRemaining_other": "{{days}} days remaining",
     "roles": {
-      "owner": "Owner",
+      "admin": "Admin",
       "manager": "Manager",
       "cashier": "Cashier",
       "user": "User"
@@ -1104,10 +1105,9 @@
       "expiredMedicines": "Expired Meds"
     },
     "roles": {
-      "owner": "Owner",
+      "admin": "Admin",
       "manager": "Manager",
-      "cashier": "Cashier",
-      "admin": "Admin"
+      "cashier": "Cashier"
     }
   },
   "importProducts": {
@@ -1293,7 +1293,7 @@
       "admin": "Admin"
     },
     "roles": {
-      "owner": "Owner",
+      "admin": "Admin",
       "manager": "Manager",
       "cashier": "Cashier",
       "user": "User"

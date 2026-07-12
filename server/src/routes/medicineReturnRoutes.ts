@@ -17,9 +17,8 @@ router.use(authenticate);
 router.get(
   '/',
   authorize(
-    'owner',
-    'manager',
-    'admin'
+    'admin',
+    'manager'
   ),
   MedicineReturnController.index
 );
@@ -28,8 +27,6 @@ router.get(
 router.post(
   '/',
   authorize(
-    'owner',
-    'manager',
     'admin'
   ),
   MedicineReturnController.create

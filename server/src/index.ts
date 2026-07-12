@@ -5,6 +5,7 @@ import path from 'path';
 import { runMigrations } from './database/migrations/001_initial';
 import { runMigration as runSecurityQuestionsMigration } from './database/migrations/002_security_questions';
 import { runMigration as runSupplierBillsMigration } from './database/migrations/003_supplier_bills';
+import { runMigration as runRolesMigration } from './database/migrations/004_roles';
 import printingRoutes from './routes/printing';
 
 // Import routes
@@ -64,6 +65,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 runMigrations();
 runSecurityQuestionsMigration();
 runSupplierBillsMigration();
+runRolesMigration();
 
 const licensed = LicenseService.isLicensed();
 if (!licensed) {

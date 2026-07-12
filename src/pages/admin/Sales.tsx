@@ -561,7 +561,7 @@ export default function Sales() {
               </Button>
               <Button
                 onClick={() => handleDelete(deleteConfirm)}
-                disabled={deleting === deleteConfirm.sale_uuid}
+                disabled={user?.role !== 'admin' || deleting === deleteConfirm.sale_uuid}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white"
               >
                 {deleting === deleteConfirm.sale_uuid ? (
@@ -582,7 +582,7 @@ export default function Sales() {
           invoice={invoiceData}
           onClose={() => { setInvoiceData(null); setInvoiceSale(null); }}
           autoPrint={false}
-          onDelete={() => { setDeleteConfirm(invoiceSale); setInvoiceData(null); setInvoiceSale(null); }}
+          onDelete={user?.role === 'admin' ? () => { setDeleteConfirm(invoiceSale); setInvoiceData(null); setInvoiceSale(null); } : undefined}
         />
       )}
 

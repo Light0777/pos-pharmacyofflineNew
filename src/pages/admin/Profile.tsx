@@ -113,11 +113,11 @@ export default function Profile() {
 
   const getRoleBadge = (role: string) => {
     const styles: Record<string, string> = {
-      owner: "bg-amber-50 text-amber-700 border-amber-200",
+      admin: "bg-amber-50 text-amber-700 border-amber-200",
       manager: "bg-sky-50 text-sky-700 border-sky-200",
       cashier: "bg-emerald-50 text-emerald-700 border-emerald-200",
     };
-    const roleKey = role === "owner" ? "owner" : role === "manager" ? "manager" : "cashier";
+    const roleKey = role === "admin" ? "admin" : role === "manager" ? "manager" : "cashier";
     return (
       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[roleKey]}`}>
         {t(`profile.roles.${roleKey}`)}

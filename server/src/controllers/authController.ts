@@ -42,7 +42,7 @@ export class AuthController {
         name,
         email,
         password: hashedPassword,
-        role: 'owner',
+        role: 'admin',
         security_question: security_question || undefined,
         security_answer: hashedAnswer
       });

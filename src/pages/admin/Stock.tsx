@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../../context/AuthContext";
 import { format } from "date-fns";
 import { getStock } from "../../renderer/services/stockApi";
 import { getProductBatches, updateProductBatch, createProductBatch, updateProduct } from "../../renderer/services/productApi";
@@ -38,6 +39,7 @@ interface StockItem {
 
 export default function Stock() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [items, setItems] = useState<StockItem[]>([]);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [loading, setLoading] = useState(false);
@@ -525,7 +527,8 @@ export default function Stock() {
                             setLoadingBatches(false);
                           }
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                        disabled={user?.role !== 'admin'}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
@@ -820,6 +823,7 @@ export default function Stock() {
                                   expiry_date: '',
                                 }]);
                               }}
+                              disabled={user?.role !== 'admin'}
                               className="text-sm"
                             >
                               + Add Batch
@@ -925,7 +929,8 @@ export default function Stock() {
                                 <button
                                   type="button"
                                   onClick={() => setNewBatchRows(prev => prev.filter(r => r.tempId !== row.tempId))}
-                                  className="mt-2 text-xs text-red-500 hover:text-red-700"
+                                  disabled={user?.role !== 'admin'}
+                                  className="mt-2 text-xs text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   ✕ Remove
                                 </button>

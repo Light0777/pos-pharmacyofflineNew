@@ -28,7 +28,7 @@ router.post('/:cart_uuid/discount', CartController.applyDiscount);
 
 // Checkout (requires cashier role or higher)
 router.post('/:cart_uuid/checkout', 
-  authorize('owner', 'manager', 'cashier'), 
+  authorize('admin', 'manager', 'cashier'), 
   SaleController.checkout
 );
 

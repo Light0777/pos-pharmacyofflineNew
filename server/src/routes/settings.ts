@@ -14,16 +14,16 @@ router.use(authenticate);
 // GET settings (any authenticated user)
 router.get('/', SettingsController.get);
 
-// POST save settings (owner only)
-router.post('/', authorize('owner'), SettingsController.save);
+// POST save settings (admin only)
+router.post('/', authorize('admin'), SettingsController.save);
 
-// PUT update settings (owner only)
-router.put('/', authorize('owner'), SettingsController.update);
+// PUT update settings (admin only)
+router.put('/', authorize('admin'), SettingsController.update);
 
-// Additional routes for backup management (owner only)
-router.post('/backup', authorize('owner'), SettingsController.backup);
-router.get('/backups', authorize('owner'), SettingsController.listBackups);
-router.post('/restore', authorize('owner'), SettingsController.restore);
-router.post('/test-print', authorize('owner'), SettingsController.testPrint);
+// Additional routes for backup management (admin only)
+router.post('/backup', authorize('admin'), SettingsController.backup);
+router.get('/backups', authorize('admin'), SettingsController.listBackups);
+router.post('/restore', authorize('admin'), SettingsController.restore);
+router.post('/test-print', authorize('admin'), SettingsController.testPrint);
 
 export default router;

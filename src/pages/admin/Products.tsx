@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../../context/AuthContext";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import SimpleDatePicker from "../../components/SimpleDatePicker";
@@ -344,6 +345,7 @@ const compressImage = (file: File, maxWidth = 800, maxHeight = 800, quality = 0.
 // ─── Main Products Component ──────────────────────────────────────────────
 export default function Products() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
   const [editingBatchUuid, setEditingBatchUuid] = useState<string | null>(null);
@@ -1458,7 +1460,8 @@ export default function Products() {
               setFormKey(k => k + 1);
               setShowForm(true);
             }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white text-sm font-semibold rounded-xl transition-all shadow-md shadow-green-900/20 shrink-0"
+            disabled={user?.role !== 'admin'}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white text-sm font-semibold rounded-xl transition-all shadow-md shadow-green-900/20 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -1468,7 +1471,7 @@ export default function Products() {
           <Tooltip label={t('products.quarantineExpired')}>
             <button
               onClick={handleQuarantineExpired}
-              disabled={quarantining}
+              disabled={user?.role !== 'admin' || quarantining}
               className="p-2.5 rounded-xl border border-slate-200 bg-white transition-all text-red-500 hover:bg-red-50 hover:border-red-200 disabled:opacity-40"
             >
               {quarantining ? (
@@ -1599,7 +1602,8 @@ export default function Products() {
             <div className="flex items-center gap-2 ml-auto">
               <button
                 onClick={() => setDeleteConfirm({ count: selectedRows.size })}
-                className="px-3 py-1.5 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                disabled={user?.role !== 'admin'}
+                className="px-3 py-1.5 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('products.deleteTitle')}
               </button>
@@ -1791,7 +1795,8 @@ export default function Products() {
                                 handleEdit(p);
                                 loadBatchInfo(p.product_uuid);
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                              disabled={user?.role !== 'admin'}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
                               {t('products.editTitle')}
@@ -2102,7 +2107,8 @@ export default function Products() {
                         <button
                           type="button"
                           onClick={(e) => confirmDeleteBatch(e, row.id)}
-                          className="absolute -top-2 -right-2 w-7 h-7 bg-red-50 border border-red-200 rounded-full flex items-center justify-center text-red-500 hover:bg-red-100 text-sm transition-all"
+                          disabled={user?.role !== 'admin'}
+                          className="absolute -top-2 -right-2 w-7 h-7 bg-red-50 border border-red-200 rounded-full flex items-center justify-center text-red-500 hover:bg-red-100 text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
@@ -2157,7 +2163,8 @@ export default function Products() {
                   <button
                     type="button"
                     onClick={addBatchRow}
-                    className="mt-3 w-full py-2.5 border-2 border-dashed border-slate-300 rounded-xl text-sm text-slate-500 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50/30 transition-all flex items-center justify-center gap-2"
+                    disabled={user?.role !== 'admin'}
+                    className="mt-3 w-full py-2.5 border-2 border-dashed border-slate-300 rounded-xl text-sm text-slate-500 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                     {t('products.addBatch')}
@@ -2230,6 +2237,7 @@ export default function Products() {
                       {!showNewPurchase && (
                         <button
                           type="button"
+                          disabled={user?.role !== 'admin'}
                           onClick={() => {
                             setNewSupplierSearch("");
                             setNewSupplierDropdownOpen(false);
@@ -2238,7 +2246,7 @@ export default function Products() {
                             const newIds = batchRows.filter(r => !r.batch_uuid).map(r => r.id);
                             setNewPurchaseBatchIds(newIds);
                           }}
-                          className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-300 hover:border-emerald-400 px-3 py-1.5 rounded-lg transition-all"
+                          className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-300 hover:border-emerald-400 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-emerald-600 disabled:hover:border-emerald-300"
                         >
                           {t('products.addNewDetails')}
                         </button>
@@ -2630,7 +2638,7 @@ export default function Products() {
                       const product = products.find((p) => p.product_uuid === uuid);
                       setDeleteConfirm({ uuid, name: product?.name || t('products.thisProduct') });
                     }}
-                    disabled={deleting === (editing.product_uuid || editing.uuid)}
+                    disabled={user?.role !== 'admin' || deleting === (editing.product_uuid || editing.uuid)}
                     className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl transition-all disabled:opacity-50"
                   >
                     {deleting === (editing.product_uuid || editing.uuid) ? (

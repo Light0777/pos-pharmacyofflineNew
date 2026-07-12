@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { apiGet, setOnUnauthorized } from "../renderer/services/api";
 
-const VALID_ROLES = ["owner", "manager", "admin", "cashier"] as const;
+const VALID_ROLES = ["admin", "manager", "cashier"] as const;
 
 type UserRole = typeof VALID_ROLES[number];
 
@@ -28,11 +28,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   function isValidRole(role: string): role is UserRole {
+  if (role === 'owner') return true;
   return VALID_ROLES.includes(role as UserRole);
 }
 
 function isUserValid(user: any): user is User {
   return user && typeof user === "object" && user.name && isValidRole(user.role);
+}
+
+function normalizeUser(user: any): User {
+  if (user.role === 'owner') {
+    return { ...user, role: 'admin' };
+  }
+  return user;
 }
 
   // 🔥 INIT AUTH (runs once on app load)
@@ -56,9 +64,10 @@ function isUserValid(user: any): user is User {
 
         const userData = res?.data?.user || res?.user;
 
-        if (userData && isUserValid(userData)) {
-          setUser(userData);
-          localStorage.setItem("user", JSON.stringify(userData));
+        const normalizedUserData = userData ? normalizeUser(userData) : null;
+        if (normalizedUserData && isUserValid(normalizedUserData)) {
+          setUser(normalizedUserData);
+          localStorage.setItem("user", JSON.stringify(normalizedUserData));
         } else if (userData && !isUserValid(userData)) {
           localStorage.removeItem("token");
           localStorage.removeItem("user");
@@ -72,7 +81,7 @@ function isUserValid(user: any): user is User {
         } else {
           // Empty or unexpected response — fall back to stored user (offline/server-not-ready mode)
           try {
-            const parsedUser = JSON.parse(storedUser);
+            const parsedUser = normalizeUser(JSON.parse(storedUser));
             if (isUserValid(parsedUser)) {
               setUser(parsedUser);
             } else {
@@ -97,7 +106,7 @@ function isUserValid(user: any): user is User {
         // Use cached user for offline mode
         let parsedUser: any;
         try {
-          parsedUser = JSON.parse(storedUser);
+          parsedUser = normalizeUser(JSON.parse(storedUser));
         } catch (error) {
           console.error("Failed to parse stored user data", error);
         }
@@ -118,16 +127,17 @@ function isUserValid(user: any): user is User {
 
   // ✅ LOGIN - Store both token and user
   const login = (newToken: string, newUser: User) => {
-    if (!isUserValid(newUser)) {
+    const normalized = normalizeUser(newUser);
+    if (!isUserValid(normalized)) {
       console.error("Invalid user data");
       return;
     }
     setToken(newToken);
-    setUser(newUser);
+    setUser(normalized);
 
     // Store in localStorage for persistence
     localStorage.setItem("token", newToken);
-    localStorage.setItem("user", JSON.stringify(newUser));
+    localStorage.setItem("user", JSON.stringify(normalized));
   };
 
   // ✅ LOGOUT - Clear everything

@@ -15,6 +15,6 @@ export function canDispenseRestrictedMedicine(
   }
 
   return (
-    user.role === 'owner' || user.role === 'manager'
+    user.role === 'admin' || user.role === 'manager'
   );
 }

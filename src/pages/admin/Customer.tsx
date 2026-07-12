@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../../context/AuthContext";
 import {
   getCustomers,
   createCustomer,
@@ -43,6 +44,7 @@ const formatCompactNumber = (num: number): string => {
 
 export default function CustomerPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [editing, setEditing] = useState<any | null>(null);
@@ -423,7 +425,7 @@ export default function CustomerPage() {
               </button>
             )}
           </div>
-          <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="gap-2 bg-green-500 text-white shrink-0">
+          <Button onClick={() => { resetForm(); setDialogOpen(true); }} disabled={user?.role !== 'admin'} className="gap-2 bg-green-500 text-white shrink-0">
             <HugeiconsIcon icon={UserAdd01Icon} className="text-xl"  />
             {t('customers.addCustomer')}
           </Button>
@@ -494,7 +496,8 @@ export default function CustomerPage() {
                         <td className="px-5 py-3.5 text-center">
                           <button
                             onClick={() => handleEdit(c)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                            disabled={user?.role !== 'admin'}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
@@ -586,15 +589,16 @@ export default function CustomerPage() {
                              </button>
                            </td>
                            <td className="px-5 py-3.5 text-center">
-                             <button
-                               onClick={() => handleEdit(c)}
-                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
-                             >
-                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                 <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-                               </svg>
-                               Edit
-                             </button>
+                              <button
+                                onClick={() => handleEdit(c)}
+                                disabled={user?.role !== 'admin'}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                                </svg>
+                                Edit
+                              </button>
                            </td>
                          </tr>
                        );
@@ -677,7 +681,8 @@ export default function CustomerPage() {
                         <td className="px-5 py-3.5 text-center">
                           <button
                             onClick={() => handleEdit(r)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                            disabled={user?.role !== 'admin'}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
@@ -806,7 +811,7 @@ export default function CustomerPage() {
                       setDeleting(editing.customer_uuid);
                       handleDelete(editing.customer_uuid);
                     }}
-                    disabled={deleting === editing.customer_uuid}
+                    disabled={user?.role !== 'admin' || deleting === editing.customer_uuid}
                     className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl transition-all disabled:opacity-50"
                   >
                     {deleting === editing.customer_uuid ? "Deleting…" : "Delete Customer"}

@@ -4,18 +4,17 @@ import { authenticate, authorize } from '../middleware/auth';
 
 const router = Router();
 
-// All staff routes require authentication and owner role
+// Staff routes — read requires auth, write requires admin
 router.use(authenticate);
-router.use(authorize('owner')); // Only owner can manage staff
 
-// Summary before parameterized routes
+// Read — admin & manager can view
+router.get('/', StaffController.index);
 router.get('/summary', StaffController.summary);
 router.get('/role/:role', StaffController.byRole);
 
-// Staff CRUD
-router.get('/', StaffController.index);
-router.post('/', StaffController.store);
-router.put('/:user_uuid', StaffController.update);
-router.delete('/:user_uuid', StaffController.destroy);
+// Write — admin only
+router.post('/', authorize('admin'), StaffController.store);
+router.put('/:user_uuid', authorize('admin'), StaffController.update);
+router.delete('/:user_uuid', authorize('admin'), StaffController.destroy);
 
 export default router;
