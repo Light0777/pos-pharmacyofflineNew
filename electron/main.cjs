@@ -258,6 +258,29 @@ ipcMain.handle('open-external', async (event, url) => {
   shell.openExternal(url);
 });
 
+ipcMain.handle('open-whatsapp', async (event, url) => {
+  const { session } = require('electron');
+  const whatsappSession = session.fromPartition('whatsapp', { cache: true });
+  const win = new BrowserWindow({
+    width: 720,
+    height: 600,
+    autoHideMenuBar: true,
+    title: 'WhatsApp',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false,
+      session: whatsappSession,
+    }
+  });
+    try {
+      win.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      await win.loadURL(url);
+    } catch (err) {
+      console.error('WhatsApp window failed to load:', err);
+    }
+});
+
 ipcMain.handle('check-for-updates', async () => {
   try {
     return await checkForUpdates();
@@ -305,10 +328,14 @@ app.whenReady().then(() => {
   const isDev = !app.isPackaged;
 
   const csp = isDev
-    ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:5173 ws://localhost:5173; font-src 'self' data: https://fonts.gstatic.com"
-    : "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; connect-src 'self' http://127.0.0.1:3000; font-src 'self' data: https://fonts.gstatic.com";
+    ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:5173 ws://localhost:5173; font-src 'self' data: https://fonts.gstatic.com; frame-src https://wa.me https://web.whatsapp.com; child-src https://wa.me https://web.whatsapp.com"
+    : "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; connect-src 'self' http://127.0.0.1:3000; font-src 'self' data: https://fonts.gstatic.com; frame-src https://wa.me https://web.whatsapp.com; child-src https://wa.me https://web.whatsapp.com";
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    if (details.url.startsWith('https://wa.me') || details.url.startsWith('https://web.whatsapp.com')) {
+      callback({ responseHeaders: details.responseHeaders });
+      return;
+    }
     callback({
       responseHeaders: {
         ...details.responseHeaders,

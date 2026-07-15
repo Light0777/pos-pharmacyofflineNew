@@ -259,12 +259,8 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
       `Thank you! 🙏`,
     ].filter(line => line !== null).join('\n');
 
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    if (window.electron?.openExternal) {
-      window.electron.openExternal(url);
-    } else {
-      window.open(url, '_blank');
-    }
+    const url = phone ? `https://web.whatsapp.com/send/?phone=${phone}&text=${encodeURIComponent(message)}` : `https://web.whatsapp.com/`;
+    window.electron?.openWhatsApp(url);
   };
 
   useEffect(() => {

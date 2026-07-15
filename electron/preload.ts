@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electron', {
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: (assetUrl: string) => ipcRenderer.invoke('download-update', assetUrl),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+  openWhatsApp: (url: string) => ipcRenderer.invoke('open-whatsapp', url),
   getLastUpdateCheck: () => ipcRenderer.invoke('get-last-update-check'),
   setLastUpdateCheck: (ts: number) => ipcRenderer.invoke('set-last-update-check', ts),
   onUpdateDownloadProgress: (callback: (data: any) => void) => {

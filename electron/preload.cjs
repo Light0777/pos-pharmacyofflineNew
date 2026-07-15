@@ -6,6 +6,7 @@ import_electron.contextBridge.exposeInMainWorld("electron", {
   checkForUpdates: () => import_electron.ipcRenderer.invoke("check-for-updates"),
   downloadUpdate: (assetUrl) => import_electron.ipcRenderer.invoke("download-update", assetUrl),
   openExternal: (url) => import_electron.ipcRenderer.invoke("open-external", url),
+  openWhatsApp: (url) => import_electron.ipcRenderer.invoke("open-whatsapp", url),
   getLastUpdateCheck: () => import_electron.ipcRenderer.invoke("get-last-update-check"),
   setLastUpdateCheck: (ts) => import_electron.ipcRenderer.invoke("set-last-update-check", ts),
   onUpdateDownloadProgress: (callback) => {
