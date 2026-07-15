@@ -793,10 +793,10 @@ export default function Settings() {
             <span style={{ fontSize: "0.85rem", color: "#6b7280", display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{
                 display: "inline-block", padding: "2px 8px", borderRadius: 6, fontWeight: 600, fontSize: "0.75rem",
-                background: data.bill_format === "a4" ? "#dbeafe" : data.bill_format === "a5" ? "#fef3c7" : "#dcfce7",
-                color: data.bill_format === "a4" ? "#1d4ed8" : data.bill_format === "a5" ? "#b45309" : "#166534"
+                background: data.bill_format === "a4" ? "#dbeafe" : data.bill_format === "a5" ? "#fef3c7" : data.bill_format === "supplier" ? "#ede9fe" : "#dcfce7",
+                color: data.bill_format === "a4" ? "#1d4ed8" : data.bill_format === "a5" ? "#b45309" : data.bill_format === "supplier" ? "#6d28d9" : "#166534"
               }}>
-                {data.bill_format === "a4" ? "A4 Sheet" : data.bill_format === "a5" ? "A5 Sheet" : data.bill_format === "80mm" ? "80mm Thermal" : "58mm Thermal"}
+                {data.bill_format === "a4" ? "A4 Sheet" : data.bill_format === "a5" ? "A5 Sheet" : data.bill_format === "supplier" ? "Supplier Bill Format" : data.bill_format === "80mm" ? "80mm Thermal" : "58mm Thermal"}
               </span>
             </span>
           </div>
@@ -1225,6 +1225,7 @@ export default function Settings() {
               {[
                 { id: "a4", label: "A4 Sheet", desc: "Full page A4, GST breakdown, Rx info" },
                 { id: "a5", label: "A5 Sheet", desc: "Half page, compact layout" },
+                { id: "supplier", label: "Supplier Bill Format", desc: "A4 GST purchase invoice for supplier records" },
                 { id: "80mm", label: "80mm Thermal", desc: "ESC/POS thermal receipt" },
                 { id: "58mm", label: "58mm Thermal", desc: "ESC/POS thermal receipt" },
               ].map((opt) => {
@@ -1273,6 +1274,7 @@ export default function Settings() {
               <div style={{ fontSize: "0.7rem", color: "#9ca3af", textAlign: "center", paddingTop: 8, borderTop: "1px solid #f3f4f6" }}>
                 {data.bill_format === "a4" && "Prints on A4 paper via browser"}
                 {data.bill_format === "a5" && "Prints on A5 paper via browser"}
+                {data.bill_format === "supplier" && "Prints on A4 paper via browser — supplier purchase invoice layout"}
                 {data.bill_format === "80mm" && "Sends ESC/POS to 80mm thermal printer"}
                 {data.bill_format === "58mm" && "Sends ESC/POS to 58mm thermal printer"}
               </div>

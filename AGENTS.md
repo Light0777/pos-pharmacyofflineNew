@@ -20,6 +20,7 @@ Manage product creation/editing with multi-batch system, unit/category dropdowns
 ## Progress
 
 ### Done
+- **Supplier Bill Format**: added new bill format option in Settings (purple badge), `renderSupplier()` in InvoiceReceipt.tsx rendering A4 GST purchase invoice layout with seller info, invoice meta table, buyer info, line items table, and footer — uses `window.print()` A4 path
 - **Role system restructuring (owner→admin, 3 roles)**: types, auth controller, User model, pharmacyAuth, migration 004, staff/admin routes, frontend AuthContext/App/AdminLayout/TopBar/Profile, translation files (en/ta)
 - **Manager read-only authorization**: backend authorize('admin') on write routes for products, batches, purchases, customers, suppliers, stockAdjustment; frontend read-only UI gating in Products, Stock, Sales, Customer, Supplier pages
 - **Staff page Phase 5**: admin shown in staff list with admin badge (rose styling), edit/delete disabled for admin rows, Add Staff button admin-only, stats include admin count, translation keys added

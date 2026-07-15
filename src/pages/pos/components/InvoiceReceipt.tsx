@@ -44,6 +44,7 @@ function numberToWords(num: number): string {
 const BILL_FORMATS: Record<string, { paperWidth?: number }> = {
   a4: {},
   a5: {},
+  supplier: {},
   '80mm': { paperWidth: 42 },
   '58mm': { paperWidth: 32 },
 };
@@ -259,7 +260,11 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
     ].filter(line => line !== null).join('\n');
 
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+    if (window.electron?.openExternal) {
+      window.electron.openExternal(url);
+    } else {
+      window.open(url, '_blank');
+    }
   };
 
   useEffect(() => {
@@ -275,6 +280,117 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
     window.addEventListener('keydown', handleShortcuts);
     return () => window.removeEventListener('keydown', handleShortcuts);
   }, [formattedInvoice]);
+
+  const renderSupplier = () => (
+    <div id="receipt" className="supplier-invoice" style={{ width: '100%', margin: '0 auto', background: '#fff', border: '2px solid #000', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 14, color: '#111' }}>
+      {/* Top row: Seller | Meta | Buyer */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.4fr 1.2fr', borderBottom: '2px solid #000' }}>
+        <div style={{ padding: '10px 12px', borderRight: '2px solid #000' }}>
+          <div style={{ fontWeight: 'bold', fontSize: 20, marginBottom: 3 }}>{shop.name || 'Shop Name'}</div>
+          <div style={{ lineHeight: 1.5, fontSize: 14 }}>{shop.address || 'Address'}</div>
+          <div style={{ lineHeight: 1.5, marginTop: 5, fontSize: 14 }}>Phone : {shop.mobile || 'Phone'}</div>
+          <div style={{ lineHeight: 1.5, fontSize: 14 }}>D.L.No. : {shop.drug_license_number || 'DL No'}</div>
+          <div style={{ lineHeight: 1.5, fontSize: 14 }}>GSTIN : {shop.gstin || 'GSTIN'}</div>
+        </div>
+        <div style={{ borderRight: '2px solid #000', padding: 0 }}>
+          <div style={{ textAlign: 'center', padding: '10px 8px 8px' }}>
+            <div style={{ fontStyle: 'italic', textDecoration: 'underline', fontSize: 13 }}>Original for Buyer</div>
+            <div style={{ fontWeight: 'bold', fontSize: 20, margin: '2px 0' }}>GST INVOICE</div>
+            <div style={{ fontWeight: 'bold', fontSize: 13 }}>CREDIT</div>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', borderTop: '2px solid #000' }}>
+            <tbody>
+              <tr>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderTop: '1px solid #000', padding: '0 10px', fontSize: 14, fontWeight: 'bold', width: '25%', whiteSpace: 'nowrap', lineHeight: '20px' }}>Invoice No</td>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderTop: '1px solid #000', padding: '0 10px', fontSize: 14, width: '25%', lineHeight: '20px' }}>{formattedInvoice.invoice_number}</td>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderTop: '1px solid #000', padding: '0 10px', fontSize: 14, width: '25%', whiteSpace: 'nowrap', lineHeight: '20px' }}>order no.</td>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderTop: '1px solid #000', padding: '0 10px', fontSize: 14, width: '25%', whiteSpace: 'nowrap', lineHeight: '20px' }}>case 0</td>
+              </tr>
+              <tr>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '0 10px', fontSize: 14, lineHeight: '20px' }}></td>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '0 10px', fontSize: 14, lineHeight: '20px' }}></td>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '0 10px', fontSize: 14, whiteSpace: 'nowrap', lineHeight: '20px' }}>order date</td>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '0 10px', fontSize: 14, lineHeight: '20px' }}>{formatDate(formattedInvoice.created_at)}</td>
+              </tr>
+              <tr>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0 10px', fontSize: 14, fontWeight: 'bold', whiteSpace: 'nowrap', lineHeight: '20px' }}>invoice date</td>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0 10px', fontSize: 14, lineHeight: '20px' }}>{formatDate(formattedInvoice.created_at)}</td>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0 10px', fontSize: 14, whiteSpace: 'nowrap', lineHeight: '20px' }}>L.R. No.</td>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', padding: '0 10px', fontSize: 14, whiteSpace: 'nowrap', lineHeight: '20px' }}>transport</td>
+              </tr>
+              <tr>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '0 10px', fontSize: 14, fontWeight: 'bold', whiteSpace: 'nowrap', lineHeight: '20px' }}>due date</td>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '0 10px', fontSize: 14, lineHeight: '20px' }}></td>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '0 10px', fontSize: 14, whiteSpace: 'nowrap', lineHeight: '20px' }}>L.R. Date</td>
+                <td style={{ borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #000', padding: '0 10px', fontSize: 14, whiteSpace: 'nowrap', lineHeight: '20px' }}>Deliver to Store</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style={{ padding: '10px 12px' }}>
+          <div style={{ fontStyle: 'italic', textDecoration: 'underline', marginBottom: 2, fontSize: 14 }}>Party Name :</div>
+          <div style={{ fontWeight: 'bold', fontSize: 20, marginBottom: 3 }}>{customer?.name || 'Supplier Name'}</div>
+          <div style={{ lineHeight: 1.5, fontSize: 14 }}>{customer?.address || 'Supplier Address'}</div>
+          <div style={{ lineHeight: 1.5, marginTop: 5, fontSize: 14 }}>Phone : {customer?.mobile || 'Supplier Phone'}</div>
+          <div style={{ lineHeight: 1.5, fontSize: 14 }}>D.L.No. : Supplier DL No</div>
+        </div>
+      </div>
+
+      {/* Line items table */}
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            {['MFR', 'HSN', 'Product Description', 'Batch No.', 'Exp.', 'M.R.P. Rs.', 'Qty', 'Free Qty', 'RATE', 'Gross Amt Rs.', 'Dis%', 'GST%', 'GST Amt Rs.', 'Total Rs.'].map((h, i) => (
+              <th key={i} style={{ border: '1px solid #000', padding: '6px 8px', fontSize: 11, textAlign: 'center', fontWeight: 'bold', background: '#fff', lineHeight: 1.2 }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item: any, idx: number) => (
+            <tr key={idx}>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'center', lineHeight: 1.3 }}>{item.manufacturer || '—'}</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'center', lineHeight: 1.3 }}>—</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'left', lineHeight: 1.3 }}>{item.name}</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'center', lineHeight: 1.3 }}>{item.batch_number || '—'}</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'center', lineHeight: 1.3 }}>{item.expiry || '—'}</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'right', lineHeight: 1.3 }}>{item.price ? Number(item.price).toFixed(2) : '—'}</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'center', lineHeight: 1.3 }}>{item.qty || 0}</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'center', lineHeight: 1.3 }}>—</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'right', lineHeight: 1.3 }}>{item.price ? Number(item.price).toFixed(2) : '—'}</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'right', lineHeight: 1.3 }}>{Number(item.total || 0).toFixed(2)}</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'right', lineHeight: 1.3 }}>{discount > 0 ? discount.toFixed(2) : '—'}</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'center', lineHeight: 1.3 }}>{item.tax_percent > 0 ? `${item.tax_percent}%` : '—'}</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'right', lineHeight: 1.3 }}>{item.tax_percent > 0 ? (Number(item.total || 0) - Number(item.total || 0) / (1 + item.tax_percent / 100)).toFixed(2) : '0.00'}</td>
+              <td style={{ border: '1px solid #000', padding: '4px 8px', fontSize: 12, textAlign: 'right', lineHeight: 1.3 }}>{Number(item.total || 0).toFixed(2)}</td>
+            </tr>
+          ))}
+          <tr style={{ fontWeight: 'bold' }}>
+            <td colSpan={6} style={{ border: '1px solid #000', padding: '6px 8px', fontSize: 13 }}>&nbsp;</td>
+            <td style={{ border: '1px solid #000', padding: '6px 8px', fontSize: 13, textAlign: 'center' }}>{items.reduce((s: number, i: any) => s + Number(i.qty || 0), 0)}</td>
+            <td style={{ border: '1px solid #000', padding: '6px 8px', fontSize: 13 }}>&nbsp;</td>
+            <td style={{ border: '1px solid #000', padding: '6px 8px', fontSize: 13 }}>&nbsp;</td>
+            <td style={{ border: '1px solid #000', padding: '6px 8px', fontSize: 13, textAlign: 'right' }}>{Number(summary.subtotal).toFixed(2)}</td>
+            <td style={{ border: '1px solid #000', padding: '6px 8px', fontSize: 13 }}>&nbsp;</td>
+            <td style={{ border: '1px solid #000', padding: '6px 8px', fontSize: 13 }}>&nbsp;</td>
+            <td style={{ border: '1px solid #000', padding: '6px 8px', fontSize: 13, textAlign: 'right' }}>{(totalCgst + totalSgst).toFixed(2)}</td>
+            <td style={{ border: '1px solid #000', padding: '6px 8px', fontSize: 13, textAlign: 'right' }}>{Number(summary.grand_total).toFixed(2)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Footer */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '2px solid #000' }}>
+        <div style={{ padding: '28px 10px 10px', fontSize: 13 }}>
+          Goods once sold will not be taken back.<br />
+          Interest @ 24% p.a. will be charged if payment is not made within due date.
+        </div>
+        <div style={{ padding: '28px 10px 10px', fontSize: 13, textAlign: 'right', borderLeft: '2px solid #000' }}>
+          For {shop.name || 'Shop Name'}<br /><br /><br />
+          Authorised Signatory
+        </div>
+      </div>
+    </div>
+  );
 
   if (!formattedInvoice) {
     return createPortal(
@@ -856,10 +972,11 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
   return createPortal(
     <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}>
         <div className="absolute inset-0 overflow-y-auto flex flex-col items-center p-4">
-        <div className={`flex flex-col items-center gap-4 ${isThermal ? 'w-full max-w-[400px] my-auto' : 'w-full max-w-[210mm]'} pb-20`}>
+        <div className={`flex flex-col items-center gap-4 ${isThermal ? 'w-full max-w-[400px] my-auto' : billFormat === 'supplier' ? 'w-full max-w-[900px] my-auto' : 'w-full max-w-[210mm]'} pb-20`}>
 
           {billFormat === 'a4' && renderA4()}
           {billFormat === 'a5' && renderA5()}
+          {billFormat === 'supplier' && renderSupplier()}
           {(billFormat === '80mm' || billFormat === '58mm') && renderThermal()}
 
         </div>
@@ -1121,9 +1238,10 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
             border-radius: 0;
             page-break-inside: avoid;
           }
-          .a4-sheet { padding: 10mm 12mm; }
-          .a5-sheet { padding: 5mm 6mm; }
-          .thermal-receipt { display: none; }
+          .a4-sheet { padding: 10mm 12mm; display: ${billFormat === 'a4' ? 'block' : 'none'}; }
+          .a5-sheet { padding: 5mm 6mm; display: ${billFormat === 'a5' ? 'block' : 'none'}; }
+          .supplier-invoice { display: ${billFormat === 'supplier' ? 'block' : 'none'}; }
+          .thermal-receipt { display: ${billFormat === '80mm' || billFormat === '58mm' ? 'block' : 'none'}; }
           .print\\:hidden { display: none !important; }
           #receipt, #receipt * { visibility: visible; }
         }

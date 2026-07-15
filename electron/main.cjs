@@ -254,6 +254,10 @@ async function checkForUpdates() {
 }
 
 // ─── IPC Handlers ───────────────────────────────────────────────────────────
+ipcMain.handle('open-external', async (event, url) => {
+  shell.openExternal(url);
+});
+
 ipcMain.handle('check-for-updates', async () => {
   try {
     return await checkForUpdates();
