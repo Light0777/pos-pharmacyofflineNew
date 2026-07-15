@@ -195,6 +195,42 @@ export class ProductModel {
   }
 
 
+  /**
+   * Bulk find products by names and barcodes
+   */
+  static bulkFindByNamesAndBarcodes(
+    names: string[],
+    barcodes: string[]
+  ): Product[] {
+    if (names.length === 0 && barcodes.length === 0) return [];
+
+    const conditions: string[] = [];
+    const params: string[] = [];
+
+    // Add name conditions
+    if (names.length > 0) {
+      const namePlaceholders = names.map(() => '?').join(',');
+      conditions.push(`name IN (${namePlaceholders})`);
+      params.push(...names);
+    }
+
+    // Add barcode conditions
+    if (barcodes.length > 0) {
+      const barcodePlaceholders = barcodes.map(() => '?').join(',');
+      conditions.push(`barcode IN (${barcodePlaceholders})`);
+      params.push(...barcodes);
+    }
+
+    const stmt = db.prepare(`
+    SELECT * FROM products
+    WHERE ${conditions.join(' OR ')}
+    ORDER BY name ASC
+  `);
+
+    return stmt.all(...params) as Product[];
+  }
+
+
   // =========================
   // FIND BY NAME AND MANUFACTURER
   // =========================

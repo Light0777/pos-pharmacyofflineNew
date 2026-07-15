@@ -1,118 +1,297 @@
+// services/AutoUpdateService.ts
+
 import { PurchaseModel } from "../models/Purchase";
 import { ProductModel } from "../models/Product";
 import { ProductUnitModel } from "../models/ProductUnit";
 import { parseExpiryDate, parsePackInfo, mapPackToProductFields } from "../utils/productMapper";
 import type { AutoUpdateRequest, SupplierInvoiceItem } from "../types/supplierInvoice";
 
+interface ProcessingResult {
+  created: number;
+  updated: number;
+  errors: Array<{ item: string; error: string }>;
+  purchase_uuid?: string;
+}
+
 export class AutoUpdateService {
 
-  static process(data: AutoUpdateRequest) {
-    console.log("\n========== AUTO UPDATE ==========");
-    console.log("Items:", data.items.length);
+  // Batch size for processing chunks
+  private static readonly BATCH_SIZE = 50;
 
-    const purchaseItems = data.items.map(item => this.processItem(item));
-
-    console.log("\nPurchase Payload");
-    console.dir(purchaseItems, { depth: null });
-
-    const purchase = PurchaseModel.create({
-      supplier_uuid: data.supplier_uuid,
-      invoice_number: data.invoice_number,
-      invoice_date: data.invoice_date,
-      items: purchaseItems,
-    });
-
-    console.log("\nPurchase Created");
-    console.log("Purchase UUID:", purchase.purchase_uuid);
-
-    return {
-      success: true,
-      purchase_uuid: purchase.purchase_uuid,
-      purchaseItems,
+  static async process(data: AutoUpdateRequest): Promise<ProcessingResult> {
+    console.log("\n========== BULK AUTO UPDATE ==========");
+    console.log(`Processing ${data.items.length} items...`);
+    
+    const result: ProcessingResult = {
+      created: 0,
+      updated: 0,
+      errors: [],
     };
-  }
 
-  private static processItem(item: SupplierInvoiceItem) {
-    const product = this.resolveProduct(item);
-    const unit = this.resolveUnit(product.product_uuid, item);
+    try {
+      // Step 1: Pre-fetch all products in one query
+      const productMap = await this.preFetchProducts(data.items);
+      
+      // Step 2: Process items in batches
+      const batches = this.chunkArray(data.items, this.BATCH_SIZE);
+      const allPurchaseItems: any[] = [];
+      
+      for (let i = 0; i < batches.length; i++) {
+        console.log(`\nProcessing batch ${i + 1}/${batches.length}...`);
+        
+        const batchItems = await this.processBatch(
+          batches[i], 
+          productMap, 
+          result
+        );
+        
+        allPurchaseItems.push(...batchItems.filter(Boolean));
+      }
 
-    this.logResolved(product, unit);
+      // Step 3: Create single purchase with all items
+      if (allPurchaseItems.length > 0) {
+        const purchase = PurchaseModel.create({
+          supplier_uuid: data.supplier_uuid,
+          invoice_number: data.invoice_number,
+          invoice_date: data.invoice_date,
+          items: allPurchaseItems,
+        });
+        
+        result.purchase_uuid = purchase.purchase_uuid;
+        console.log(`\n✓ Purchase Created: ${purchase.purchase_uuid}`);
+      }
 
-    return {
-      product_uuid: product.product_uuid,
-      unit_uuid: unit?.unit_uuid,
-      batch_number: item.batch,
-      expiry_date: parseExpiryDate(item.expiry),
-      quantity: item.qty,
-      free_quantity: item.free_qty || 0,
-      mrp: item.mrp || 0,
-      rate: item.rate || 0,
-      cost_price: item.rate || 0,
-      selling_price: item.mrp || 0,
-      gst_percent: item.gst || 0,
-    };
-  }
-
-  private static resolveProduct(item: SupplierInvoiceItem) {
-    console.log("\n--------------------------------");
-    console.log("Searching Product:", item.product_name, item.manufacturer);
-
-    const byNameAndMfr = ProductModel.findByNameAndManufacturer(item.product_name, item.manufacturer);
-    if (byNameAndMfr) {
-      console.log("✓ Found by Name & Manufacturer");
-      this.enrichExistingProduct(byNameAndMfr, item);
-      return byNameAndMfr;
+    } catch (error: any) {
+      console.error("Bulk processing error:", error);
+      result.errors.push({ item: 'batch', error: error.message });
     }
 
-    const byName = ProductModel.findByName(item.product_name);
-    if (byName) {
-      console.log("✓ Found by Name");
-      this.enrichExistingProduct(byName, item);
-      return byName;
+    console.log(`\n========== COMPLETE ==========`);
+    console.log(`Created: ${result.created}, Updated: ${result.updated}, Errors: ${result.errors.length}`);
+    
+    return result;
+  }
+
+  /**
+   * Pre-fetch all products by name, manufacturer, and barcode in bulk
+   */
+  private static preFetchProducts(items: SupplierInvoiceItem[]): Map<string, any> {
+    const productMap = new Map<string, any>();
+    const names = new Set<string>();
+    const barcodes: string[] = [];
+
+    for (const item of items) {
+      names.add(item.product_name.toLowerCase());
+      if (item.barcode) barcodes.push(item.barcode);
     }
 
-    if (item.barcode) {
-      const byBarcode = ProductModel.findByBarcode(item.barcode);
-      if (byBarcode) {
-        console.log("✓ Found by Barcode");
-        this.enrichExistingProduct(byBarcode, item);
-        return byBarcode;
+    // Fetch all products by names in bulk (using LIKE for partial matches)
+    for (const name of names) {
+      const products = ProductModel.search(name, 100);
+      for (const product of products) {
+        // Key: name|manufacturer
+        const key1 = `${product.name.toLowerCase()}|${(product.manufacturer || '').toLowerCase()}`;
+        productMap.set(key1, product);
+        
+        // Key: name only (first match)
+        const key2 = product.name.toLowerCase();
+        if (!productMap.has(key2)) {
+          productMap.set(key2, product);
+        }
       }
     }
 
-    console.log("✗ Not Found → Creating new product");
-    return this.createProduct(item);
+    // Fetch by barcodes
+    for (const barcode of barcodes) {
+      const product = ProductModel.findByBarcode(barcode);
+      if (product) {
+        productMap.set(`barcode:${barcode}`, product);
+      }
+    }
+
+    return productMap;
+  }
+
+  /**
+   * Process a batch of items
+   */
+  private static async processBatch(
+    items: SupplierInvoiceItem[],
+    productMap: Map<string, any>,
+    result: ProcessingResult
+  ): Promise<any[]> {
+    
+    const purchaseItems: any[] = [];
+    
+    // Batch create new products
+    const newProducts = items.filter(item => {
+      const key = `${item.product_name.toLowerCase()}|${(item.manufacturer || '').toLowerCase()}`;
+      const nameKey = item.product_name.toLowerCase();
+      const barcodeKey = item.barcode ? `barcode:${item.barcode}` : null;
+      
+      return !productMap.has(key) && 
+             !productMap.has(nameKey) && 
+             !(barcodeKey && productMap.has(barcodeKey));
+    });
+
+    if (newProducts.length > 0) {
+      console.log(`Creating ${newProducts.length} new products...`);
+      const created = this.bulkCreateProducts(newProducts);
+      
+      for (const [item, product] of created) {
+        const key = `${item.product_name.toLowerCase()}|${(item.manufacturer || '').toLowerCase()}`;
+        productMap.set(key, product);
+        result.created++;
+      }
+    }
+
+    // Process all items for purchase
+    for (const item of items) {
+      try {
+        const key = `${item.product_name.toLowerCase()}|${(item.manufacturer || '').toLowerCase()}`;
+        const nameKey = item.product_name.toLowerCase();
+        const barcodeKey = item.barcode ? `barcode:${item.barcode}` : null;
+        
+        let product = productMap.get(key) || 
+                      productMap.get(nameKey) || 
+                      (barcodeKey ? productMap.get(barcodeKey) : null);
+
+        if (product) {
+          // Update if needed
+          this.enrichExistingProduct(product, item);
+          result.updated++;
+        } else {
+          throw new Error(`Product not found: ${item.product_name}`);
+        }
+
+        const unit = this.resolveUnit(product.product_uuid, item);
+
+        purchaseItems.push({
+          product_uuid: product.product_uuid,
+          unit_uuid: unit?.unit_uuid,
+          batch_number: item.batch,
+          expiry_date: parseExpiryDate(item.expiry),
+          quantity: item.qty,
+          free_quantity: item.free_qty || 0,
+          mrp: item.mrp || 0,
+          rate: item.rate || 0,
+          cost_price: item.rate || 0,
+          selling_price: item.mrp || 0,
+          gst_percent: item.gst || 0,
+        });
+
+      } catch (error: any) {
+        console.error(`Error processing ${item.product_name}:`, error.message);
+        result.errors.push({ 
+          item: `${item.product_name} (${item.batch})`, 
+          error: error.message 
+        });
+      }
+    }
+
+    return purchaseItems;
+  }
+
+  /**
+   * Bulk create products with their units
+   */
+  private static bulkCreateProducts(
+    items: SupplierInvoiceItem[]
+  ): Array<[SupplierInvoiceItem, any]> {
+    
+    const results: Array<[SupplierInvoiceItem, any]> = [];
+    
+    for (const item of items) {
+      try {
+        const pack = item.pack ? parsePackInfo(item.pack) : null;
+        const productFields = pack ? mapPackToProductFields(pack, item) : {};
+
+        const product = ProductModel.create({
+          name: item.product_name,
+          manufacturer: item.manufacturer,
+          unit: pack?.unit || "supplier_unit",
+          price: item.mrp || 0,
+          purchase_price: item.rate || 0,
+          gst_percent: item.gst || 0,
+          stock: 0,
+          hsn_code: item.hsn,
+          barcode: item.barcode,
+          sku: item.sku,
+          ...productFields,
+        });
+
+        // Create units
+        this.createProductUnits(product.product_uuid, item, pack);
+        
+        results.push([item, product]);
+      } catch (error: any) {
+        console.error(`Failed to create product ${item.product_name}:`, error.message);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Create product units
+   */
+  private static createProductUnits(
+    productUuid: string,
+    item: SupplierInvoiceItem,
+    pack: ReturnType<typeof parsePackInfo>
+  ) {
+    ProductUnitModel.create({
+      product_uuid: productUuid,
+      unit_name: "supplier_unit",
+      conversion_factor: 1,
+      price: item.mrp || 0,
+      purchase_price: item.rate || 0,
+      is_base_unit: 1,
+      barcode: item.barcode,
+    });
+
+    if (!pack) return;
+
+    if (pack.intermediateUnit) {
+      const qty = pack.intermediateQty || 1;
+      ProductUnitModel.create({
+        product_uuid: productUuid,
+        unit_name: pack.intermediateUnit.toLowerCase(),
+        conversion_factor: qty,
+        price: (item.mrp || 0) * qty,
+        purchase_price: (item.rate || 0) * qty,
+        is_base_unit: 0,
+      });
+    }
+
+    if (pack.baseUnit && pack.baseUnit !== pack.intermediateUnit) {
+      const factor = (pack.intermediateQty || 1) * (pack.baseQty || 1);
+      ProductUnitModel.create({
+        product_uuid: productUuid,
+        unit_name: pack.baseUnit.toLowerCase(),
+        conversion_factor: factor,
+        price: item.mrp || 0,
+        purchase_price: item.rate || 0,
+        is_base_unit: 0,
+      });
+    }
   }
 
   private static resolveUnit(productUuid: string, item: SupplierInvoiceItem) {
     const units = ProductUnitModel.getByProduct(productUuid);
-    const pack = item.pack ? parsePackInfo(item.pack) : null;
 
     const existing = units.find(u => u.unit_name === "supplier_unit");
     if (existing) {
-      console.log("Using existing supplier_unit");
-      return this.syncUnitPrices(existing, item);
+      if (existing.price !== item.mrp || existing.purchase_price !== item.rate) {
+        ProductUnitModel.update(existing.unit_uuid, {
+          price: item.mrp,
+          purchase_price: item.rate,
+        });
+        return ProductUnitModel.findById(existing.unit_uuid);
+      }
+      return existing;
     }
 
-    if (pack) {
-      console.log("Creating supplier_unit from pack:", item.pack);
-      return this.createUnitFromPack(productUuid, item);
-    }
-
-    if (units.length > 0) {
-      console.log("Cloning existing unit:", units[0].unit_name);
-      return ProductUnitModel.create({
-        product_uuid: productUuid,
-        unit_name: "supplier_unit",
-        conversion_factor: units[0].conversion_factor || 1,
-        price: item.mrp || 0,
-        purchase_price: item.rate || 0,
-        is_base_unit: 0,
-        barcode: item.barcode,
-      });
-    }
-
-    console.log("Creating default supplier_unit");
     return ProductUnitModel.create({
       product_uuid: productUuid,
       unit_name: "supplier_unit",
@@ -124,81 +303,6 @@ export class AutoUpdateService {
     });
   }
 
-  private static createProduct(item: SupplierInvoiceItem) {
-    const pack = item.pack ? parsePackInfo(item.pack) : null;
-    const productFields = pack ? mapPackToProductFields(pack, item) : {};
-
-    const product = ProductModel.create({
-      name: item.product_name,
-      manufacturer: item.manufacturer,
-      unit: pack?.unit || "supplier_unit",
-      price: item.mrp || 0,
-      purchase_price: item.rate || 0,
-      gst_percent: item.gst || 0,
-      stock: 0,
-      hsn_code: item.hsn,
-      barcode: item.barcode,
-      sku: item.sku,
-      ...productFields,
-    });
-
-    console.log("✓ Product Created:", product.product_uuid, product.name);
-    this.createProductUnits(product.product_uuid, item, pack);
-    return product;
-  }
-
-  private static createProductUnits(
-    productUuid: string,
-    item: SupplierInvoiceItem,
-    pack: ReturnType<typeof parsePackInfo>
-  ) {
-    console.log("Creating product units...");
-
-    // Base supplier unit
-    ProductUnitModel.create({
-      product_uuid: productUuid,
-      unit_name: "supplier_unit",
-      conversion_factor: 1,
-      price: item.mrp || 0,
-      purchase_price: item.rate || 0,
-      is_base_unit: 1,  // number, not boolean
-      barcode: item.barcode,
-    });
-
-    if (!pack) {
-      console.log("✓ Units created (supplier_unit only)");
-      return;
-    }
-
-    // Intermediate unit (e.g., Strip)
-    if (pack.intermediateUnit) {
-      const qty = pack.intermediateQty || 1;
-      ProductUnitModel.create({
-        product_uuid: productUuid,
-        unit_name: pack.intermediateUnit.toLowerCase(),
-        conversion_factor: qty,
-        price: (item.mrp || 0) * qty,
-        purchase_price: (item.rate || 0) * qty,
-        is_base_unit: 0,  // number, not boolean
-      });
-    }
-
-    // Base unit (e.g., Tablet)
-    if (pack.baseUnit && pack.baseUnit !== pack.intermediateUnit) {
-      const factor = (pack.intermediateQty || 1) * (pack.baseQty || 1);
-      ProductUnitModel.create({
-        product_uuid: productUuid,
-        unit_name: pack.baseUnit.toLowerCase(),
-        conversion_factor: factor,
-        price: item.mrp || 0,
-        purchase_price: item.rate || 0,
-        is_base_unit: 0,  // number, not boolean
-      });
-    }
-
-    console.log("✓ Units created");
-  }
-
   private static enrichExistingProduct(product: any, item: SupplierInvoiceItem) {
     const updates: Record<string, any> = {};
 
@@ -206,50 +310,17 @@ export class AutoUpdateService {
     if (item.manufacturer && product.manufacturer !== item.manufacturer) updates.manufacturer = item.manufacturer;
     if (item.barcode && !product.barcode) updates.barcode = item.barcode;
     if (item.sku && !product.sku) updates.sku = item.sku;
-    if (item.mrp && product.price !== item.mrp) updates.price = item.mrp;
-    if (item.rate && product.purchase_price !== item.rate) updates.purchase_price = item.rate;
-    if (item.gst !== undefined && product.gst_percent !== item.gst) updates.gst_percent = item.gst;
-
-    if (typeof item.pack === 'string' && item.pack && !product.tablets_per_strip) {
-      const packInfo = parsePackInfo(item.pack);
-      if (packInfo) {
-        Object.assign(updates, mapPackToProductFields(packInfo, item));
-      }
-    }
-
+    
     if (Object.keys(updates).length > 0) {
-      console.log("Updating product:", updates);
       ProductModel.update(product.product_uuid, updates);
     }
   }
 
-  private static syncUnitPrices(unit: any, item: SupplierInvoiceItem) {
-    if (unit.price !== item.mrp || unit.purchase_price !== item.rate) {
-      ProductUnitModel.update(unit.unit_uuid, {
-        price: item.mrp,
-        purchase_price: item.rate,
-      });
-      return ProductUnitModel.findById(unit.unit_uuid);
+  private static chunkArray<T>(array: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
     }
-    return unit;
-  }
-
-  private static createUnitFromPack(productUuid: string, item: SupplierInvoiceItem) {
-    return ProductUnitModel.create({
-      product_uuid: productUuid,
-      unit_name: "supplier_unit",
-      conversion_factor: 1,
-      price: item.mrp || 0,
-      purchase_price: item.rate || 0,
-      is_base_unit: 1,  // number, not boolean
-      barcode: item.barcode,
-    });
-  }
-
-  private static logResolved(product: any, unit: any) {
-    console.log("Resolved Product:");
-    console.table({ uuid: product.product_uuid, name: product.name, unit: product.unit });
-    console.log("Resolved Unit:");
-    console.table({ unit_uuid: unit?.unit_uuid, unit_name: unit?.unit_name });
+    return chunks;
   }
 }

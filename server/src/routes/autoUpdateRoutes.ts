@@ -11,7 +11,7 @@ router.use(authenticate);
 router.post(
     "/",
     authorize("admin"),
-    AutoUpdateController.import
+    AutoUpdateController
 );
 
 export default router;
