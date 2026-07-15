@@ -48,6 +48,9 @@ import supplierBillRoutes
 import auditLogRoutes
   from './routes/auditLogRoutes';
 
+import autoUpdateRoutes from "./routes/autoUpdateRoutes";
+
+
 // Load environment variables - simplified for CommonJS
 dotenv.config();
 
@@ -136,6 +139,12 @@ app.use(
   '/api/audit-logs',
   auditLogRoutes
 );
+
+app.use(
+  "/api/auto-update", 
+  autoUpdateRoutes
+);
+
 
 // Health check
 app.get('/health', (req, res) => {

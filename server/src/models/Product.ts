@@ -194,6 +194,39 @@ export class ProductModel {
     return product;
   }
 
+
+  // =========================
+  // FIND BY NAME AND MANUFACTURER
+  // =========================
+
+  static findByNameAndManufacturer(
+    name: string,
+    manufacturer?: string
+  ): Product | undefined {
+
+    if (!manufacturer) {
+      return this.findByName(name);
+    }
+
+    const stmt = db.prepare(`
+    SELECT *
+    FROM products
+    WHERE name = ?
+    AND manufacturer = ?
+    LIMIT 1
+  `);
+
+    const product = stmt.get(name, manufacturer) as Product | undefined;
+
+    if (!product) {
+      return undefined;
+    }
+
+    product.attributes = this.getAttributes(product.product_uuid);
+
+    return product;
+  }
+
   // =========================
   // LIST PRODUCTS
   // =========================
