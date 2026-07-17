@@ -58,19 +58,15 @@ export class ExcelReader {
                 break;
             }
 
-            
-            if (record.amount == null) {
+            if (record.gst == null) {
+                record.gst =
+                    Number(record.cgst ?? 0) +
+                    Number(record.sgst ?? 0) +
+                    Number(record.igst ?? 0);
+            }
 
-                const qty = Number(record.qty ?? 0);
-                const rate = Number(record.rate ?? 0);
-                const discount = Number(record.discount ?? 0);
-                const gst = Number(record.gst ?? 0);
-
-                const taxable = qty * rate * (1 - discount);
-
-                record.amount = Number(
-                    (taxable * (1 + gst)).toFixed(2)
-                );
+            if (record.amount == null && record.total != null) {
+                record.amount = Number(record.total);
             }
 
             rows.push(record);
@@ -152,6 +148,10 @@ export class ExcelReader {
             .trim()
             .replace(/^\uFEFF/, "")
             .replace(/\s+/g, " ")
+            .replace(/[₹$()%]/g, "")      // remove currency & %
+            .replace(/\//g, " ")          // HSN/SAC -> HSN SAC
+            .replace(/-/g, " ")
+            .trim()
             .toLowerCase();
 
         return HEADER_ALIASES[value] ?? value;

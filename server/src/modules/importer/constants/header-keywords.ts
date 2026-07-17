@@ -35,6 +35,7 @@ export const HEADER_ALIASES: Record<string, string> = {
     "product_name": "product_name",
     "product name": "product_name",
     "item": "product_name",
+    "items": "product_name",
     "item name": "product_name",
     "item description": "product_name",
     "description": "product_name",
@@ -42,6 +43,7 @@ export const HEADER_ALIASES: Record<string, string> = {
     "drug": "product_name",
 
     // Manufacturer
+    "mfr": "manufacturer",
     "manufacturer": "manufacturer",
     "manufacturer name": "manufacturer",
     "company": "manufacturer",
@@ -50,6 +52,7 @@ export const HEADER_ALIASES: Record<string, string> = {
 
     // HSN
     "hsn": "hsn",
+    "hns": "hsn",
     "hsn/sac": "hsn",
     "hsn code": "hsn",
     "hsn no": "hsn",
