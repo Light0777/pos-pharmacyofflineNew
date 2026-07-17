@@ -209,7 +209,7 @@ export class AutoUpdateService {
         const product = ProductModel.create({
           name: item.product_name,
           manufacturer: item.manufacturer,
-          unit: pack?.unit || "supplier_unit",
+          unit: pack?.unit || "Piece",
           price: item.mrp || 0,
           purchase_price: item.rate || 0,
           gst_percent: item.gst || 0,

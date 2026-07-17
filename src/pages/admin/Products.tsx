@@ -28,6 +28,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { InformationCircleIcon } from "@hugeicons/core-free-icons";
 
 import { Button } from "@/components/ui/button";
+import ImportSupplierInvoiceModal from "../../components/ImportSupplierInvoiceModal";
 import {
   Select as ShadSelect,
   SelectContent,
@@ -354,6 +355,7 @@ export default function Products() {
   const [stockFilter, setStockFilter] = useState<"all" | "in" | "low" | "out" | "expired">("all");
   const [expiredProductUuids, setExpiredProductUuids] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -1468,6 +1470,16 @@ export default function Products() {
             </svg>
             {t("products.addProduct")}
           </button>
+          <button
+            onClick={() => setShowImport(true)}
+            disabled={user?.role !== 'admin'}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-sm font-semibold rounded-xl transition-all shadow-md shadow-emerald-900/20 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+            </svg>
+            Import
+          </button>
           <Tooltip label={t('products.quarantineExpired')}>
             <button
               onClick={handleQuarantineExpired}
@@ -1871,6 +1883,14 @@ export default function Products() {
           </div>
         )}
       </div>
+
+      {/* Import Supplier Invoice Modal */}
+      {showImport && (
+        <ImportSupplierInvoiceModal
+          onClose={() => setShowImport(false)}
+          onImported={() => { setShowImport(false); loadProducts(); }}
+        />
+      )}
 
       {/* Edit / Quick Add Form Modal */}
       {showForm && createPortal(

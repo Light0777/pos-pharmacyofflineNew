@@ -59,10 +59,12 @@ export class ExcelReader {
             }
 
             if (record.gst == null) {
-                record.gst =
+                let gst =
                     Number(record.cgst ?? 0) +
                     Number(record.sgst ?? 0) +
                     Number(record.igst ?? 0);
+                if (gst > 0 && gst <= 1) gst *= 100;
+                record.gst = gst;
             }
 
             if (record.amount == null && record.total != null) {

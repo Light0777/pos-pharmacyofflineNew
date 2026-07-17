@@ -18,7 +18,7 @@ export class Mapper {
 
       expiry: row.expiry ?? null,
 
-      qty: Number(row.qty ?? 0),
+      qty: Number(row.qty ?? 1),
 
       free_qty: Number(row.free_qty ?? 0),
 
