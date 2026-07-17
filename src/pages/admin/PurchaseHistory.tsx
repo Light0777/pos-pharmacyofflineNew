@@ -242,7 +242,8 @@ export default function PurchaseHistory() {
                 </tr>
               ) : (
                 pageItems.map((purchase) => {
-                  const medicineNames = purchase.items ? [...new Set(purchase.items.map((i: any) => i.product?.name).filter(Boolean))].join(", ") : "-";
+                  const allNames = purchase.items ? [...new Set(purchase.items.map((i: any) => i.product?.name).filter(Boolean))] : [];
+                  const medicineNames = allNames.length > 1 ? allNames[0] + " ..." : (allNames[0] || "-");
                   const totalQty = purchase.items ? purchase.items.reduce((sum: number, i: any) => sum + Number(i.quantity || 0), 0) : 0;
                   const batchNos = purchase.items ? [...new Set(purchase.items.map((i: any) => i.batch_number).filter(Boolean))] : [];
                   const batchCount = batchNos.length;

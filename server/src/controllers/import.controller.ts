@@ -1,3 +1,16 @@
+// __________________________________________________________
+// | UPDATE: Removed dead ProfileService call that crashed     |
+// | in production.                                            |
+// |                                                           |
+// | WHY: ProfileService.getDefault("purchase") resolved paths |
+// | via process.cwd() which points to a read-only asar dir in |
+// | packaged Electron builds, throwing an error. The mapper   |
+// | ignored the profile anyway (map() only takes rows), so    |
+// | removing it fixes the production crash with no side       |
+// | effects.                                                  |
+// | Also removed unused ProfileService import.                |
+// |__________________________________________________________|
+
 import path from "path";
 import { Request, Response } from "express";
 
@@ -5,13 +18,11 @@ import { ExcelReader } from "../modules/importer/readers/excel.reader";
 import { CsvReader } from "../modules/importer/readers/csv.reader";
 
 import { Mapper } from "../modules/importer/mapping/mapper";
-import { ProfileService } from "../modules/importer/services/preview.service";
 
 const excelReader = new ExcelReader();
 const csvReader = new CsvReader();
 
 const mapper = new Mapper();
-const profileService = new ProfileService();
 
 export class ImportController {
   static async importFile(
@@ -54,11 +65,8 @@ export class ImportController {
           });
       }
 
-      // Load mapping profile
-      const profile = await profileService.getDefault("purchase");
-
       // Map to SupplierInvoiceItem[]
-      const items = mapper.map(rows, profile);
+      const items = mapper.map(rows);
 
       // Return preview
       return res.status(200).json({
