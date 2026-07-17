@@ -1,0 +1,19 @@
+{
+  "profileName": "Default Purchase",
+  "module": "purchase",
+  "fields": {
+    "manufacturer": "",
+    "product_name": "Item Description",
+    "hsn": "HSN/SAC",
+    "batch": "Batch No",
+    "expiry": "Expiry",
+    "qty": "Qty",
+    "free_qty": "",
+    "mrp": "List Price",
+    "rate": "List Price",
+    "gst": "Tax %",
+    "pack": "",
+    "barcode": "",
+    "sku": ""
+  }
+}

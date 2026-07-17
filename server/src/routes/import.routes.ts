@@ -16,4 +16,6 @@ router.post(
   ImportController.importExcel
 );
 
+router.post("/commit", ImportController.commitImport);
+
 export default router;

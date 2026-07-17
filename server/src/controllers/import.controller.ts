@@ -2,11 +2,13 @@ import { Request, Response } from "express";
 import { ExcelReader } from "../modules/importer/readers/excel.reader";
 import { Mapper } from "../modules/importer/mapping/mapper";
 import { MappingProfile } from "../modules/importer/models/mapping-profile";
-import { InventoryValidator } from "../modules/importer/validators/inventory.validator";
+import { ProfileService } from "../modules/importer/services/preview.service";
+import { AutoUpdateService } from "../services/AutoUpdateService";
+import { AutoUpdateRequest } from "../types/supplierInvoice";
 
 const reader = new ExcelReader();
 const mapper = new Mapper();
-const validator = new InventoryValidator();
+const profileService = new ProfileService();
 
 export class ImportController {
   static async importExcel(
@@ -21,41 +23,24 @@ export class ImportController {
         });
       }
 
-      // Step 1 - Read Excel
+      // Read Excel
       const rows = await reader.read(req.file.path);
 
-      // Step 2 - Temporary hardcoded mapping profile
-      const profile: MappingProfile = {
-        profileName: "Default",
-        module: "inventory",
-        fields: {
-          productName: "Item Description",
-          batchNo: "Batch No",
-          expiry: "Expiry",
-          quantity: "Qty",
-          purchasePrice: "List Price",
-          tax: "Tax %",
-          hsn: "HSN/SAC",
-          discount: "Disc %",
-          amount: "Amount",
-        },
-      };
+      // Temporary mapping profile
+      const profile = await profileService.getDefault("purchase");
 
-      // Step 3 - Map supplier columns to internal model
-      const mappedRows = mapper.map(rows, profile);
+      // Map to SupplierInvoiceItem[]
+      const items = mapper.map(rows, profile);
 
-      // Step 4 - Validate
-      const validation = validator.validate(mappedRows);
-
+      // Return preview payload
       return res.status(200).json({
         success: true,
-        summary: {
-          total: mappedRows.length,
-          valid: validation.validRows.length,
-          invalid: validation.invalidRows.length,
+        data: {
+          supplier_uuid: null,
+          invoice_number: null,
+          invoice_date: null,
+          items,
         },
-        validRows: validation.validRows,
-        errors: validation.invalidRows,
       });
     } catch (error) {
       console.error(error);
@@ -64,6 +49,58 @@ export class ImportController {
         success: false,
         message: "Failed to import Excel.",
       });
+    }
+  }
+
+  static async commitImport(req: Request, res: Response) {
+    try {
+
+      const data = req.body as AutoUpdateRequest;
+
+      if (!data.supplier_uuid) {
+        return res.status(400).json({
+          success: false,
+          message: "Supplier is required."
+        });
+      }
+
+      if (!data.invoice_number) {
+        return res.status(400).json({
+          success: false,
+          message: "Invoice number is required."
+        });
+      }
+
+      if (!data.invoice_date) {
+        return res.status(400).json({
+          success: false,
+          message: "Invoice date is required."
+        });
+      }
+
+      if (!data.items?.length) {
+        return res.status(400).json({
+          success: false,
+          message: "No items to import."
+        });
+      }
+
+      const result = await AutoUpdateService.process(data);
+
+      return res.status(200).json({
+        success: true,
+        result
+      });
+
+    } catch (error: any) {
+
+      console.error(error);
+
+      return res.status(500).json({
+        success: false,
+        message: error.message
+      });
+
     }
   }
 }
