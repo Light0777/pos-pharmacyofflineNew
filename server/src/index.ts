@@ -49,6 +49,7 @@ import auditLogRoutes
   from './routes/auditLogRoutes';
 
 import autoUpdateRoutes from "./routes/autoUpdateRoutes";
+import importRoutes from './routes/import.routes';
 
 
 // Load environment variables - simplified for CommonJS
@@ -145,6 +146,7 @@ app.use(
   autoUpdateRoutes
 );
 
+app.use("/api/import", importRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
