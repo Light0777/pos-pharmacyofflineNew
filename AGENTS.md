@@ -61,6 +61,11 @@ Manage product creation/editing with multi-batch system, unit/category dropdowns
 - All `??`/`||` mixing parse errors fixed (wrapped RHS in parentheses)
 - **Supplier Bill Diary feature**: new DB migration `003_supplier_bills.ts`, model `SupplierBill`, controller `SupplierBillController`, routes at `/api/suppliers/:supplier_uuid/bills`, frontend service `supplierBillApi.ts`, new page `SupplierDetail.tsx` with bill photo grid (upload via `compressImage`, full-image modal, delete confirmation)
 - **Wiring**: route `/admin/supplier/:supplier_uuid` registered in `App.tsx`; supplier table rows in `Supplier.tsx` are now clickable (navigate to detail page); sidebar highlight uses `startsWith` so supplier nav item stays highlighted on detail page
+- **WhatsApp share fix**: added `open-whatsapp` IPC handler in `main.cjs` (720×600 BrowserWindow with isolated session), exposed `openWhatsApp` via preload `contextBridge`, CSP override skips WhatsApp URLs, `renderSupplier()` now uses `window.electron.openWhatsApp(url)`
+- **Supplier bill format polish**: bigger container `max-w-[900px]`, table fonts 14px, shop/party names 20px, line items headers 11px/cells 12px, inner horizontal borders removed between paired meta rows — populated with real invoice/customer/items data
+- **File-based inventory import**: new backend endpoints `POST /api/import/file` (multipart preview) & `POST /api/auto-update` (process items), Excel reader sums CGST+SGST+IGST (auto-×100 if ≤1), mapper defaults `qty` to `1`, AutoUpdateService sets default unit to `"Piece"`
+- **Import modal**: new `ImportSupplierInvoiceModal.tsx` with 3-step flow (Upload → Editable Preview → Done), file drop zone, supplier combobox (writable + create), inline editable columns (name, mfr, batch, expiry, qty, MRP, rate, GST%), fixed-position supplier dropdown
+- **Products page**: "Import" button in toolbar wired to modal with `onImported` callback that reloads products
 
 ### In Progress
 - (none)
@@ -105,3 +110,12 @@ Manage product creation/editing with multi-batch system, unit/category dropdowns
 - `src/layout/AdminLayout.tsx`: `NavItem` uses `startsWith` for sidebar highlight on nested routes
 - `src/components/Topbar.tsx`: "Batch Expire" tab label
 - `src/locales/en/translation.json`: "Expired Meds" sidebar label
+- `src/components/ImportSupplierInvoiceModal.tsx`: 3-step import modal with editable preview, supplier combobox, file upload
+- `src/renderer/services/importApi.ts`: API service for `POST /api/import/file` and `POST /api/auto-update`
+- `electron/main.cjs`: `open-whatsapp` IPC handler, `open-external` IPC handler, CSP WhatsApp exclusion
+- `electron/preload.ts`: `openWhatsApp` exposed via contextBridge
+- `server/src/modules/importer/readers/excel.reader.ts`: GST percentage fix (decimal → whole number)
+- `server/src/modules/importer/mapping/mapper.ts`: qty default 1 when column missing
+- `server/src/services/AutoUpdateService.ts`: product unit defaults to "Piece"
+- `server/src/controllers/import.controller.ts`: file upload preview endpoint
+- `server/src/controllers/AutoUpdateController.ts`: auto-update endpoint

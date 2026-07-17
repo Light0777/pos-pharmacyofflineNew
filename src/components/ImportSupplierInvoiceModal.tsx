@@ -517,8 +517,10 @@ export default function ImportSupplierInvoiceModal({
     </div>
   );
 
-  return createPortal(
-    <div className="fixed inset-0 z-50" style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}>
+  return <>
+      <style>{`input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}input[type="number"]{-moz-appearance:textfield}`}</style>
+      {createPortal(
+      <div className="fixed inset-0 z-50" style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}>
       <div className="absolute inset-0 overflow-y-auto flex items-center justify-center p-4">
         <div
           className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col"
@@ -607,5 +609,6 @@ export default function ImportSupplierInvoiceModal({
       </div>
     </div>,
     document.body
-  );
-}
+  )}
+  </>;
+}  
