@@ -1,8 +1,25 @@
 // services/AutoUpdateService.ts
 
+// __________________________________________________________
+// | UPDATE: Consolidated duplicate batches and re-use       |
+// | existing batches on re-import.                           |
+// |                                                         |
+// | WHY: Importing a file with same product+batch multiple   |
+// | times (or re-importing the same file) created a new      |
+// | ProductBatch record each time instead of updating the    |
+// | existing batch's quantity. The fix:                      |
+// | 1. Checks ProductBatchModel.findByBatchNumber() before   |
+// |    creating a new batch — if exists, passes batch_uuid   |
+// |    and updates qty, MRP, rate, GST.                     |
+// | 2. Consolidates duplicate product_uuid+batch_number in   |
+// |    memory so the same import file with repeated rows     |
+// |    creates one batch with summed quantity.               |
+// |__________________________________________________________|
+
 import { PurchaseModel } from "../models/Purchase";
 import { ProductModel } from "../models/Product";
 import { ProductUnitModel } from "../models/ProductUnit";
+import { ProductBatchModel } from "../models/ProductBatch";
 import { parseExpiryDate, parsePackInfo, mapPackToProductFields } from "../utils/productMapper";
 import type { AutoUpdateRequest, SupplierInvoiceItem } from "../types/supplierInvoice";
 
@@ -146,6 +163,8 @@ export class AutoUpdateService {
     }
 
     // Process all items for purchase
+    const rawItems: any[] = [];
+
     for (const item of items) {
       try {
         const key = `${item.product_name.toLowerCase()}|${(item.manufacturer || '').toLowerCase()}`;
@@ -157,7 +176,6 @@ export class AutoUpdateService {
                       (barcodeKey ? productMap.get(barcodeKey) : null);
 
         if (product) {
-          // Update if needed
           this.enrichExistingProduct(product, item);
           result.updated++;
         } else {
@@ -166,7 +184,27 @@ export class AutoUpdateService {
 
         const unit = this.resolveUnit(product.product_uuid, item);
 
-        purchaseItems.push({
+        // Check if a batch with same product + batch_number already exists in DB
+        let batchUuid: string | undefined;
+        if (item.batch) {
+          const existing = ProductBatchModel.findByBatchNumber(product.product_uuid, item.batch);
+          if (existing) {
+            // Update existing batch — add to quantity, refresh pricing
+            const newQty = Number(existing.quantity) + Number(item.qty);
+            ProductBatchModel.update(existing.batch_uuid, {
+              quantity: newQty,
+              mrp: item.mrp || existing.mrp,
+              rate: item.rate || existing.rate,
+              purchase_price: item.rate || existing.purchase_price,
+              selling_price: item.mrp || existing.selling_price,
+              gst_percent: item.gst ?? existing.gst_percent,
+              free_quantity: (existing.free_quantity || 0) + (item.free_qty || 0),
+            });
+            batchUuid = existing.batch_uuid;
+          }
+        }
+
+        rawItems.push({
           product_uuid: product.product_uuid,
           unit_uuid: unit?.unit_uuid,
           batch_number: item.batch,
@@ -178,6 +216,7 @@ export class AutoUpdateService {
           cost_price: item.rate || 0,
           selling_price: item.mrp || 0,
           gst_percent: item.gst || 0,
+          batch_uuid: batchUuid,
         });
 
       } catch (error: any) {
@@ -189,7 +228,29 @@ export class AutoUpdateService {
       }
     }
 
-    return purchaseItems;
+    // Consolidate duplicate product_uuid + batch_number within the same import
+    const consolidated = new Map<string, any>();
+    for (const pi of rawItems) {
+      const key = `${pi.product_uuid}|${pi.batch_number}`;
+      if (consolidated.has(key)) {
+        const existing = consolidated.get(key);
+        existing.quantity += pi.quantity;
+        existing.free_quantity += pi.free_quantity;
+        // Keep the latest values for other fields
+        existing.mrp = pi.mrp;
+        existing.rate = pi.rate;
+        existing.cost_price = pi.cost_price;
+        existing.selling_price = pi.selling_price;
+        existing.gst_percent = pi.gst_percent;
+        existing.expiry_date = pi.expiry_date;
+        // If either entry has a batch_uuid, keep it
+        if (pi.batch_uuid) existing.batch_uuid = pi.batch_uuid;
+      } else {
+        consolidated.set(key, { ...pi });
+      }
+    }
+
+    return Array.from(consolidated.values());
   }
 
   /**
