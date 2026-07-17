@@ -349,7 +349,7 @@ export default function ImportSupplierInvoiceModal({
 
       {/* Preview table */}
       <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="max-h-80 overflow-y-auto">
+        <div className="max-h-[55vh] overflow-y-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 sticky top-0">
               <tr>
@@ -366,17 +366,105 @@ export default function ImportSupplierInvoiceModal({
             <tbody className="divide-y divide-slate-100">
               {previewItems.slice(0, 100).map((item, i) => (
                 <tr key={i} className="hover:bg-slate-50/50">
-                  <td className="px-3 py-2 text-xs text-slate-400">{i + 1}</td>
-                  <td className="px-3 py-2">
-                    <p className="text-sm font-medium text-slate-800">{item.product_name}</p>
-                    {item.manufacturer && <p className="text-xs text-slate-400">{item.manufacturer}</p>}
+                  <td className="px-3 py-2 text-xs text-slate-400 w-8">{i + 1}</td>
+                  <td className="px-1.5 py-1.5">
+                    <div className="flex flex-col gap-0.5">
+                      <input
+                        value={item.product_name}
+                        onChange={(e) => {
+                          const next = [...previewItems];
+                          next[i] = { ...next[i], product_name: e.target.value };
+                          setPreviewItems(next);
+                        }}
+                        className="w-full text-sm font-medium text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1 outline-none transition-colors"
+                      />
+                      {item.manufacturer && <input
+                        value={item.manufacturer}
+                        onChange={(e) => {
+                          const next = [...previewItems];
+                          next[i] = { ...next[i], manufacturer: e.target.value };
+                          setPreviewItems(next);
+                        }}
+                        className="w-full text-xs text-slate-400 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-0.5 outline-none transition-colors"
+                      />}
+                    </div>
                   </td>
-                  <td className="px-3 py-2 text-sm text-slate-700">{item.batch || "—"}</td>
-                  <td className="px-3 py-2 text-sm text-center text-slate-700">{item.expiry || "—"}</td>
-                  <td className="px-3 py-2 text-sm text-center font-medium text-slate-800">{item.qty}</td>
-                  <td className="px-3 py-2 text-sm text-right text-slate-700">{item.mrp.toFixed(2)}</td>
-                  <td className="px-3 py-2 text-sm text-right text-slate-700">{item.rate.toFixed(2)}</td>
-                  <td className="px-3 py-2 text-sm text-right text-slate-700">{item.gst ? `${item.gst}%` : "—"}</td>
+                  <td className="px-1.5 py-1.5">
+                    <input
+                      value={item.batch || ""}
+                      onChange={(e) => {
+                        const next = [...previewItems];
+                        next[i] = { ...next[i], batch: e.target.value };
+                        setPreviewItems(next);
+                      }}
+                      className="w-full text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-left"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1.5">
+                    <input
+                      value={item.expiry || ""}
+                      onChange={(e) => {
+                        const next = [...previewItems];
+                        next[i] = { ...next[i], expiry: e.target.value };
+                        setPreviewItems(next);
+                      }}
+                      className="w-full text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-center"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1.5">
+                    <input
+                      type="number"
+                      value={item.qty}
+                      onChange={(e) => {
+                        const next = [...previewItems];
+                        next[i] = { ...next[i], qty: Number(e.target.value) };
+                        setPreviewItems(next);
+                      }}
+                      className="w-16 text-sm font-medium text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-center"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1.5">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.mrp}
+                      onChange={(e) => {
+                        const next = [...previewItems];
+                        next[i] = { ...next[i], mrp: Number(e.target.value) };
+                        setPreviewItems(next);
+                      }}
+                      className="w-20 text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-right"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1.5">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.rate}
+                      onChange={(e) => {
+                        const next = [...previewItems];
+                        next[i] = { ...next[i], rate: Number(e.target.value) };
+                        setPreviewItems(next);
+                      }}
+                      className="w-20 text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-right"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1.5">
+                    <div className="flex items-center gap-0.5">
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={item.gst ?? 0}
+                        onChange={(e) => {
+                          const next = [...previewItems];
+                          next[i] = { ...next[i], gst: Number(e.target.value) };
+                          setPreviewItems(next);
+                        }}
+                        className="w-14 text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-right"
+                      />
+                      <span className="text-xs text-slate-400">%</span>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {previewItems.length > 100 && (
@@ -433,7 +521,7 @@ export default function ImportSupplierInvoiceModal({
     <div className="fixed inset-0 z-50" style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}>
       <div className="absolute inset-0 overflow-y-auto flex items-center justify-center p-4">
         <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col"
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col"
           style={{ maxHeight: "90vh" }}
           onClick={(e) => e.stopPropagation()}
         >
