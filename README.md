@@ -1517,12 +1517,12 @@ Base URL
 Uploads an Excel invoice and returns a preview of the parsed data.
 
 Endpoint
-POST /api/import/excel
+POST /api/import/file
 Content-Type
 multipart/form-data
 Form Data
 Field	Type	Required	Description
-file	File (.xlsx)	✅	Supplier purchase invoice
+file	File (.xlsx)	or (.csv) ✅	Supplier purchase invoice
 Response
 {
   "success": true,
