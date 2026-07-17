@@ -3,36 +3,41 @@ import { ImportRow } from "../models/import-row";
 import { MappingProfile } from "../models/mapping-profile";
 
 export class Mapper {
-  map(
-    rows: ImportRow[],
-    profile: MappingProfile
-  ): SupplierInvoiceItem[] {
-    return rows.map((row) => ({
-      manufacturer: row[profile.fields.manufacturer] || undefined,
 
-      product_name: String(row[profile.fields.product_name] ?? "").trim(),
+  map(rows: ImportRow[]): SupplierInvoiceItem[] {
 
-      hsn: row[profile.fields.hsn] || "",
+    return rows.map(row => ({
 
-      batch: row[profile.fields.batch] || "",
+      manufacturer: row.manufacturer ?? null,
 
-      expiry: row[profile.fields.expiry] || "",
+      product_name: String(row.product_name ?? "").trim(),
 
-      qty: Number(row[profile.fields.qty] ?? 0),
+      hsn: row.hsn ?? null,
 
-      free_qty: Number(row[profile.fields.free_qty] ?? 0),
+      batch: row.batch ?? null,
 
-      mrp: Number(row[profile.fields.mrp] ?? 0),
+      expiry: row.expiry ?? null,
 
-      rate: Number(row[profile.fields.rate] ?? 0),
+      qty: Number(row.qty ?? 0),
 
-      gst: Number(row[profile.fields.gst] ?? 0),
+      free_qty: Number(row.free_qty ?? 0),
 
-      pack: row[profile.fields.pack] || "",
+      mrp: Number(row.mrp ?? 0),
 
-      barcode: row[profile.fields.barcode] || "",
+      rate: Number(row.rate ?? row.mrp ?? 0),
 
-      sku: row[profile.fields.sku] || "",
+      gst: Number(row.gst ?? 0),
+
+      pack: row.pack ?? null,
+
+      barcode: row.barcode ?? null,
+      
+      amount: row.amount ?? null,
+
+      sku: row.sku ?? null
+
     }));
+
   }
+
 }

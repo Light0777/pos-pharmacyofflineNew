@@ -11,11 +11,10 @@ const upload = multer({
 });
 
 router.post(
-  "/excel",
+  "/file",
   upload.single("file"),
-  ImportController.importExcel
+  ImportController.importFile
 );
 
-router.post("/commit", ImportController.commitImport);
 
 export default router;

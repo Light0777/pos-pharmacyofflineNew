@@ -1508,3 +1508,96 @@ Then:
 POST /product-units
 
 No change.
+-------------------------------------------------------------------------------------------------------
+Import Module API
+Base URL
+/api/import
+1. Upload Excel
+
+Uploads an Excel invoice and returns a preview of the parsed data.
+
+Endpoint
+POST /api/import/excel
+Content-Type
+multipart/form-data
+Form Data
+Field	Type	Required	Description
+file	File (.xlsx)	✅	Supplier purchase invoice
+Response
+{
+  "success": true,
+  "data": {
+    "supplier_uuid": null,
+    "invoice_number": null,
+    "invoice_date": null,
+    "items": [
+      {
+        "manufacturer": null,
+        "product_name": "Paracetamol 650mg Tablets",
+        "hsn": "30049061",
+        "batch": "BT9874",
+        "expiry": "12/2027",
+        "qty": 500,
+        "free_qty": 0,
+        "mrp": 15,
+        "rate": 15,
+        "gst": 12,
+        "pack": null,
+        "barcode": null,
+        "sku": null
+      }
+    ]
+  }
+}
+2. Commit Import
+
+Commits the previewed invoice into inventory.
+
+Endpoint
+POST /api/auto-update
+Content-Type
+application/json
+Request Body
+{
+  "supplier_uuid": "254c8bfa-cd86-4c5b-8a37-722cbd95618f",
+  "invoice_number": "COMMIT01",
+  "invoice_date": "17/07/2026",
+  "items": [
+    {
+      "manufacturer": null,
+      "product_name": "Paracetamol 650mg Tablets",
+      "hsn": "30049061",
+      "batch": "BT9874",
+      "expiry": "12/2027",
+      "qty": 500,
+      "free_qty": 0,
+      "mrp": 15,
+      "rate": 15,
+      "gst": 12,
+      "pack": null,
+      "barcode": null,
+      "sku": null
+    }
+  ]
+}
+Success Response
+{
+  "success": true,
+  "created": 8,
+  "updated": 0,
+  "errors": [],
+  "message": "Successfully processed 8 items."
+}
+Partial Success
+{
+  "success": true,
+  "partial": true,
+  "created": 6,
+  "updated": 1,
+  "errors": [
+    {
+      "row": 5,
+      "message": "Invalid expiry date"
+    }
+  ]
+}

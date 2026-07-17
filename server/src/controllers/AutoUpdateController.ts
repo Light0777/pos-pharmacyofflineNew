@@ -4,6 +4,10 @@ import { AutoUpdateService } from "../services/AutoUpdateService";
 import { AutoUpdateRequest } from "../types/supplierInvoice";
 
 export async function AutoUpdateController(req: any, res: any) {
+
+    console.log("Content-Type:", req.headers["content-type"]);
+    console.log("Body:", req.body);
+    
     try {
         const data: AutoUpdateRequest = req.body;
 

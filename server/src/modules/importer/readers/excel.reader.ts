@@ -1,8 +1,11 @@
 import ExcelJS from "exceljs";
 import { ImportRow } from "../models/import-row";
+import { HEADER_ALIASES, STRONG_HEADERS, WEAK_HEADERS } from "../constants/header-keywords";
 
 export class ExcelReader {
+
     async read(filePath: string): Promise<ImportRow[]> {
+
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.readFile(filePath);
 
@@ -20,49 +23,63 @@ export class ExcelReader {
 
         const rows: ImportRow[] = [];
 
+        console.log(rows[0]);
+
         for (let rowNumber = headerRow + 1; rowNumber <= worksheet.rowCount; rowNumber++) {
+
             const row = worksheet.getRow(rowNumber);
 
             const record: ImportRow = {};
-            let hasData = false;
 
-            // Build record
-            headers.forEach((header: string, index: number) => {
+            headers.forEach((header, index) => {
                 record[header] = this.getCellValue(row.getCell(index + 1));
             });
 
-            // Stop at footer
-            const description = String(record["Item Description"] ?? "")
-                .trim()
-                .toLowerCase();
+            // Skip completely empty rows
+            const hasData = Object.values(record).some(v =>
+                v !== null &&
+                String(v).trim() !== ""
+            );
+
+            if (!hasData)
+                continue;
+
+            // Generic footer detection
+            const values = Object.values(record)
+                .map(v => String(v ?? "").trim().toLowerCase());
 
             if (
-                description === "total" ||
-                description === "grand total" ||
-                description === "subtotal" ||
-                description.includes("total")
+                values.some(v =>
+                    v === "total" ||
+                    v === "grand total" ||
+                    v === "subtotal"
+                )
             ) {
                 break;
             }
 
-            // Calculate amount if formula result missing
-            if (record["Amount"] == null) {
-                const qty = Number(record["Qty"] ?? 0);
-                const price = Number(record["List Price"] ?? 0);
-                const discount = Number(record["Disc %"] ?? 0);
-                const tax = Number(record["Tax %"] ?? 0);
+            
+            if (record.amount == null) {
 
-                record["Amount"] = Number(
-                    (qty * price * (1 - discount) * (1 + tax)).toFixed(2)
+                const qty = Number(record.qty ?? 0);
+                const rate = Number(record.rate ?? 0);
+                const discount = Number(record.discount ?? 0);
+                const gst = Number(record.gst ?? 0);
+
+                const taxable = qty * rate * (1 - discount);
+
+                record.amount = Number(
+                    (taxable * (1 + gst)).toFixed(2)
                 );
             }
 
             rows.push(record);
 
-            if (hasData) {
-                rows.push(record);
-            }
         }
+
+        console.log("Headers:", headers);
+        console.log("First record:", rows[0]);
+        console.log("Total rows:", rows.length);
 
         return rows;
     }
@@ -70,22 +87,6 @@ export class ExcelReader {
     private detectHeaderRow(
         worksheet: ExcelJS.Worksheet
     ): { headerRow: number; headers: string[] } {
-
-        const keywords = [
-            "item",
-            "description",
-            "qty",
-            "quantity",
-            "price",
-            "amount",
-            "gst",
-            "tax",
-            "batch",
-            "expiry",
-            "hsn",
-            "code",
-            "disc"
-        ];
 
         let bestScore = 0;
         let bestRow = -1;
@@ -96,56 +97,87 @@ export class ExcelReader {
             const row = worksheet.getRow(rowNumber);
 
             const headers: string[] = [];
+
             let score = 0;
 
             for (let col = 1; col <= worksheet.columnCount; col++) {
 
-                const value = row.getCell(col).text.trim();
+                const original = row.getCell(col).text.trim();
 
-                headers.push(value);
+                const normalized = this.normalizeHeader(original);
 
-                if (!value) continue;
+                headers.push(normalized);
 
-                const lower = value.toLowerCase();
+                if (!normalized)
+                    continue;
 
-                if (keywords.some(keyword => lower.includes(keyword))) {
-                    score++;
+                if (STRONG_HEADERS.some(h => normalized.includes(h))) {
+                    score += 2;
                 }
+                else if (WEAK_HEADERS.some(h => normalized.includes(h))) {
+                    score += 1;
+                }
+
             }
 
             if (score > bestScore) {
+
                 bestScore = score;
                 bestRow = rowNumber;
                 bestHeaders = headers;
+
             }
+
+        }
+
+        if (bestScore < 6) {
+
+            return {
+                headerRow: -1,
+                headers: []
+            };
+
         }
 
         return {
             headerRow: bestRow,
             headers: bestHeaders
         };
+
+    }
+
+    private normalizeHeader(header: string): string {
+
+        const value = String(header ?? "")
+            .trim()
+            .replace(/^\uFEFF/, "")
+            .replace(/\s+/g, " ")
+            .toLowerCase();
+
+        return HEADER_ALIASES[value] ?? value;
     }
 
     private getCellValue(cell: ExcelJS.Cell): any {
+
         const value = cell.value;
 
-        if (value == null) return null;
+        if (value == null)
+            return null;
 
-        // Formula cell
         if (typeof value === "object" && "formula" in value) {
             return value.result ?? null;
         }
 
-        // Rich text
         if (typeof value === "object" && "richText" in value) {
             return value.richText.map(r => r.text).join("");
         }
 
-        // Hyperlink
         if (typeof value === "object" && "text" in value) {
             return value.text;
         }
 
         return value;
+
     }
+
 }
