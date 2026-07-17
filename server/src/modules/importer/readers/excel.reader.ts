@@ -58,17 +58,33 @@ export class ExcelReader {
                 break;
             }
 
+            // __________________________________________________________
+            // | UPDATE: Added value cleaning in GST summation from      |
+            // | CGST+SGST+IGST. Strips % symbols before Number().      |
+            // |                                                         |
+            // | WHY: The mapper fix alone isn't enough — the reader     |
+            // | computes record.gst BEFORE the mapper runs. Without      |
+            // | cleaning, "2.5%" produces NaN and GST shows as 0.       |
+            // |__________________________________________________________|
             if (record.gst == null) {
+                const clean = (v: any) => {
+                    if (v == null) return 0;
+                    if (typeof v === "number") return v;
+                    const s = String(v).replace(/[₹$%,]/g, "").trim();
+                    const n = parseFloat(s);
+                    return isNaN(n) ? 0 : n;
+                };
                 let gst =
-                    Number(record.cgst ?? 0) +
-                    Number(record.sgst ?? 0) +
-                    Number(record.igst ?? 0);
+                    clean(record.cgst) +
+                    clean(record.sgst) +
+                    clean(record.igst);
                 if (gst > 0 && gst <= 1) gst *= 100;
                 record.gst = gst;
             }
 
             if (record.amount == null && record.total != null) {
-                record.amount = Number(record.total);
+                const cleaned = String(record.total).replace(/[₹$%,]/g, "").trim();
+                record.amount = parseFloat(cleaned) || 0;
             }
 
             rows.push(record);
