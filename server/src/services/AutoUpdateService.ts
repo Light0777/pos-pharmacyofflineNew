@@ -1,21 +1,5 @@
 // services/AutoUpdateService.ts
 
-// __________________________________________________________
-// | UPDATE: Consolidated duplicate batches and re-use       |
-// | existing batches on re-import.                           |
-// |                                                         |
-// | WHY: Importing a file with same product+batch multiple   |
-// | times (or re-importing the same file) created a new      |
-// | ProductBatch record each time instead of updating the    |
-// | existing batch's quantity. The fix:                      |
-// | 1. Checks ProductBatchModel.findByBatchNumber() before   |
-// |    creating a new batch — if exists, passes batch_uuid   |
-// |    and updates qty, MRP, rate, GST.                     |
-// | 2. Consolidates duplicate product_uuid+batch_number in   |
-// |    memory so the same import file with repeated rows     |
-// |    creates one batch with summed quantity.               |
-// |__________________________________________________________|
-
 import { PurchaseModel } from "../models/Purchase";
 import { ProductModel } from "../models/Product";
 import { ProductUnitModel } from "../models/ProductUnit";

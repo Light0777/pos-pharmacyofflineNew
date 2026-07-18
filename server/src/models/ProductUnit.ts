@@ -143,6 +143,19 @@ export class ProductUnitModel {
     return stmt.all(product_uuid) as ProductUnit[];
   }
 
+  // GET ALL UNITS
+
+  static getAll(): ProductUnit[] {
+
+    const stmt = db.prepare(`
+      SELECT *
+      FROM product_units
+      ORDER BY unit_uuid ASC
+    `);
+
+    return stmt.all() as ProductUnit[];
+  }
+
   // DELETE
 
   static delete(
@@ -158,4 +171,6 @@ export class ProductUnitModel {
 
     return result.changes > 0;
   }
+
+
 }

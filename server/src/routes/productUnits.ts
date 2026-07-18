@@ -14,6 +14,10 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get(
+  '/',
+  ProductUnitController.getAllUnits
+)
 // CREATE
 router.post(
   '/',

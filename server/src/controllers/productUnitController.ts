@@ -125,6 +125,32 @@ export class ProductUnitController {
     }
   };
 
+  // GET ALL UNITS
+
+  static getAllUnits = (
+    req: Request,
+    res: Response
+  ): void => {
+    try {
+      const units = ProductUnitModel.getAll();
+
+      res.json({
+        success: true,
+        data: units
+      });
+
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  };
+
+  
+
   // DELETE
 
   static destroy = (
