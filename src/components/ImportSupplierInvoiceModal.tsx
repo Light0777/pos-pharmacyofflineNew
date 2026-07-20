@@ -349,7 +349,7 @@ export default function ImportSupplierInvoiceModal({
 
       {/* Preview table */}
       <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="max-h-[55vh] overflow-y-auto">
+        <div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 260px)" }}>
           <table className="w-full text-sm">
             <thead className="bg-slate-50 sticky top-0">
               <tr>
@@ -521,10 +521,9 @@ export default function ImportSupplierInvoiceModal({
       <style>{`input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}input[type="number"]{-moz-appearance:textfield}`}</style>
       {createPortal(
       <div className="fixed inset-0 z-50" style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}>
-      <div className="absolute inset-0 overflow-y-auto flex items-center justify-center p-4">
+      <div className="absolute inset-0 overflow-hidden flex flex-col">
         <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col"
-          style={{ maxHeight: "90vh" }}
+          className="bg-white flex flex-col flex-1"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
