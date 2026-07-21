@@ -292,6 +292,7 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
     const hg = (item: any) => Math.round((tc(item) * ((item.tax_percent || 0) / 2) / 100) * 100) / 100;
     const fmt = (n: number) => n.toFixed(2);
     const invDate = formattedInvoice.created_at ? new Date(formattedInvoice.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+    const invTime = formattedInvoice.created_at ? new Date(formattedInvoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
 
     const totalQty = items.reduce((s: number, i: any) => s + Number(i.qty || 0), 0);
     const totalTaxable = items.reduce((s: number, i: any) => s + tc(i), 0);
@@ -521,82 +522,97 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
     const hg2 = (item: any) => Math.round((tc2(item) * ((item.tax_percent || 0) / 2) / 100) * 100) / 100;
     const fmt2 = (n: number) => n.toFixed(2);
     const invDate = formattedInvoice.created_at ? new Date(formattedInvoice.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+    const invTime = formattedInvoice.created_at ? new Date(formattedInvoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
     const totalQty = items.reduce((s: number, i: any) => s + Number(i.qty || 0), 0);
     const totalTaxable2 = items.reduce((s: number, i: any) => s + tc2(i), 0);
     const totalCgst2 = items.reduce((s: number, i: any) => s + hg2(i), 0);
     const totalSgst2 = items.reduce((s: number, i: any) => s + hg2(i), 0);
     const grandTotal2 = Number(summary.grand_total) || totalTaxable2 + totalCgst2 + totalSgst2;
     const totalAmount2 = items.reduce((s: number, i: any) => s + Number(i.total || 0), 0);
+    const totalIgst2 = 0;
     return (
     <div id="receipt" className="a4-sheet" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 14, color: '#111' }}>
-      <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 18, borderBottom: '1px solid #000', padding: '8px 10px' }}>Bill of Supply</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-        <div style={{ borderRight: '1px solid #000' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={cb}>Invoice No:</div><div style={cs}>{formattedInvoice.invoice_number}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '6px 10px' }}>Date of Issue:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{invDate}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '6px 10px' }}>Bill to Party:</div><div style={{ ...cs, borderTop: '1px solid #000' }}></div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '6px 10px' }}>Name:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{customer?.name || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '6px 10px' }}>Address:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{customer?.address || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '6px 10px' }}>GSTIN/UIN:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{customer?.gstin || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid #000' }}><div style={{ ...cb, padding: '6px 10px', borderRight: '1px solid #000' }}>State:</div><div style={{ padding: '6px 10px' }}>Code:</div></div>
-        </div>
-        <div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={cb}>State:</div><div style={cs}>{shop.state || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '6px 10px' }}>State Code:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{shop.state_code || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '6px 10px' }}>Ship to Party:</div><div style={{ ...cs, borderTop: '1px solid #000' }}></div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '6px 10px' }}>Name:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{customer?.name || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '6px 10px' }}>Address:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{customer?.address || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '6px 10px' }}>GSTIN:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{customer?.gstin || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid #000' }}><div style={{ ...cb, padding: '6px 10px', borderRight: '1px solid #000' }}>State:</div><div style={{ padding: '6px 10px' }}>Code:</div></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #000', padding: '8px 10px' }}>
+        <div style={{ fontWeight: 'bold', fontSize: 18 }}>{shop.name}</div>
+        <div style={{ fontSize: 12, textAlign: 'right', lineHeight: 1.5 }}>
+          {shop.name}<br />
+          Invoice No: {formattedInvoice.invoice_number}<br />
+          Date: {invDate}<br />
+          Time: {invTime}
         </div>
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', borderTop: '1px solid #000' }}>
         <thead>
           <tr>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 12, width: 36 }}>S.No</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 12 }}>Product Description</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 12, width: 60 }}>HSN/SAC</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 12, width: 40 }}>UDM</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 12, width: 40 }}>Qty</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 12, width: 65 }}>Rate</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 12, width: 70 }}>Amount</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 12, width: 60 }}>GST%</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 12, width: 75 }}>Taxable</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11, width: 30 }}>S.No</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11, width: 190 }}>Product Description</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11, width: 50 }}>HSN Code</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11, width: 35 }}>UDM</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11, width: 32 }}>Qty</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11, width: 50 }}>Rate</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11, width: 55 }}>Amount</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11, width: 45 }}>Discount</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11, width: 60 }}>Taxable Value</th>
+            <th colSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11 }}>CGST</th>
+            <th colSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11 }}>SGST</th>
+            <th colSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11 }}>IGST</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 11, width: 55 }}>Total</th>
+          </tr>
+          <tr>
+            <th style={{ ...cc, fontWeight: 'bold', fontSize: 9, width: 35 }}>Rate</th>
+            <th style={{ ...cc, fontWeight: 'bold', fontSize: 9, width: 40 }}>Amount</th>
+            <th style={{ ...cc, fontWeight: 'bold', fontSize: 9, width: 35 }}>Rate</th>
+            <th style={{ ...cc, fontWeight: 'bold', fontSize: 9, width: 40 }}>Amount</th>
+            <th style={{ ...cc, fontWeight: 'bold', fontSize: 9, width: 35 }}>Rate</th>
+            <th style={{ ...cc, fontWeight: 'bold', fontSize: 9, width: 40 }}>Amount</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item: any, idx: number) => {
             const taxable = tc2(item);
+            const halfRate = item.tax_percent > 0 ? item.tax_percent / 2 : 0;
+            const cgstAmt = hg2(item);
+            const sgstAmt = hg2(item);
             return (
             <tr key={idx} style={{ pageBreakInside: 'avoid' }}>
               <td style={cc}>{idx + 1}</td>
-              <td style={{ ...cs, textAlign: 'left' as const, fontSize: 13 }}>{item.name}</td>
+              <td style={{ ...cs, textAlign: 'left' as const, fontSize: 12 }}>{item.name}</td>
               <td style={cc}>{item.hsn_code || '—'}</td>
               <td style={cc}>{item.unit || 'Nos'}</td>
               <td style={cc}>{item.qty || 0}</td>
               <td style={cr}>{Number(item.price || 0).toFixed(2)}</td>
               <td style={cr}>{Number(item.total || 0).toFixed(2)}</td>
-              <td style={cc}>{item.tax_percent > 0 ? `${item.tax_percent}%` : '—'}</td>
+              <td style={cc}>—</td>
               <td style={cr}>{fmt2(taxable)}</td>
+              <td style={cc}>{item.tax_percent > 0 ? `${halfRate}%` : '—'}</td>
+              <td style={cr}>{fmt2(cgstAmt)}</td>
+              <td style={cc}>{item.tax_percent > 0 ? `${halfRate}%` : '—'}</td>
+              <td style={cr}>{fmt2(sgstAmt)}</td>
+              <td style={cc}>0%</td>
+              <td style={cr}>0.00</td>
+              <td style={cr}>{Number(item.total || 0).toFixed(2)}</td>
             </tr>
             );
           })}
         </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={4} style={{ ...cs, fontWeight: 'bold', textAlign: 'right' as const, paddingRight: 12 }}>Total:</td>
+            <td style={cc}>{totalQty}</td>
+            <td style={cc}>—</td>
+            <td style={cr}>{fmt2(totalAmount2)}</td>
+            <td style={cc}>—</td>
+            <td style={cr}>{fmt2(totalTaxable2)}</td>
+            <td style={cc}></td>
+            <td style={cr}>{fmt2(totalCgst2)}</td>
+            <td style={cc}></td>
+            <td style={cr}>{fmt2(totalSgst2)}</td>
+            <td style={cc}></td>
+            <td style={cr}>{fmt2(totalIgst2)}</td>
+            <td style={cr}>{fmt2(grandTotal2)}</td>
+          </tr>
+        </tfoot>
       </table>
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr', borderTop: '1px solid #000', borderBottom: '1px solid #000' }}>
-        <div style={{ ...cs, fontWeight: 'bold', textAlign: 'right', paddingRight: 12, gridColumn: 'span 3' }}>Total:</div>
-        <div style={cc}>{totalQty}</div>
-        <div style={cr}>{fmt2(totalAmount2)}</div>
-        <div style={cc}></div>
-        <div style={cr}>{fmt2(totalTaxable2)}</div>
-      </div>
-      <div style={{ padding: '8px 10px', fontSize: 13, borderBottom: '1px solid #000' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 20 }}>
-          {totalCgst2 > 0 && <span>CGST: ₹{fmt2(totalCgst2)}</span>}
-          {totalSgst2 > 0 && <span>SGST: ₹{fmt2(totalSgst2)}</span>}
-          <span style={{ fontWeight: 'bold' }}>Grand Total: ₹{fmt2(grandTotal2)}</span>
-        </div>
-      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '2px solid #000' }}>
         <div style={{ padding: '28px 10px 10px', fontSize: 13 }}>
           Goods once sold will not be taken back.<br />
@@ -612,7 +628,7 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
   };
 
   const renderA5 = () => {
-    const cs: React.CSSProperties = { border: '1px solid #000', padding: '4px 6px', fontSize: 12 };
+    const cs: React.CSSProperties = { border: '1px solid #000', padding: '2px 4px', fontSize: 8 };
     const cc: React.CSSProperties = { ...cs, textAlign: 'center' as const };
     const cr: React.CSSProperties = { ...cs, textAlign: 'right' as const };
     const cb: React.CSSProperties = { ...cs, fontWeight: 'bold' as const };
@@ -620,88 +636,103 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
     const hg2 = (item: any) => Math.round((tc2(item) * ((item.tax_percent || 0) / 2) / 100) * 100) / 100;
     const fmt2 = (n: number) => n.toFixed(2);
     const invDate = formattedInvoice.created_at ? new Date(formattedInvoice.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+    const invTime = formattedInvoice.created_at ? new Date(formattedInvoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
     const totalQty = items.reduce((s: number, i: any) => s + Number(i.qty || 0), 0);
     const totalTaxable2 = items.reduce((s: number, i: any) => s + tc2(i), 0);
     const totalCgst2 = items.reduce((s: number, i: any) => s + hg2(i), 0);
     const totalSgst2 = items.reduce((s: number, i: any) => s + hg2(i), 0);
     const grandTotal2 = Number(summary.grand_total) || totalTaxable2 + totalCgst2 + totalSgst2;
     const totalAmount2 = items.reduce((s: number, i: any) => s + Number(i.total || 0), 0);
+    const totalIgst2 = 0;
     return (
     <div id="receipt" className="a5-sheet" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 12, color: '#111' }}>
-      <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 15, borderBottom: '1px solid #000', padding: '6px 8px' }}>Bill of Supply</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-        <div style={{ borderRight: '1px solid #000' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={cb}>Invoice No:</div><div style={cs}>{formattedInvoice.invoice_number}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '4px 6px' }}>Date of Issue:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{invDate}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '4px 6px' }}>Bill to Party:</div><div style={{ ...cs, borderTop: '1px solid #000' }}></div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '4px 6px' }}>Name:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{customer?.name || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '4px 6px' }}>Address:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{customer?.address || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '4px 6px' }}>GSTIN/UIN:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{customer?.gstin || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid #000' }}><div style={{ ...cb, padding: '4px 6px', borderRight: '1px solid #000' }}>State:</div><div style={{ padding: '4px 6px' }}>Code:</div></div>
-        </div>
-        <div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={cb}>State:</div><div style={cs}>{shop.state || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '4px 6px' }}>State Code:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{shop.state_code || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '4px 6px' }}>Ship to Party:</div><div style={{ ...cs, borderTop: '1px solid #000' }}></div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '4px 6px' }}>Name:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{customer?.name || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '4px 6px' }}>Address:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{customer?.address || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}><div style={{ ...cb, borderTop: '1px solid #000', padding: '4px 6px' }}>GSTIN:</div><div style={{ ...cs, borderTop: '1px solid #000' }}>{customer?.gstin || '—'}</div></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid #000' }}><div style={{ ...cb, padding: '4px 6px', borderRight: '1px solid #000' }}>State:</div><div style={{ padding: '4px 6px' }}>Code:</div></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #000', padding: '4px 6px' }}>
+        <div style={{ fontWeight: 'bold', fontSize: 12 }}>{shop.name}</div>
+        <div style={{ fontSize: 8, textAlign: 'right', lineHeight: 1.4 }}>
+          {shop.name}<br />
+          Invoice No: {formattedInvoice.invoice_number}<br />
+          Date: {invDate}<br />
+          Time: {invTime}
         </div>
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', borderTop: '1px solid #000' }}>
         <thead>
           <tr>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 10, width: 30 }}>S.No</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 10 }}>Product Description</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 10, width: 50 }}>HSN</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 10, width: 32 }}>UDM</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 10, width: 32 }}>Qty</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 10, width: 55 }}>Rate</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 10, width: 60 }}>Amount</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 10, width: 48 }}>GST%</th>
-            <th style={{ ...cc, fontWeight: 'bold', fontSize: 10, width: 60 }}>Taxable</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7, width: 18 }}>S.No</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7, width: 90 }}>Product Description</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7, width: 32 }}>HSN Code</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7, width: 20 }}>UDM</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7, width: 18 }}>Qty</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7, width: 32 }}>Rate</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7, width: 36 }}>Amount</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7, width: 26 }}>Disc</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7, width: 36 }}>Taxable</th>
+            <th colSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7 }}>CGST</th>
+            <th colSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7 }}>SGST</th>
+            <th colSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7 }}>IGST</th>
+            <th rowSpan={2} style={{ ...cc, fontWeight: 'bold', fontSize: 7, width: 36 }}>Total</th>
+          </tr>
+          <tr>
+            <th style={{ ...cc, fontWeight: 'bold', fontSize: 6, width: 18 }}>Rate</th>
+            <th style={{ ...cc, fontWeight: 'bold', fontSize: 6, width: 24 }}>Amt</th>
+            <th style={{ ...cc, fontWeight: 'bold', fontSize: 6, width: 18 }}>Rate</th>
+            <th style={{ ...cc, fontWeight: 'bold', fontSize: 6, width: 24 }}>Amt</th>
+            <th style={{ ...cc, fontWeight: 'bold', fontSize: 6, width: 18 }}>Rate</th>
+            <th style={{ ...cc, fontWeight: 'bold', fontSize: 6, width: 24 }}>Amt</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item: any, idx: number) => {
             const taxable = tc2(item);
+            const halfRate = item.tax_percent > 0 ? item.tax_percent / 2 : 0;
+            const cgstAmt = hg2(item);
+            const sgstAmt = hg2(item);
             return (
             <tr key={idx} style={{ pageBreakInside: 'avoid' }}>
               <td style={cc}>{idx + 1}</td>
-              <td style={{ ...cs, textAlign: 'left' as const, fontSize: 11 }}>{item.name}</td>
+              <td style={{ ...cs, textAlign: 'left' as const, fontSize: 8 }}>{item.name}</td>
               <td style={cc}>{item.hsn_code || '—'}</td>
               <td style={cc}>{item.unit || 'Nos'}</td>
               <td style={cc}>{item.qty || 0}</td>
               <td style={cr}>{Number(item.price || 0).toFixed(2)}</td>
               <td style={cr}>{Number(item.total || 0).toFixed(2)}</td>
-              <td style={cc}>{item.tax_percent > 0 ? `${item.tax_percent}%` : '—'}</td>
+              <td style={cc}>—</td>
               <td style={cr}>{fmt2(taxable)}</td>
+              <td style={cc}>{item.tax_percent > 0 ? `${halfRate}%` : '—'}</td>
+              <td style={cr}>{fmt2(cgstAmt)}</td>
+              <td style={cc}>{item.tax_percent > 0 ? `${halfRate}%` : '—'}</td>
+              <td style={cr}>{fmt2(sgstAmt)}</td>
+              <td style={cc}>0%</td>
+              <td style={cr}>0.00</td>
+              <td style={cr}>{Number(item.total || 0).toFixed(2)}</td>
             </tr>
             );
           })}
         </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={4} style={{ ...cs, fontWeight: 'bold', textAlign: 'right' as const, paddingRight: 8 }}>Total:</td>
+            <td style={cc}>{totalQty}</td>
+            <td style={cc}>—</td>
+            <td style={cr}>{fmt2(totalAmount2)}</td>
+            <td style={cc}>—</td>
+            <td style={cr}>{fmt2(totalTaxable2)}</td>
+            <td style={cc}></td>
+            <td style={cr}>{fmt2(totalCgst2)}</td>
+            <td style={cc}></td>
+            <td style={cr}>{fmt2(totalSgst2)}</td>
+            <td style={cc}></td>
+            <td style={cr}>{fmt2(totalIgst2)}</td>
+            <td style={cr}>{fmt2(grandTotal2)}</td>
+          </tr>
+        </tfoot>
       </table>
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr', borderTop: '1px solid #000', borderBottom: '1px solid #000' }}>
-        <div style={{ ...cs, fontWeight: 'bold', textAlign: 'right', paddingRight: 8, gridColumn: 'span 3' }}>Total:</div>
-        <div style={cc}>{totalQty}</div>
-        <div style={cr}>{fmt2(totalAmount2)}</div>
-        <div style={cc}></div>
-        <div style={cr}>{fmt2(totalTaxable2)}</div>
-      </div>
-      <div style={{ padding: '6px 8px', fontSize: 11, borderBottom: '1px solid #000' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16 }}>
-          {totalCgst2 > 0 && <span>CGST: ₹{fmt2(totalCgst2)}</span>}
-          {totalSgst2 > 0 && <span>SGST: ₹{fmt2(totalSgst2)}</span>}
-          <span style={{ fontWeight: 'bold' }}>Grand Total: ₹{fmt2(grandTotal2)}</span>
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '2px solid #000', fontSize: 11 }}>
-        <div style={{ padding: '18px 8px 8px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '2px solid #000', fontSize: 8 }}>
+        <div style={{ padding: '10px 6px 6px' }}>
           Goods once sold will not be taken back.<br />
           Interest @ 24% p.a. will be charged if payment is not made within due date.
         </div>
-        <div style={{ padding: '18px 8px 8px', textAlign: 'right', borderLeft: '2px solid #000' }}>
+        <div style={{ padding: '10px 6px 6px', textAlign: 'right', borderLeft: '2px solid #000' }}>
           For {shop.name || 'Shop Name'}<br /><br />
           Authorised Signatory
         </div>
@@ -768,7 +799,7 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
   return createPortal(
     <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}>
         <div className="absolute inset-0 overflow-y-auto flex flex-col items-center p-4">
-        <div className={`flex flex-col items-center gap-4 ${isThermal ? 'w-full max-w-[400px] my-auto' : billFormat === 'a4' || billFormat === 'supplier' ? 'w-full max-w-[277mm] my-auto' : billFormat === 'a5' ? 'w-full max-w-[190mm] my-auto' : 'w-full max-w-[900px] my-auto'} pb-20`}>
+        <div className={`flex flex-col items-center gap-4 ${isThermal ? 'w-full max-w-[400px] my-auto' : billFormat === 'a4' || billFormat === 'supplier' ? 'w-full max-w-[277mm] my-auto' : billFormat === 'a5' ? 'w-full max-w-[290mm] my-auto' : 'w-full max-w-[900px] my-auto'} pb-20`}>
 
           {billFormat === 'a4' && renderA4()}
           {billFormat === 'a5' && renderA5()}
@@ -817,10 +848,12 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
           background: #ffffff;
           box-shadow: 0 8px 40px rgba(16, 100, 40, 0.12), 0 2px 8px rgba(0,0,0,0.06);
           border-radius: 4px;
-          padding: 10mm 12mm;
+          padding: 6mm 8mm;
           position: relative;
           display: flex;
           flex-direction: column;
+          transform: scale(1.3);
+          transform-origin: top center;
         }
 
 
@@ -903,6 +936,7 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
             border-radius: 0;
             display: block !important;
             overflow: visible !important;
+            transform: none !important;
           }
           .a4-sheet { padding: 10mm 12mm; }
           .a5-sheet { padding: 5mm 6mm; }

@@ -50,6 +50,7 @@ export default function ImportSupplierInvoiceModal({
   // Invoice fields
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Supplier dropdown position
   const supplierBtnRef = useRef<HTMLInputElement>(null);
@@ -84,6 +85,15 @@ export default function ImportSupplierInvoiceModal({
     setFile(selectedFile);
   };
 
+  const enrichItems = (items: SupplierInvoiceItem[]) =>
+    items.map((item) => ({
+      ...item,
+      unitsPerPack: item.pack ? 10 : 1,
+      disc: 0,
+      cgst: ((item.gst ?? 0) / 2),
+      sgst: ((item.gst ?? 0) / 2),
+    }));
+
   const handleUpload = async () => {
     if (!file) return;
     setLoading(true);
@@ -96,7 +106,7 @@ export default function ImportSupplierInvoiceModal({
         return;
       }
       const validItems = res.data.items.filter((i: any) => i.product_name && i.product_name.trim() !== '—' && i.product_name.trim() !== '');
-      setPreviewItems(validItems);
+      setPreviewItems(enrichItems(validItems));
       setStep("preview");
     } catch (e: any) {
       setError(e.message || "Upload failed");
@@ -330,7 +340,54 @@ export default function ImportSupplierInvoiceModal({
     </div>
   );
 
-  const renderPreview = () => (
+  const addRow = () => {
+    setPreviewItems((prev) =>
+      enrichItems([...prev, { product_name: "", batch: "", expiry: "", qty: 1, mrp: 0, rate: 0, gst: 0 }])
+    );
+  };
+
+  const removeRow = (idx: number) => {
+    setPreviewItems((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateItem = (idx: number, patch: Partial<any>) => {
+    setPreviewItems((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], ...patch };
+      return next;
+    });
+  };
+
+  const nv = (v: any) => (v === 0 || v === '0' ? '0' : String(v ?? 0));
+  const handleNum = (idx: number, field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    if (raw === '') { updateItem(idx, { [field]: 0 }); return; }
+    updateItem(idx, { [field]: Number(raw) });
+  };
+
+  const calcRow = (item: any) => {
+    const packs = Number(item.qty) || 0;
+    const upp = Number(item.unitsPerPack) || 1;
+    const rate = Number(item.rate) || 0;
+    const disc = Number(item.disc) || 0;
+    const cgst = Number(item.cgst) || 0;
+    const sgst = Number(item.sgst) || 0;
+    const units = packs * upp;
+    const unitPrice = upp > 0 ? rate / upp : 0;
+    let amount = packs * rate;
+    amount -= amount * (disc / 100);
+    amount += amount * ((cgst + sgst) / 100);
+    return { units, unitPrice, amount };
+  };
+
+  const renderPreview = () => {
+    const filtered = searchQuery
+      ? previewItems.filter((item) =>
+          item.product_name?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : previewItems;
+
+    return (
     <div className="space-y-4">
       {error && (
         <div className="flex items-center gap-2 p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl">
@@ -347,130 +404,203 @@ export default function ImportSupplierInvoiceModal({
         <span className="ml-auto font-semibold text-emerald-700">{previewItems.length} items</span>
       </div>
 
+      {/* Search + add */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 flex items-center bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
+          <svg className="w-4 h-4 text-slate-400 mr-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search product..."
+            className="flex-1 outline-none text-sm text-slate-600 placeholder-slate-400 bg-transparent"
+          />
+        </div>
+        <button
+          onClick={addRow}
+          className="p-2 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors border border-emerald-200"
+          title="Add row"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      </div>
+
       {/* Preview table */}
       <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 260px)" }}>
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 sticky top-0">
-              <tr>
-                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">#</th>
-                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Product</th>
-                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Batch</th>
-                <th className="text-center px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Expiry</th>
-                <th className="text-center px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Qty</th>
-                <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">MRP</th>
-                <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Rate</th>
-                <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">GST%</th>
+        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: "calc(100vh - 330px)" }}>
+          <table className="w-full text-xs border-collapse min-w-[1400px]">
+            <thead className="bg-slate-50 sticky top-0 z-10">
+              <tr className="border-b border-slate-200 text-slate-600 font-semibold">
+                <th className="text-left px-2 py-2 min-w-[140px]">Product</th>
+                <th className="text-left px-2 py-2 min-w-[50px]">HSN</th>
+                <th className="text-left px-2 py-2 min-w-[80px]">Mfr.</th>
+                <th className="text-left px-2 py-2 min-w-[70px]">Batch</th>
+                <th className="text-left px-2 py-2 min-w-[90px]">Pack</th>
+                <th className="text-center px-2 py-2 min-w-[50px]">Packs</th>
+                <th className="text-center px-2 py-2 min-w-[60px]">Units/Pack</th>
+                <th className="text-center px-2 py-2 min-w-[50px]">Units</th>
+                <th className="text-right px-2 py-2 min-w-[65px]">Rate/Pack</th>
+                <th className="text-right px-2 py-2 min-w-[60px]">MRP</th>
+                <th className="text-right px-2 py-2 min-w-[60px]">Unit ₹</th>
+                <th className="text-center px-2 py-2 min-w-[50px]">Disc%</th>
+                <th className="text-center px-2 py-2 min-w-[55px]">CGST%</th>
+                <th className="text-center px-2 py-2 min-w-[55px]">SGST%</th>
+                <th className="text-left px-2 py-2 min-w-[80px]">Expiry</th>
+                <th className="text-right px-2 py-2 min-w-[70px]">Amount</th>
+                <th className="text-center px-2 py-2 min-w-[40px]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {previewItems.slice(0, 100).map((item, i) => (
+              {filtered.map((item, i) => {
+                const { units, unitPrice, amount } = calcRow(item);
+                return (
                 <tr key={i} className="hover:bg-slate-50/50">
-                  <td className="px-3 py-2 text-xs text-slate-400 w-8">{i + 1}</td>
-                  <td className="px-1.5 py-1.5">
-                    <div className="flex flex-col gap-0.5">
+                  <td className="px-1.5 py-1">
+                    <input
+                      value={item.product_name}
+                      onChange={(e) => updateItem(i, { product_name: e.target.value })}
+                      className="w-full text-xs font-medium text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1 outline-none transition-colors"
+                    />
+                    {item.manufacturer ? (
                       <input
-                        value={item.product_name}
-                        onChange={(e) => {
-                          const next = [...previewItems];
-                          next[i] = { ...next[i], product_name: e.target.value };
-                          setPreviewItems(next);
-                        }}
-                        className="w-full text-sm font-medium text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1 outline-none transition-colors"
-                      />
-                      {item.manufacturer && <input
                         value={item.manufacturer}
-                        onChange={(e) => {
-                          const next = [...previewItems];
-                          next[i] = { ...next[i], manufacturer: e.target.value };
-                          setPreviewItems(next);
-                        }}
-                        className="w-full text-xs text-slate-400 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-0.5 outline-none transition-colors"
-                      />}
-                    </div>
+                        onChange={(e) => updateItem(i, { manufacturer: e.target.value })}
+                        className="w-full text-[10px] text-slate-400 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-0.5 outline-none transition-colors mt-0.5"
+                      />
+                    ) : null}
                   </td>
-                  <td className="px-1.5 py-1.5">
+                  <td className="px-1.5 py-1">
+                    <input
+                      value={item.hsn || ""}
+                      onChange={(e) => updateItem(i, { hsn: e.target.value })}
+                      className="w-full text-xs text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1">
+                    <input
+                      value={item.manufacturer || ""}
+                      onChange={(e) => updateItem(i, { manufacturer: e.target.value })}
+                      className="w-full text-xs text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1">
                     <input
                       value={item.batch || ""}
-                      onChange={(e) => {
-                        const next = [...previewItems];
-                        next[i] = { ...next[i], batch: e.target.value };
-                        setPreviewItems(next);
-                      }}
-                      className="w-full text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-left"
+                      onChange={(e) => updateItem(i, { batch: e.target.value })}
+                      className="w-full text-xs text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors"
                     />
                   </td>
-                  <td className="px-1.5 py-1.5">
+                  <td className="px-1.5 py-1">
+                    <select
+                      value={item.pack || "Strip"}
+                      onChange={(e) => updateItem(i, { pack: e.target.value })}
+                      className="w-full text-xs text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors"
+                    >
+                      <option>Strip</option>
+                      <option>Box</option>
+                      <option>Bottle</option>
+                      <option>Loose</option>
+                    </select>
+                  </td>
+                  <td className="px-1.5 py-1">
+                    <input
+                      type="number"
+                      min="0"
+                      value={nv(item.qty)}
+                      onChange={handleNum(i, 'qty')}
+                      className="w-full text-xs font-medium text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-center"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1">
+                    <input
+                      type="number"
+                      min="1"
+                      value={nv(item.unitsPerPack)}
+                      onChange={handleNum(i, 'unitsPerPack')}
+                      className="w-full text-xs text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-center"
+                    />
+                  </td>
+                  <td className="px-2 py-1 text-center text-xs font-medium text-slate-700">{units}</td>
+                  <td className="px-1.5 py-1">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={nv(item.rate)}
+                      onChange={handleNum(i, 'rate')}
+                      className="w-full text-xs text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-right"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={nv(item.mrp)}
+                      onChange={handleNum(i, 'mrp')}
+                      className="w-full text-xs text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-right"
+                    />
+                  </td>
+                  <td className="px-2 py-1 text-right text-xs font-medium text-slate-500">{unitPrice.toFixed(2)}</td>
+                  <td className="px-1.5 py-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={nv(item.disc)}
+                      onChange={handleNum(i, 'disc')}
+                      className="w-full text-xs text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-center"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={nv(item.cgst)}
+                      onChange={handleNum(i, 'cgst')}
+                      className="w-full text-xs text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-center"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={nv(item.sgst)}
+                      onChange={handleNum(i, 'sgst')}
+                      className="w-full text-xs text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-center"
+                    />
+                  </td>
+                  <td className="px-1.5 py-1">
                     <input
                       value={item.expiry || ""}
-                      onChange={(e) => {
-                        const next = [...previewItems];
-                        next[i] = { ...next[i], expiry: e.target.value };
-                        setPreviewItems(next);
-                      }}
-                      className="w-full text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-center"
+                      onChange={(e) => updateItem(i, { expiry: e.target.value })}
+                      className="w-full text-xs text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors"
                     />
                   </td>
-                  <td className="px-1.5 py-1.5">
-                    <input
-                      type="number"
-                      value={item.qty}
-                      onChange={(e) => {
-                        const next = [...previewItems];
-                        next[i] = { ...next[i], qty: Number(e.target.value) };
-                        setPreviewItems(next);
-                      }}
-                      className="w-16 text-sm font-medium text-slate-800 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-center"
-                    />
-                  </td>
-                  <td className="px-1.5 py-1.5">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={item.mrp}
-                      onChange={(e) => {
-                        const next = [...previewItems];
-                        next[i] = { ...next[i], mrp: Number(e.target.value) };
-                        setPreviewItems(next);
-                      }}
-                      className="w-20 text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-right"
-                    />
-                  </td>
-                  <td className="px-1.5 py-1.5">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={item.rate}
-                      onChange={(e) => {
-                        const next = [...previewItems];
-                        next[i] = { ...next[i], rate: Number(e.target.value) };
-                        setPreviewItems(next);
-                      }}
-                      className="w-20 text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-right"
-                    />
-                  </td>
-                  <td className="px-1.5 py-1.5">
-                    <div className="flex items-center gap-0.5">
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={item.gst ?? 0}
-                        onChange={(e) => {
-                          const next = [...previewItems];
-                          next[i] = { ...next[i], gst: Number(e.target.value) };
-                          setPreviewItems(next);
-                        }}
-                        className="w-14 text-sm text-slate-700 bg-transparent border border-transparent hover:border-slate-200 focus:border-emerald-400 focus:bg-white rounded-lg px-2 py-1.5 outline-none transition-colors text-right"
-                      />
-                      <span className="text-xs text-slate-400">%</span>
-                    </div>
+                  <td className="px-2 py-1 text-right text-xs font-semibold text-slate-800">₹{amount.toFixed(2)}</td>
+                  <td className="px-1.5 py-1 text-center">
+                    <button
+                      onClick={() => removeRow(i)}
+                      className="text-red-400 hover:text-red-600 transition-colors p-1"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </td>
                 </tr>
-              ))}
-              {previewItems.length > 100 && (
+                );
+              })}
+              {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-3 text-center text-xs text-slate-400">
-                    ...and {previewItems.length - 100} more items
+                  <td colSpan={17} className="px-4 py-8 text-center text-xs text-slate-400">
+                    {searchQuery ? "No matching items" : "No items to display"}
                   </td>
                 </tr>
               )}
@@ -479,7 +609,8 @@ export default function ImportSupplierInvoiceModal({
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   const renderDone = () => (
     <div className="text-center py-8 space-y-4">
