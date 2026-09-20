@@ -355,22 +355,12 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
   const [searchResults, setSearchResults] = useState<Product[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  // Virtual scrolling state
-  const gridRef = useRef<HTMLDivElement>(null);
+  // Search dropdown state (entry mode: selection adds a row to the invoice table)
+  const [dropOpen, setDropOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const dropListRef = useRef<HTMLDivElement>(null);
+
   const searchRef = useRef<HTMLInputElement>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [gridDimensions, setGridDimensions] = useState({ width: 0, height: 0 });
-
-  // Responsive columns: 2 below 1800px, 3 at 1800px+
-  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1800);
-
-  useEffect(() => {
-    setWindowWidth(window.innerWidth);
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   // Invalidate batch cache and trigger refresh
   const invalidateBatchCache = useCallback(() => {
     setBatchInfo({});
@@ -505,6 +495,43 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
     setProductBatches([]);
   };
 
+  // Select a product: quick-add a row with the same defaults the modal used
+  // (base unit, qty 1, earliest-expiry batch) so billing is never interrupted.
+  // Unit/qty/batch can then be adjusted inline in the invoice grid.
+  const selectProduct = async (product: Product) => {
+    setDropOpen(false);
+    setSearchTerm("");
+    setActiveIdx(0);
+    const seq = ++clickSeqRef.current;
+    const units = await loadProductUnits(product.product_uuid);
+    if (seq !== clickSeqRef.current) return;
+    if (units.length === 0) {
+      showToast(`No pack sizes defined for "${product.name}". Please add pack sizes first.`);
+      return;
+    }
+    const base = units.find((u) => u.is_base_unit) || units[0];
+    const allBatches = await getProductBatches(product.product_uuid);
+    if (seq !== clickSeqRef.current) return;
+    const withQty = (allBatches || [])
+      .filter((b: any) => (b.quantity || 0) > 0)
+      .map((b: any) => ({
+        batch_uuid: b.batch_uuid,
+        expiry_date: b.expiry_date,
+        is_expired: new Date(b.expiry_date) <= new Date(),
+      }))
+      .sort((a: any, b: any) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
+    const firstSellable = withQty.find((b: any) => !b.is_expired);
+    if (!firstSellable) {
+      showToast(`"${product.name}" has expired and cannot be sold.`);
+      return;
+    }
+    onAddItem(product, base.unit_uuid, 1, base.unit_name, firstSellable.batch_uuid);
+    setRecentUUIDs((prev) => {
+      const filtered = prev.filter((id) => id !== product.product_uuid);
+      return [product.product_uuid, ...filtered].slice(0, 20);
+    });
+  };
+
   // Load batch info for visible products
   useEffect(() => {
     if (products.length > 0) {
@@ -569,86 +596,58 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
         ];
   }, [searchTerm, filteredProducts, recentUUIDs, searchResults]);
 
-  // Virtual scrolling handlers and calculations
-  const handleScroll = useCallback(() => {
-    if (gridRef.current) {
-      setScrollTop(gridRef.current.scrollTop);
-    }
-  }, []);
-
+  // Reset dropdown highlight when results change
   useEffect(() => {
-    const el = gridRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        setGridDimensions({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        });
-      }
-    });
-    observer.observe(el);
-    setGridDimensions({
-      width: el.clientWidth,
-      height: el.clientHeight,
-    });
-    return () => observer.disconnect();
-  }, []);
+    setActiveIdx(0);
+  }, [filteredProducts]);
 
-  const PADDING = 12;
-  const GAP = 8;
-  const BUFFER_ROWS = 3;
-
-  const containerWidth = gridDimensions.width;
-  const containerHeight = gridDimensions.height;
-  const COLS = windowWidth >= 1800 ? 3 : 2;
-  const colWidth = containerWidth > 0
-    ? (containerWidth - PADDING * 2 - GAP * (COLS - 1)) / COLS
-    : 0;
-  const cardHeight = colWidth > 0 ? Math.max(colWidth * 0.45, 100) : 0;
-  const rowHeight = cardHeight > 0 ? cardHeight + GAP : 0;
-  const totalRows = colWidth > 0 ? Math.ceil(sortedProducts.length / COLS) : 0;
-  const totalHeight = totalRows * rowHeight;
-  const startRow = colWidth > 0
-    ? Math.max(0, Math.floor(scrollTop / rowHeight) - BUFFER_ROWS)
-    : 0;
-  const endRow = colWidth > 0
-    ? Math.min(totalRows, Math.ceil((scrollTop + containerHeight) / rowHeight) + BUFFER_ROWS)
-    : 0;
-  const startIndex = startRow * COLS;
-  const endIndex = Math.min(sortedProducts.length, endRow * COLS);
-  const visibleProducts = sortedProducts.slice(startIndex, endIndex);
-
-  // Reset scroll when search results change
+  // Keep the highlighted dropdown row visible while arrow-keying
   useEffect(() => {
-    setScrollTop(0);
-    if (gridRef.current) {
-      gridRef.current.scrollTop = 0;
-    }
-  }, [sortedProducts]);
+    const el = dropListRef.current?.querySelector('[data-dd-active="true"]');
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [activeIdx]);
 
-  // Ctrl+K to focus search
+  // Prefetch batch info for server-search dropdown rows
+  useEffect(() => {
+    const list = (searchResults ?? []).slice(0, 50);
+    list.forEach(p => loadBatchInfoForProduct(p.product_uuid));
+  }, [searchResults, cacheVersion]);
+
+  // Ctrl+K to focus search (never while editing a grid cell) + external listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      const t = e.target as HTMLElement | null;
+      const editing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k' && !editing) {
         e.preventDefault();
         searchRef.current?.focus();
       }
     };
+    const handleFocusSearch = () => {
+      searchRef.current?.focus();
+      setDropOpen(true);
+    };
+    const handleAddProduct = (e: Event) => {
+      const product = (e as CustomEvent).detail;
+      if (product?.product_uuid) selectProduct(product);
+    };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('pos-focus-search', handleFocusSearch);
+    window.addEventListener('pos-add-product', handleAddProduct);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('pos-focus-search', handleFocusSearch);
+      window.removeEventListener('pos-add-product', handleAddProduct);
+    };
   }, []);
 
   if (loading && products.length === 0) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="p-3">
-          <div className="h-10 rounded-lg bg-gray-100 animate-pulse" />
-        </div>
-        <div className="flex-1 overflow-y-auto p-3 gap-2" style={{ display: 'grid', gridTemplateColumns: `repeat(${COLS}, 1fr)` }}>
-          {[...Array(COLS * 3)].map((_, i) => (
-            <div key={i} className="rounded-xl animate-pulse bg-gray-100" style={{ aspectRatio: '2.22 / 1' }} />
+      <div className="p-2">
+        <div className="h-7 rounded bg-gray-700/40 animate-pulse" />
+        <div className="mt-2 space-y-1.5">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-6 rounded bg-gray-700/40 animate-pulse" />
           ))}
         </div>
       </div>
@@ -656,7 +655,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative">
 
       {/* Custom Toast Notification */}
       <div
@@ -670,244 +669,96 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="p-3 sticky top-0 z-10 bg-[#141414]">
-        <div className="relative">
-          <div className="absolute left-4 inset-y-0 flex items-center text-gray-400 pointer-events-none">
-            <HugeiconsIcon icon={Search01Icon} className="text-lg"  />
-          </div>
-          <input
-            ref={searchRef}
-            type="text"
-            placeholder={t('pos.searchProducts')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-20 py-2.5 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all font-inter bg-white"
-            autoComplete="off"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              ✕
-            </button>
-          )}
-          {!searchTerm && (
-            <kbd className="absolute right-4 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-bold bg-gray-100 rounded-full pointer-events-none flex items-center gap-0.5">
-              <span className="text-green-600">Ctrl</span>
-              <span className="text-gray-400">+K</span>
-            </kbd>
-          )}
-        </div>
-        {searchTerm && (
-          <div className="text-xs text-gray-500 mt-1.5 ml-1">
-            {t('pos.foundProducts', { count: filteredProducts.length })}
-          </div>
-        )}
-      </div>
-
-      {/* Product Grid - Virtual Scrolling */}
-      <div ref={gridRef} className="flex-1 min-h-0 overflow-y-auto scrollbar-hide relative" onScroll={handleScroll}>
-        {loading && products.length > 0 && (
-          <div className="absolute inset-0 bg-black/50 z-20 flex items-start justify-center pt-12 pointer-events-none">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
-          </div>
-        )}
-        {sortedProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-            <HugeiconsIcon icon={Search01Icon} className="text-3xl mb-2 text-gray-400" />
-            <p className="text-sm">{t('pos.noProductsFound')}</p>
-            <p className="text-xs mt-1">{t('pos.tryDifferentSearch')}</p>
-          </div>
-        ) : colWidth > 0 ? (
-          <div style={{ height: Math.max(totalHeight + PADDING * 2, containerHeight), position: 'relative', paddingBottom: 48 }}>
-            {visibleProducts.map((p, i) => {
-              const actualIndex = startIndex + i;
-              const row = Math.floor(actualIndex / COLS);
-              const col = actualIndex % COLS;
-              const stock = p.stock ?? 0;
-              const productBatches = batchInfo[p.product_uuid] || [];
-              const totalCount = totalBatchCounts[p.product_uuid] ?? productBatches.length;
-              const hasBatches = totalCount > 0;
-              const nearestExpiry = productBatches.length > 0 ? productBatches[0] : null;
-              const daysUntilExpiry = nearestExpiry ? getDaysUntilExpiry(nearestExpiry.expiry_date) : null;
-              const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
-              const batchCount = totalCount;
-              const onlyExpired = hasExpiredStock[p.product_uuid] && productBatches.length === 0;
-              const sellableStock = productBatches.length > 0
-                ? productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0)
-                : stock;
-              const hasImage = !!(p as any).image;
-
-              return (
-                <div
-                  key={p.product_uuid}
-                  className="border-2 border-gray-200 bg-white hover:bg-gray-50 text-gray-800 rounded-2xl cursor-pointer flex flex-row overflow-hidden transition-all duration-200 font-inter hover:scale-[1.02] hover:shadow-lg"
-                  style={{
-                    position: 'absolute',
-                    top: row * rowHeight + PADDING,
-                    left: col * (colWidth + GAP) + PADDING,
-                    width: colWidth,
-                    height: cardHeight,
-                  }}
-                  onClick={() => handleProductClick(p)}
-                >
-                  {/* Left: Image or Placeholder - square, sized relative to card */}
-                  <div className="flex-shrink-0 self-center overflow-hidden rounded-xl aspect-square mx-[1.3%]" style={{ width: '40%' }}>
-                    {hasImage ? (
-                      <img
-                        src={(p as any).image}
-                        alt={p.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: '#83df1a' }}>
-                          <HugeiconsIcon icon={Medicine01Icon} className="text-xl text-white"  />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right: Product Details */}
-                  <div className="flex-1 min-w-0 px-2.5 py-1.5 flex flex-col justify-start gap-[1px] text-left">
-                    {/* Product Name */}
-                    <div className="font-semibold text-xs truncate leading-tight text-gray-900">
-                      {p.name}
-                    </div>
-
-                    {/* Manufacturer */}
-                    {p.manufacturer && (
-                      <div className="text-[10px] truncate leading-tight text-gray-500">
-                        {p.manufacturer}
-                      </div>
-                    )}
-
-                    {/* Batch & Expiry Info */}
-                    <div className="flex flex-wrap gap-x-2">
-                      {batchCount > 0 && (
-                        <div className="text-[10px] flex items-center gap-0.5 text-gray-500">
-                          <span>{batchCount} batch{batchCount > 1 ? 'es' : ''}</span>
-                        </div>
-                      )}
-                      {productBatches.length > 0 && (
-                        <div className={`text-[10px] flex items-center gap-0.5 ${isExpiringSoon ? 'text-orange-600' : 'text-gray-500'}`}>
-                          {isExpiringSoon ? (
-                            <>
-                              <HugeiconsIcon icon={Time01Icon} className="text-[8px]"  />
-                              <span>{daysUntilExpiry}d expiry</span>
-                            </>
-                          ) : nearestExpiry ? (
-                            <span>Exp: {new Date(nearestExpiry.expiry_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Price and Rx Badge */}
-                    <div className="flex items-center gap-1.5">
-                      <div className="text-xs font-bold text-gray-900">
-                        ₹{p.price}
-                      </div>
-                      {p.prescription_required === 1 && (
-                        <span className="text-[9px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-medium leading-none">
-                          Rx
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Stock Badge */}
-                    <div className="flex flex-wrap gap-1">
-                      {onlyExpired ? (
-                        <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
-                          Expired
-                        </span>
-                      ) : sellableStock === 0 ? (
-                        <span className="text-[9px] bg-gray-700 text-white px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
-                          Out of Stock
-                        </span>
-                      ) : sellableStock < 10 ? (
-                        <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
-                          Only {sellableStock} left
-                        </span>
-                      ) : (
-                        <span className="text-[9px] bg-green-700 text-white px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
-                          {sellableStock} remaining
-                        </span>
-                      )}
-                      {hasExpiredStock[p.product_uuid] && !onlyExpired && (expiredQuantities[p.product_uuid] || 0) > 0 && (
-                        <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-medium inline-block leading-none">
-                          {expiredQuantities[p.product_uuid]} expired
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
-      {!searchResults && totalPages > 1 && (
-        <div className="sticky bottom-0 flex justify-center py-3 pointer-events-none">
-          <div className="flex items-center pointer-events-auto gap-x-1.5">
-            <div className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 flex items-center shadow-sm">
-              <button
-                onClick={() => onPageChange(page - 1)}
-                disabled={page <= 1}
-                className="px-2 py-1 text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 hover:text-gray-900"
-              >
-                ‹ Prev
-              </button>
+      {/* Search / product entry - results open as a dropdown; selecting adds a row to the invoice table */}
+      <div className="relative">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <div className="absolute left-2 inset-y-0 flex items-center text-gray-500 pointer-events-none">
+              <HugeiconsIcon icon={Search01Icon} className="text-sm"  />
             </div>
-            <div className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 flex items-center shadow-sm">
-              <div className="flex items-center gap-1.5">
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(p => {
-                    if (totalPages <= 7) return true;
-                    if (p === 1 || p === totalPages) return true;
-                    if (Math.abs(p - page) <= 1) return true;
-                    return false;
-                  })
-                  .reduce<(number | 'ellipsis')[]>((acc, p, idx, arr) => {
-                    if (idx > 0) {
-                      const prev = arr[idx - 1];
-                      if (p - prev > 1) acc.push('ellipsis');
-                    }
-                    acc.push(p);
-                    return acc;
-                  }, [])
-                  .map((item, idx) =>
-                    item === 'ellipsis' ? (
-                      <span key={`e${idx}`} className="px-1.5 text-gray-400 text-sm">...</span>
-                    ) : (
-                      <button
-                        key={item}
-                        onClick={() => onPageChange(item)}
-                        className={`text-sm font-medium transition-colors ${
-                          item === page
-                            ? 'bg-green-600 text-white rounded px-2.5 py-1'
-                            : 'px-1.5 text-gray-500 hover:text-gray-900'
-                        }`}
-                      >
-                        {item}
-                      </button>
-                    )
-                  )}
+            <input
+              ref={searchRef}
+              type="text"
+              placeholder={t('pos.searchProducts')}
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setDropOpen(true); }}
+              onFocus={() => setDropOpen(true)}
+              onBlur={() => setTimeout(() => setDropOpen(false), 120)}
+              onKeyDown={(e) => {
+                const list = sortedProducts.slice(0, 50);
+                if (e.key === 'ArrowDown' && list.length > 0) { e.preventDefault(); setDropOpen(true); setActiveIdx(i => Math.min(i + 1, list.length - 1)); }
+                else if (e.key === 'ArrowUp' && list.length > 0) { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
+                else if (e.key === 'Enter' && dropOpen && list.length > 0) { e.preventDefault(); selectProduct(list[Math.min(activeIdx, list.length - 1)]); }
+                else if (e.key === 'Escape') { setSearchTerm(''); setDropOpen(false); }
+              }}
+              className="w-full pl-7 pr-12 py-1 text-xs border border-gray-700 rounded bg-[#212121] text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-transparent font-inter"
+              autoComplete="off"
+            />
+            {searchTerm ? (
+              <button
+                onClick={() => { setSearchTerm(''); setDropOpen(false); searchRef.current?.focus(); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs"
+              >
+                ✕
+              </button>
+            ) : (
+              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-bold bg-gray-700 text-gray-300 rounded pointer-events-none">
+                Ctrl+K
+              </kbd>
+            )}
+          </div>
+          {searchLoading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500 shrink-0" />
+          ) : searchTerm ? (
+            <div className="text-[11px] text-gray-500 whitespace-nowrap shrink-0">
+              {t('pos.foundProducts', { count: filteredProducts.length })}
+            </div>
+          ) : null}
+        </div>
+        {dropOpen && searchTerm.trim().length >= 1 && (
+          <div ref={dropListRef} className="absolute left-0 right-0 top-full mt-1 z-50 max-h-72 overflow-y-auto bg-[#1a1a1a] border border-gray-700 rounded-md shadow-2xl">
+            {sortedProducts.length === 0 ? (
+              <div className="px-3 py-4 text-center text-gray-500 text-xs">
+                <p>{t('pos.noProductsFound')}</p>
+                <p className="mt-0.5">{t('pos.tryDifferentSearch')}</p>
               </div>
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 flex items-center shadow-sm">
-              <button
-                onClick={() => onPageChange(page + 1)}
-                disabled={page >= totalPages}
-                className="px-2 py-1 text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 hover:text-gray-900"
-              >
-                Next ›
-              </button>
-            </div>
+            ) : (
+              sortedProducts.slice(0, 50).map((p, i) => {
+                const productBatches = batchInfo[p.product_uuid] || [];
+                const sellableStock = productBatches.length > 0
+                  ? productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0)
+                  : (p.stock ?? 0);
+                const onlyExpired = hasExpiredStock[p.product_uuid] && productBatches.length === 0;
+                const isActive = i === activeIdx;
+                return (
+                  <div
+                    key={p.product_uuid}
+                    data-dd-active={isActive || undefined}
+                    onMouseDown={(e) => { e.preventDefault(); selectProduct(p); }}
+                    onMouseEnter={() => setActiveIdx(i)}
+                    className={`flex items-center gap-2 px-2 py-1.5 border-b border-gray-800 cursor-pointer text-[11px] leading-tight ${isActive ? 'bg-[#242424]' : ''}`}
+                  >
+                    <span className="flex-1 min-w-0 truncate">
+                      <span className="font-semibold text-white">{p.name}</span>
+                      {p.manufacturer && (
+                        <span className="ml-1.5 text-gray-500">{p.manufacturer}</span>
+                      )}
+                      {p.prescription_required === 1 && (
+                        <span className="ml-1.5 text-[9px] bg-red-500 text-white px-1 rounded-full font-medium">Rx</span>
+                      )}
+                    </span>
+                    <span className="w-20 shrink-0 truncate text-gray-500">{p.sku || p.barcode || '—'}</span>
+                    <span className={`w-14 shrink-0 text-right font-semibold ${onlyExpired || sellableStock === 0 ? 'text-red-400' : sellableStock < 10 ? 'text-amber-400' : 'text-green-400'}`}>
+                      {onlyExpired ? 'Expired' : sellableStock}
+                    </span>
+                    <span className="w-16 shrink-0 text-right font-semibold text-white">₹{p.price}</span>
+                  </div>
+                );
+              })
+            )}
           </div>
-        </div>
-      )}
+        )}
       </div>
-
       {/* Unit Selection Modal */}
       <UnitSelectionModal
         isOpen={showUnitModal}

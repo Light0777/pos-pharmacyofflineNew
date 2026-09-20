@@ -37,7 +37,6 @@ function POSpage() {
   // REMOVED local prescription state - now coming from useCart
 
   // Refs for scrollable containers
-  const productGridRef = useRef<HTMLDivElement>(null);
   const cartItemsRef = useRef<HTMLDivElement>(null);
   const paymentSummaryRef = useRef<HTMLDivElement>(null);
   const barcodeScannedRef = useRef(false);
@@ -49,6 +48,9 @@ function POSpage() {
     addItem,
     increaseItem,
     decreaseItem,
+    updateItemQuantity,
+    updateCartItem,
+    changeItemBatch,
     applyDiscount,
     checkout,
     refreshCart,
@@ -98,7 +100,6 @@ function POSpage() {
   // Save scroll positions function
   const saveScrollPositions = () => {
     const scrollState = {
-      productGrid: productGridRef.current?.scrollTop || 0,
       cartItems: cartItemsRef.current?.scrollTop || 0,
       paymentSummary: paymentSummaryRef.current?.scrollTop || 0,
     };
@@ -189,7 +190,7 @@ function POSpage() {
     const handleKeyDown = async (e: KeyboardEvent) => {
       // Ignore if user is typing in an input field
       const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable) return;
 
       const now = Date.now();
       const timeDiff = now - lastKeyTime;
@@ -239,7 +240,7 @@ function POSpage() {
       }
 
       const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable) {
         return;
       }
 
@@ -267,17 +268,12 @@ function POSpage() {
 
   // Save scroll positions on scroll
   useEffect(() => {
-    const handleProductScroll = () => saveScrollPositions();
     const handleCartScroll = () => saveScrollPositions();
     const handlePaymentScroll = () => saveScrollPositions();
 
-    const productElement = productGridRef.current;
     const cartElement = cartItemsRef.current;
     const paymentElement = paymentSummaryRef.current;
 
-    if (productElement) {
-      productElement.addEventListener('scroll', handleProductScroll);
-    }
     if (cartElement) {
       cartElement.addEventListener('scroll', handleCartScroll);
     }
@@ -286,9 +282,6 @@ function POSpage() {
     }
 
     return () => {
-      if (productElement) {
-        productElement.removeEventListener('scroll', handleProductScroll);
-      }
       if (cartElement) {
         cartElement.removeEventListener('scroll', handleCartScroll);
       }
@@ -317,11 +310,8 @@ function POSpage() {
 
       if (savedPositions) {
         try {
-          const { productGrid, cartItems, paymentSummary } = JSON.parse(savedPositions);
+          const { cartItems, paymentSummary } = JSON.parse(savedPositions);
 
-          if (productGridRef.current && productGrid > 0) {
-            productGridRef.current.scrollTop = productGrid;
-          }
           if (cartItemsRef.current && cartItems > 0) {
             cartItemsRef.current.scrollTop = cartItems;
           }
@@ -372,77 +362,107 @@ function POSpage() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-[#141414] font-inter overflow-hidden">
-      <TopBar
-        onShowSales={() => {
-          loadSales();
-          setShowSalesModal(true);
-        }}
-      />
+    <div className="h-screen w-screen flex flex-col bg-[#141414] font-inter overflow-hidden">
+      {/* 1 ─ TOP HEADER AREA (existing TopBar, untouched) */}
+      <header className="shrink-0">
+        <TopBar
+          onShowSales={() => {
+            loadSales();
+            setShowSalesModal(true);
+          }}
+        />
+      </header>
 
-      <div className="flex flex-1 overflow-hidden gap-3 p-3 flex-col lg:flex-row">
-
-        {/* COLUMN 1: PRODUCTS */}
-        <div className="w-full lg:w-1/2 flex flex-col min-h-0">
-          <div className="px-3 font-bold text-white text-start">
-            Products
+      {/* 2 ─ TRANSACTION HEADER (dense ERP strip: read-only view of existing bill data) */}
+      <section className="shrink-0 flex items-stretch px-2 py-1 border-b border-gray-800 bg-[#1a1a1a] overflow-x-auto text-[11px] leading-tight">
+        <div className="flex items-center gap-2 pr-3 mr-1 border-r border-gray-800 min-w-0 shrink-0">
+          <div className="rounded bg-black p-1 shrink-0">
+            <HugeiconsIcon icon={Store01Icon} className="text-sm text-gray-300" />
           </div>
-          <div
-            ref={productGridRef}
-            className="flex-1 overflow-y-auto scrollbar-hide"
-            id="product-scroll-container"
-          >
-            <ProductGrid
-              products={products}
-              loading={productsLoading}
-              page={page}
-              totalPages={totalPages}
-              onPageChange={goToPage}
-              onAddItem={(product, unitUuid, quantity, unitName, batchUuid) => {
-                addItem(product, unitUuid, quantity, unitName, batchUuid);
-              }}
-            />
+          <div className="min-w-0">
+            <div className="text-xs font-bold text-white truncate">{shopSettings?.shop_name || 'My Store'}</div>
+            <div className="text-gray-500 truncate">
+              {shopSettings?.gstin ? `GSTIN: ${shopSettings.gstin}` : (shopSettings?.address || 'Set address in Settings')}
+            </div>
           </div>
         </div>
-
-        {/* COLUMN 2: CART ITEMS */}
-        <div className="w-full lg:w-1/4 flex flex-col bg-[#1a1a1a] rounded-2xl overflow-hidden">
-          <div className="p-4 font-bold text-white text-start border-b border-gray-800 flex justify-between items-center">
-            <span>Cart Items</span>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-400">
-                {cartData?.cart?.items?.length || 0} items
-              </span>
-            </div>
+        <div className="px-3 border-r border-gray-800 shrink-0 min-w-[120px]">
+          <div className="text-gray-500">Customer</div>
+          <div className="text-xs font-semibold text-white truncate">
+            {selectedCustomer ? selectedCustomer.name : 'Walk-in'}
+            {selectedCustomer?.credit_balance > 0 && (
+              <span className="ml-1 font-normal text-orange-400">Due ₹{selectedCustomer.credit_balance}</span>
+            )}
           </div>
-
-          <div className="m-3 p-3 bg-[#212121] rounded-xl flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-black p-2">
-                <HugeiconsIcon icon={Store01Icon} className="text-2xl text-gray-300"  />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="text-base font-bold text-white">
-                    {shopSettings?.shop_name || 'My Store'}
-                  </div>
-                  {shopSettings?.gstin && (
-                    <div className="text-xs text-gray-400">GSTIN: {shopSettings.gstin}</div>
-                  )}
-                </div>
-                <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                  <span>{shopSettings?.address || 'Set address in Settings'}</span>
-                </div>
-              </div>
-            </div>
+        </div>
+        <div className="px-3 border-r border-gray-800 shrink-0">
+          <div className="text-gray-500">Pay Mode</div>
+          <div className="text-xs font-semibold text-white">
+            {({ cash: 'Cash', upi: 'UPI', pay_later: 'Pay Later', card: 'Card' } as Record<string, string>)[payments?.[0]?.method] || payments?.[0]?.method || 'Cash'}
           </div>
+        </div>
+        <div className="px-3 border-r border-gray-800 shrink-0">
+          <div className="text-gray-500">Tot Qty</div>
+          <div className="text-xs font-semibold text-white">
+            {(cartData?.cart?.items || []).reduce((s: number, it: any) => s + (Number(it.quantity) || 0), 0)}
+          </div>
+        </div>
+        <div className="px-3 border-r border-gray-800 shrink-0">
+          <div className="text-gray-500">Lines</div>
+          <div className="text-xs font-semibold text-white">{cartData?.cart?.items?.length || 0}</div>
+        </div>
+        <div className="px-3 border-r border-gray-800 shrink-0">
+          <div className="text-gray-500">Discount</div>
+          <div className="text-xs font-semibold text-white">₹{Number(discount || 0).toLocaleString()}</div>
+        </div>
+        <div className="px-3 border-r border-gray-800 shrink-0">
+          <div className="text-gray-500">GST</div>
+          <div className="text-xs font-semibold text-white">₹{Number(cartData?.summary?.tax || 0).toLocaleString()}</div>
+        </div>
+        <div className="px-3 shrink-0">
+          <div className="text-gray-500">Grand Total</div>
+          <div className="text-sm font-bold text-green-400">₹{grandTotal.toLocaleString()}</div>
+        </div>
+        <div className="ml-auto pl-3 flex items-center shrink-0">
+          <button
+            onClick={() => refetch()}
+            className="text-[11px] text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors"
+            title="Refresh products (F5)"
+          >
+            Refresh [F5]
+          </button>
+        </div>
+      </section>
 
+      {/* 3 ─ PRODUCT SEARCH / ENTRY (selecting adds a new row to the invoice table below) */}
+      <section className="shrink-0 px-2 py-1 border-b border-gray-800 bg-[#141414]">
+        <ProductGrid
+          products={products}
+          loading={productsLoading}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+          onAddItem={(product, unitUuid, quantity, unitName, batchUuid) => {
+            addItem(product, unitUuid, quantity, unitName, batchUuid);
+          }}
+        />
+      </section>
+
+      {/* 4 ─ MAIN INVOICE TABLE (one row = one product, full width) */}
+      <main className="flex-1 min-h-0 flex flex-col p-2 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden">
+          <div className="px-3 py-1.5 font-bold text-white text-sm text-start border-b border-gray-800 flex justify-between items-center shrink-0">
+            <span>Invoice Items</span>
+            <span className="text-xs font-normal text-gray-400">
+              {cartData?.cart?.items?.length || 0} lines
+            </span>
+          </div>
           <div
             ref={cartItemsRef}
-            className="flex-1 overflow-y-auto scrollbar-hide"
+            className="flex-1 overflow-auto scrollbar-hide min-h-0 relative"
             id="cart-scroll-container"
           >
-            {cartLoading ? (
+            {cartLoading && !(cartData?.cart?.items?.length) ? (
               <div className="flex items-center justify-center h-32">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
               </div>
@@ -451,50 +471,52 @@ function POSpage() {
                 items={cartData?.cart?.items || []}
                 onIncrease={increaseItem}
                 onDecrease={decreaseItem}
+                onUpdateQty={updateItemQuantity}
+                onUpdateField={updateCartItem}
+                onChangeBatch={changeItemBatch}
               />
             )}
+            {cartLoading && (cartData?.cart?.items?.length || 0) > 0 && (
+              <div className="absolute top-1 right-2 z-20 pointer-events-none">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500" />
+              </div>
+            )}
           </div>
-
-          {(cartData?.cart?.items?.length || 0) > 0 && (
-            <button
-              onClick={clearCart}
-              className="mx-3 mb-3 py-2 text-sm text-red-400 hover:text-white hover:bg-red-500/20 border border-red-500/30 rounded-xl transition-all"
-            >
-              Clear All
-            </button>
-          )}
         </div>
+      </main>
 
-        {/* COLUMN 3: PAYMENT SUMMARY */}
-        <div className="w-full lg:w-1/4 flex flex-col bg-[#1a1a1a] rounded-2xl overflow-hidden">
-          <div className="p-4 font-bold text-white text-start border-b border-gray-800 flex-shrink-0">
-            Payment Summary
-          </div>
-
-          <div
-            ref={paymentSummaryRef}
-            className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide"
-            id="payment-scroll-container"
-          >
+      {/* 5 ─ BOTTOM INFORMATION / TOTALS AREA (existing components, relocated) */}
+      <section className="shrink-0 border-t border-gray-800 bg-[#1a1a1a]">
+        <div
+          ref={paymentSummaryRef}
+          className="flex gap-2 px-2 py-1 overflow-x-auto scrollbar-hide"
+          id="payment-scroll-container"
+        >
+          <div className="w-48 shrink-0">
+            <div className="text-[11px] font-semibold text-gray-400 mb-0.5">Totals</div>
             <CartSummary
               total={cartData?.summary?.total || 0}
               tax={cartData?.summary?.tax || 0}
               grandTotal={grandTotal}
             />
-
+          </div>
+          <div className="w-60 shrink-0">
+            <div className="text-[11px] font-semibold text-gray-400 mb-0.5">Customer</div>
             <CustomerSelect
               customers={customers}
               selectedCustomer={selectedCustomer}
               onSelectCustomer={setSelectedCustomer}
               onAddNew={(phone) => { setNewCustomerPhone(phone || ""); setShowCustomerModal(true); }}
             />
-
+          </div>
+          <div className="w-48 shrink-0">
             <DiscountSection
               discount={discount}
               onDiscountChange={setDiscount}
               onApplyDiscount={() => applyDiscount(cartUUID, discount)}
             />
-
+          </div>
+          <div className="flex-1 min-w-[220px]">
             <PaymentSection
               payments={payments}
               onPaymentChange={(index, field, value) => {
@@ -517,30 +539,51 @@ function POSpage() {
               balance={balance}
               grandTotal={grandTotal}
             />
-
-            <button
-              className="w-full bg-green-600 text-white p-3 rounded-xl font-bold disabled:opacity-50 hover:bg-green-700 transition-colors"
-              onClick={handleCheckout}
-              disabled={cartLoading || !cartData?.cart?.items?.length || isCartInitializing}
-            >
-              {cartLoading ? "Processing..." : "Checkout"}
-            </button>
-
-            {selectedCustomer?.credit_balance > 0 && (
-              <button
-                className="w-full bg-orange-500 text-white p-2 rounded-xl text-sm hover:bg-orange-600 transition-colors"
-                onClick={() => {
-                  setPayments([
-                    { method: "cash", amount: selectedCustomer.credit_balance },
-                  ]);
-                }}
-              >
-                Clear Old Due ₹{selectedCustomer.credit_balance}
-              </button>
-            )}
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* 6 ─ BOTTOM ACTION BAR (existing actions only, workstation-style) */}
+      <footer className="shrink-0 flex items-center gap-1.5 px-2 py-1 border-t border-gray-800 bg-[#141414] text-xs">
+        <button
+          className="bg-green-600 text-white px-4 py-1 rounded font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-700 transition-colors"
+          onClick={handleCheckout}
+          disabled={cartLoading || !cartData?.cart?.items?.length || isCartInitializing}
+        >
+          {cartLoading ? "Processing..." : "Submit [Enter]"}
+        </button>
+        {(cartData?.cart?.items?.length || 0) > 0 && (
+          <button
+            onClick={clearCart}
+            className="px-3 py-1 text-red-400 hover:text-white hover:bg-red-500/20 border border-red-500/30 rounded transition-all"
+          >
+            Reset
+          </button>
+        )}
+        {selectedCustomer?.credit_balance > 0 && (
+          <button
+            className="px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors"
+            onClick={() => {
+              setPayments([
+                { method: "cash", amount: selectedCustomer.credit_balance },
+              ]);
+            }}
+          >
+            Clear Old Due ₹{selectedCustomer.credit_balance}
+          </button>
+        )}
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            className="px-3 py-1 text-gray-300 hover:text-white border border-gray-700 hover:border-gray-500 rounded transition-colors"
+            onClick={() => {
+              loadSales();
+              setShowSalesModal(true);
+            }}
+          >
+            View
+          </button>
+        </div>
+      </footer>
 
       {/* Modals */}
       {showCustomerModal && (

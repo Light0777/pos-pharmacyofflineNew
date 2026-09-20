@@ -76,8 +76,8 @@ export default function PaymentSection({
   ];
 
   return (
-    <div className="space-y-3">
-      <div className="font-medium text-sm text-gray-300">{t('pos.paymentMethod')}</div>
+    <div className="space-y-1.5">
+      <div className="text-[11px] font-semibold text-gray-400">{t('pos.paymentMethod')}</div>
 
       {/* Method Selector */}
       <div className="grid grid-cols-3 gap-2">
@@ -86,12 +86,12 @@ export default function PaymentSection({
             key={id}
             type="button"
             onClick={() => handleMethodSelect(id)}
-            className={`border-2 rounded-xl p-3 transition-all text-center ${selectedMethod === id
+            className={`border rounded-lg p-1.5 transition-all text-center ${selectedMethod === id
               ? `${activeBorder} ${activeBg}`
               : "border-gray-700 bg-[#212121] hover:border-gray-600"
               }`}
           >
-            <span className={`text-sm font-medium ${selectedMethod === id ? activeText : "text-white"}`}>
+            <span className={`text-xs font-medium ${selectedMethod === id ? activeText : "text-white"}`}>
               {label}
             </span>
           </button>
@@ -99,9 +99,9 @@ export default function PaymentSection({
       </div>
 
       {/* Bill Amount */}
-      <div className="flex justify-between items-center bg-[#212121] rounded-xl px-3 py-2">
-        <span className="text-gray-400 text-sm">{t('pos.billAmount')}</span>
-        <span className="text-white font-bold text-lg">₹{grandTotal.toLocaleString()}</span>
+      <div className="flex justify-between items-center bg-[#212121] rounded-lg px-2 py-1">
+        <span className="text-gray-400 text-xs">{t('pos.billAmount')}</span>
+        <span className="text-white font-bold text-sm">₹{grandTotal.toLocaleString()}</span>
       </div>
 
       {/* Amount Input - Show only for cash and upi */}
@@ -110,11 +110,11 @@ export default function PaymentSection({
           <label className="text-xs text-gray-400 mb-1 block">
             {selectedMethod === "cash" ? t('pos.cashGiven') : t('pos.amountPaid')}
           </label>
-          <div className="flex items-center gap-2 bg-[#212121] border border-gray-600 rounded-xl px-3 py-2 focus-within:border-green-500 transition-colors">
-            <span className="text-gray-400 font-bold text-lg">₹</span>
+          <div className="flex items-center gap-2 bg-[#212121] border border-gray-600 rounded-lg px-2 py-1 focus-within:border-green-500 transition-colors">
+            <span className="text-gray-400 font-bold text-sm">₹</span>
             <input
               type="number"
-              className="flex-1 bg-transparent text-white text-xl font-bold outline-none min-w-0"  // min-w-0 prevents overflow
+              className="flex-1 bg-transparent text-white text-sm font-bold outline-none min-w-0"  // min-w-0 prevents overflow
               value={amountGiven || ""}
               placeholder={grandTotal.toString()}
               onChange={(e) => handleAmountChange(Number(e.target.value))}
@@ -147,14 +147,14 @@ export default function PaymentSection({
 
       {/* Change / Due - Show only for cash and upi */}
       {selectedMethod !== "pay_later" && amountGiven > 0 && (
-        <div className={`rounded-xl px-3 py-2 flex justify-between items-center ${change >= 0
+        <div className={`rounded-lg px-2 py-1 flex justify-between items-center ${change >= 0
           ? "bg-green-500/10 border border-green-500/30"
           : "bg-red-500/10 border border-red-500/30"
           }`}>
-          <span className={`text-sm font-medium ${change >= 0 ? "text-green-400" : "text-red-400"}`}>
+          <span className={`text-xs font-medium ${change >= 0 ? "text-green-400" : "text-red-400"}`}>
             {change >= 0 ? t('pos.changeToReturn') : t('pos.amountDue')}
           </span>
-          <span className={`text-xl font-bold ${change >= 0 ? "text-green-400" : "text-red-400"}`}>
+          <span className={`text-sm font-bold ${change >= 0 ? "text-green-400" : "text-red-400"}`}>
             ₹{Math.abs(change).toLocaleString()}
           </span>
         </div>

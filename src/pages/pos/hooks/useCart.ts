@@ -265,6 +265,85 @@ export function useCart() {
     }
   };
 
+  // ─── Set absolute quantity (spreadsheet cell edit) ─────────────────────────
+
+  const updateItemQuantity = async (item: any, quantity: number) => {
+    if (!cartUUID) return;
+    const qty = Math.floor(Number(quantity));
+    if (!qty || qty < 1) return;
+    setLoading(true);
+    try {
+      const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
+      await updateItem(cartUUID, item.product_uuid, unitUuid, {
+        quantity: qty,
+      });
+      await refreshCart();
+    } catch (error: any) {
+      console.error("❌ Error updating item quantity:", error);
+      alert(error.message || "Failed to update quantity");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── Update arbitrary item fields (spreadsheet cell edits) ─────────────────
+
+  const updateCartItem = async (
+    item: any,
+    fields: { quantity?: number; price?: number; discount?: number; tax_percent?: number }
+  ) => {
+    if (!cartUUID) return;
+    setLoading(true);
+    try {
+      const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
+      await updateItem(cartUUID, item.product_uuid, unitUuid, fields);
+      await refreshCart();
+    } catch (error: any) {
+      console.error("❌ Error updating cart item:", error);
+      alert(error.message || "Failed to update item");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── Switch a row's batch (existing remove + re-add APIs, price/discount kept)
+  //
+  // The cart API has no in-place batch update, so this removes the line and
+  // re-adds it on the new batch. The row may move to the end of the invoice.
+
+  const changeItemBatch = async (item: any, batchUuid: string) => {
+    if (!cartUUID || !batchUuid) return;
+    if (item.batch_uuid === batchUuid) return;
+    const siblings = getCartItems().filter(
+      (i: any) =>
+        i.product_uuid === item.product_uuid &&
+        (i.unit_uuid || '') === (item.unit_uuid || '') &&
+        i.id !== item.id
+    );
+    if (siblings.length > 0) {
+      alert('This product has multiple lines with the same unit. Remove the extra lines before switching batch.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
+      await removeItem(cartUUID, item.product_uuid, unitUuid);
+      await addItem(cartUUID, item.product_uuid, unitUuid, item.quantity || 1, batchUuid);
+      const keep: any = {};
+      if (item.price !== undefined) keep.price = Number(item.price);
+      if (item.discount) keep.discount = Number(item.discount);
+      if (Object.keys(keep).length > 0) {
+        await updateItem(cartUUID, item.product_uuid, unitUuid, keep);
+      }
+      await refreshCart();
+    } catch (error: any) {
+      console.error('❌ Error switching batch:', error);
+      alert(error.message || 'Failed to switch batch');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ─── Apply discount ────────────────────────────────────────────────────────
 
   const applyDiscount = async (uuid: string | null, amount: number) => {
@@ -503,6 +582,9 @@ export function useCart() {
     addItem: addItemToCart,
     increaseItem,
     decreaseItem,
+    updateItemQuantity,
+    updateCartItem,
+    changeItemBatch,
     applyDiscount,
     checkout,
     refreshCart,
