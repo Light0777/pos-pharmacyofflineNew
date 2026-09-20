@@ -17,6 +17,7 @@ interface CartItem {
   price: number;
   discount: number;
   tax_percent: number;
+  free_quantity?: number;
   product: {
     name: string;
     barcode?: string;
@@ -38,6 +39,48 @@ interface CartItemsProps {
   onUpdateQty?: (item: CartItem, quantity: number) => void;
   onUpdateField?: (item: CartItem, fields: { quantity?: number; price?: number; discount?: number; tax_percent?: number }) => void;
   onChangeBatch?: (item: CartItem, batchUuid: string) => void;
+  onChangeUnit?: (item: CartItem, unitUuid: string) => void;
+}
+
+// Compact dark dropdown matching the invoice grid (native selects draw OS chrome)
+function GridPicker({ value, options, onPick }: {
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.value === value);
+  return (
+    <div className="relative">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        className="max-w-[96px] flex items-center gap-1 bg-[#1a1a1a] border border-gray-700 rounded px-1.5 py-0.5 text-xs text-gray-200 hover:border-gray-500 focus:outline-none focus:border-green-500"
+      >
+        <span className="truncate">{current?.label || '—'}</span>
+        <span className="text-gray-500 text-[9px]">▾</span>
+      </button>
+      {open && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+          />
+          <div className="absolute left-0 top-full mt-0.5 z-50 w-40 max-h-48 overflow-y-auto bg-[#1a1a1a] border border-gray-700 rounded-md shadow-2xl">
+            {options.map((o) => (
+              <button
+                key={o.value}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { setOpen(false); if (o.value !== value) onPick(o.value); }}
+                className={`w-full text-left px-2 py-1.5 text-xs border-b border-gray-800 last:border-b-0 ${o.value === value ? 'bg-[#242424] text-white' : 'text-gray-300 hover:bg-[#242424]'}`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 export default function CartItems({
@@ -48,6 +91,7 @@ export default function CartItems({
   onUpdateQty,
   onUpdateField,
   onChangeBatch,
+  onChangeUnit,
 }: CartItemsProps) {
   const { t } = useTranslation();
 
@@ -64,7 +108,7 @@ export default function CartItems({
   const [editRow, setEditRow] = useState<number | null>(null);
   const [pIdx, setPIdx] = useState(0);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const [rowInfo, setRowInfo] = useState<Record<string, { unit?: string; batchNo?: string; expiry?: string; batches?: Array<{ batch_uuid: string; batch_number: string; expiry_date: string; quantity: number }> }>>({});
+  const [rowInfo, setRowInfo] = useState<Record<string, { unit?: string; batchNo?: string; expiry?: string; units?: Array<{ unit_uuid: string; unit_name: string; conversion_factor: number; price?: number }>; batches?: Array<{ batch_uuid: string; batch_number: string; expiry_date: string; quantity: number }> }>>({});
   const [activeRow, setActiveRow] = useState<number | string | null>(null);
   const [batchOpenFor, setBatchOpenFor] = useState<number | null>(null);
 
@@ -101,9 +145,15 @@ export default function CartItems({
         setRowInfo((prev) => ({
           ...prev,
           [key]: {
-            unit: unit?.unit_name,
-            batchNo: batch?.batch_number,
-            expiry: batch?.expiry_date,
+            unit: (item as any).unit_name || unit?.unit_name,
+            units: unitList.map((x: any) => ({
+              unit_uuid: x.unit_uuid,
+              unit_name: x.unit_name,
+              conversion_factor: x.conversion_factor,
+              price: x.price,
+            })),
+            batchNo: (item as any).batch_number || batch?.batch_number,
+            expiry: (item as any).batch_expiry_date || batch?.expiry_date,
             batches: availBatches,
           },
         }));
@@ -162,8 +212,8 @@ export default function CartItems({
     window.dispatchEvent(new CustomEvent('pos-add-product', { detail: product }));
   };
 
-  // Commit a Rate / GST% / Discount cell edit through the existing update API
-  const commitCell = (item: CartItem, field: 'price' | 'discount' | 'tax_percent') => {
+  // Commit a Rate / GST% / Discount / Free cell edit through the existing update API
+  const commitCell = (item: CartItem, field: 'price' | 'discount' | 'tax_percent' | 'free_quantity') => {
     const key = `${item.id}:${field}`;
     const draft = cellDraft[key];
     if (draft === undefined) return;
@@ -172,10 +222,11 @@ export default function CartItems({
       delete next[key];
       return next;
     });
-    const n = parseFloat(draft);
-    if (isNaN(n) || n < 0) return;
+    const raw = field === 'free_quantity' ? parseInt(draft, 10) : parseFloat(draft);
+    if (isNaN(raw) || raw < 0) return;
+    const n = field === 'free_quantity' ? Math.floor(raw) : raw;
     if (field === 'tax_percent' && n > 100) return;
-    const current = field === 'price' ? item.price : field === 'discount' ? (item.discount || 0) : item.tax_percent;
+    const current = field === 'price' ? item.price : field === 'discount' ? (item.discount || 0) : field === 'free_quantity' ? (item.free_quantity || 0) : item.tax_percent;
     if (n === current || !onUpdateField) return;
     onUpdateField(item, { [field]: n });
   };
@@ -194,7 +245,7 @@ export default function CartItems({
 
   return (
     <div className="overflow-auto h-full">
-      <table className="w-full border-collapse text-xs leading-snug min-w-[1240px]">
+      <table className="w-full border-collapse text-xs leading-snug min-w-[1320px]">
         <thead className="sticky top-0 z-10">
           <tr className="bg-[#2a2a2a] text-gray-300">
             <th className={`text-left ${th} w-10`}>S.No</th>
@@ -202,6 +253,7 @@ export default function CartItems({
             <th className={`text-left ${th}`}>Drug Name</th>
             <th className={`text-left ${th} w-16`}>UOM</th>
             <th className={`text-center ${th} w-28`}>Qty</th>
+            <th className={`text-center ${th} w-14`}>Free</th>
             <th className={`text-left ${th} w-24`}>Batch</th>
             <th className={`text-left ${th} w-20`}>Expiry</th>
             <th className={`text-right ${th} w-20`}>Pur.Price</th>
@@ -268,7 +320,15 @@ export default function CartItems({
                     </button>
                   )}
                 </td>
-                <td className={`${td} text-gray-300`}>{info.unit || '—'}</td>
+                <td className={`${td} text-gray-300`}>
+                  {info.units && info.units.length > 1 && onChangeUnit ? (
+                    <GridPicker
+                      value={item.unit_uuid || ''}
+                      options={info.units.map((u) => ({ value: u.unit_uuid, label: u.unit_name }))}
+                      onPick={(v) => onChangeUnit(item, v)}
+                    />
+                  ) : (info.unit || '—')}
+                </td>
                 <td className={`${td}`}>
                   <div className="flex items-center justify-center gap-0.5">
                     <button
@@ -303,6 +363,23 @@ export default function CartItems({
                       <HugeiconsIcon icon={Add01Icon} className="text-[10px]" />
                     </button>
                   </div>
+                </td>
+                <td className={`${td}`}>
+                  <input
+                    value={cellDraft[`${item.id}:free_quantity`] ?? String(item.free_quantity ?? 0)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '' || /^\d+$/.test(v)) {
+                        setCellDraft((prev) => ({ ...prev, [`${item.id}:free_quantity`]: v }));
+                      }
+                    }}
+                    onBlur={() => commitCell(item, 'free_quantity')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { commitCell(item, 'free_quantity'); (e.target as HTMLInputElement).blur(); }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-11 px-1 py-0.5 text-center text-xs text-gray-300 bg-[#1a1a1a] border border-gray-700 rounded focus:outline-none focus:bg-[#212121] focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
                 </td>
                 <td className={`${td} text-gray-300`}>
                   {info.batches && info.batches.length > 1 && onChangeBatch ? (
@@ -481,6 +558,7 @@ export default function CartItems({
                     )}
                   </div>
                 </td>
+                <td className={td}>&nbsp;</td>
                 <td className={td}>&nbsp;</td>
                 <td className={td}>&nbsp;</td>
                 <td className={td}>&nbsp;</td>

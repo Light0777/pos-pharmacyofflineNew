@@ -18,7 +18,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import InvoiceReceipt from "./components/InvoiceReceipt";
 import { getSettings } from "../../renderer/services/settingsApi";
-import { getInvoice } from "../../renderer/services/saleApi";
+import { getInvoice, getNextInvoice } from "../../renderer/services/saleApi";
 import PrescriptionModal from "./components/PrescriptionModal";
 
 function POSpage() {
@@ -33,6 +33,8 @@ function POSpage() {
 
   const [showPastInvoiceModal, setShowPastInvoiceModal] = useState(false);
   const [selectedPastInvoice, setSelectedPastInvoice] = useState<any>(null);
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [customForm, setCustomForm] = useState({ name: "", quantity: "1", price: "", gst: "0" });
 
   // REMOVED local prescription state - now coming from useCart
 
@@ -46,11 +48,13 @@ function POSpage() {
     cartUUID,
     cartData,
     addItem,
+    addCustomItem,
     increaseItem,
     decreaseItem,
     updateItemQuantity,
     updateCartItem,
     changeItemBatch,
+    changeItemUnit,
     applyDiscount,
     checkout,
     refreshCart,
@@ -82,6 +86,17 @@ function POSpage() {
     sales,
     refreshAllCustomerData,
   } = useCustomers();
+
+  const [remarks, setRemarks] = useState("");
+  const [nextBillNo, setNextBillNo] = useState<string | null>(null);
+  const fetchNextBill = async () => {
+    try {
+      setNextBillNo(await getNextInvoice());
+    } catch {
+      setNextBillNo(null);
+    }
+  };
+  useEffect(() => { fetchNextBill(); }, []);
 
   const [shopSettings, setShopSettings] = useState<any>(null);
   useEffect(() => {
@@ -142,7 +157,8 @@ function POSpage() {
     const result = await checkout(
       forcedPayments,
       selectedCustomer?.customer_uuid || null,
-      selectedCustomer
+      selectedCustomer,
+      remarks.trim() || undefined
     );
 
     console.log("🔵 Checkout result:", result);
@@ -352,12 +368,27 @@ function POSpage() {
     );
   }
 
+  const handleAddCustom = async () => {
+    const ok = await addCustomItem({
+      name: customForm.name.trim(),
+      quantity: Math.max(1, parseInt(customForm.quantity) || 0),
+      price: parseFloat(customForm.price) || 0,
+      gst_percent: Math.min(100, Math.max(0, parseFloat(customForm.gst) || 0)),
+    });
+    if (ok) {
+      setCustomForm({ name: "", quantity: "1", price: "", gst: "0" });
+      setShowCustomModal(false);
+    }
+  };
+
   const handleCloseInvoice = () => {
     setShowInvoiceModal(false);
     setInvoiceData(null);
     setPayments([{ method: "cash", amount: 0 }]);
     setDiscount(0);
     setSelectedCustomer(null);
+    setRemarks("");
+    fetchNextBill();
     refetch();
   };
 
@@ -386,12 +417,19 @@ function POSpage() {
             </div>
           </div>
         </div>
+        <div className="px-3 border-r border-gray-800 shrink-0">
+          <div className="text-gray-500">Bill #</div>
+          <div className="text-xs font-semibold text-white">{nextBillNo || '—'}</div>
+        </div>
         <div className="px-3 border-r border-gray-800 shrink-0 min-w-[120px]">
           <div className="text-gray-500">Customer</div>
           <div className="text-xs font-semibold text-white truncate">
             {selectedCustomer ? selectedCustomer.name : 'Walk-in'}
             {selectedCustomer?.credit_balance > 0 && (
               <span className="ml-1 font-normal text-orange-400">Due ₹{selectedCustomer.credit_balance}</span>
+            )}
+            {selectedCustomer?.credit_days > 0 && (
+              <span className="ml-1 font-normal text-gray-400">• {selectedCustomer.credit_days}d</span>
             )}
           </div>
         </div>
@@ -423,6 +461,16 @@ function POSpage() {
           <div className="text-gray-500">Grand Total</div>
           <div className="text-sm font-bold text-green-400">₹{grandTotal.toLocaleString()}</div>
         </div>
+        <div className="px-3 border-r border-gray-800 shrink-0 min-w-[140px]">
+          <div className="text-gray-500">Remarks</div>
+          <input
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            placeholder="Bill note…"
+            autoComplete="off"
+            className="w-full bg-transparent text-xs font-semibold text-white placeholder-gray-600 focus:outline-none"
+          />
+        </div>
         <div className="ml-auto pl-3 flex items-center shrink-0">
           <button
             onClick={() => refetch()}
@@ -436,6 +484,8 @@ function POSpage() {
 
       {/* 3 ─ PRODUCT SEARCH / ENTRY (selecting adds a new row to the invoice table below) */}
       <section className="shrink-0 px-2 py-1 border-b border-gray-800 bg-[#141414]">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
         <ProductGrid
           products={products}
           loading={productsLoading}
@@ -446,6 +496,15 @@ function POSpage() {
             addItem(product, unitUuid, quantity, unitName, batchUuid);
           }}
         />
+          </div>
+          <button
+            onClick={() => setShowCustomModal(true)}
+            className="shrink-0 px-3 py-1 text-xs font-semibold text-gray-200 border border-gray-700 hover:border-gray-500 rounded transition-colors"
+            title="Add a custom (ad-hoc) item row"
+          >
+            + Add Item
+          </button>
+        </div>
       </section>
 
       {/* 4 ─ MAIN INVOICE TABLE (one row = one product, full width) */}
@@ -474,6 +533,7 @@ function POSpage() {
                 onUpdateQty={updateItemQuantity}
                 onUpdateField={updateCartItem}
                 onChangeBatch={changeItemBatch}
+                onChangeUnit={changeItemUnit}
               />
             )}
             {cartLoading && (cartData?.cart?.items?.length || 0) > 0 && (
@@ -586,6 +646,75 @@ function POSpage() {
       </footer>
 
       {/* Modals */}
+      {showCustomModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setShowCustomModal(false)}
+        >
+          <div
+            className="w-[320px] bg-[#1a1a1a] border border-gray-700 rounded-lg p-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-sm font-bold text-white mb-2">Add Custom Item</div>
+            <label className="block text-[11px] text-gray-400 mb-0.5">Name *</label>
+            <input
+              value={customForm.name}
+              onChange={(e) => setCustomForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="e.g. Delivery charge"
+              className="w-full mb-2 px-2 py-1 text-xs bg-[#212121] border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
+              autoComplete="off"
+            />
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-0.5">Qty *</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={customForm.quantity}
+                  onChange={(e) => setCustomForm((f) => ({ ...f, quantity: e.target.value }))}
+                  className="w-full px-2 py-1 text-xs bg-[#212121] border border-gray-700 rounded text-white focus:outline-none focus:border-green-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-0.5">Rate *</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={customForm.price}
+                  onChange={(e) => setCustomForm((f) => ({ ...f, price: e.target.value }))}
+                  className="w-full px-2 py-1 text-xs bg-[#212121] border border-gray-700 rounded text-white focus:outline-none focus:border-green-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-0.5">GST%</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={customForm.gst}
+                  onChange={(e) => setCustomForm((f) => ({ ...f, gst: e.target.value }))}
+                  className="w-full px-2 py-1 text-xs bg-[#212121] border border-gray-700 rounded text-white focus:outline-none focus:border-green-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowCustomModal(false)}
+                className="px-3 py-1 text-xs text-gray-300 border border-gray-700 rounded hover:border-gray-500 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCustom}
+                disabled={!customForm.name.trim() || cartLoading}
+                className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Add Row
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showCustomerModal && (
         <CustomerModal
           initialMobile={newCustomerPhone}

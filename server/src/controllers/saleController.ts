@@ -7,11 +7,27 @@ export class SaleController {
   // static getInvoice(arg0: string, getInvoice: any) {
   //   throw new Error('Method not implemented.');
   // }
+  // Preview the next invoice number without consuming it
+  static nextInvoice = (req: AuthRequest, res: Response): void => {
+    try {
+      res.json({
+        success: true,
+        data: { invoice_number: SaleModel.previewInvoiceNumber() }
+      });
+    } catch (error) {
+      console.error('Next invoice error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  };
+
   // Checkout - Convert cart to sale
   static checkout = (req: AuthRequest, res: Response): void => {
     try {
       const cartUuid = String(req.params.cart_uuid);
-      const { customer_uuid, payments, prescriptions = [] } = req.body;
+      const { customer_uuid, payments, prescriptions = [], remarks } = req.body;
 
       // Get cart with items
       const cart = CartModel.findWithItems(cartUuid);
@@ -70,7 +86,8 @@ export class SaleController {
         customer_uuid || null,
         payments,
         prescriptions,
-        req.user
+        req.user,
+        { remarks }
       );
 
       // Get full invoice data including shop info, items, GST breakdown

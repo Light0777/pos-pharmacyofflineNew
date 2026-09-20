@@ -256,6 +256,8 @@ export interface Sale {
   total: number;
   tax: number;
   grand_total: number;
+  round_off?: number;
+  remarks?: string;
   status: 'completed' | 'refunded' | 'pending';
   created_at: string;
   updated_at: string;
@@ -407,6 +409,12 @@ export interface CartItem {
   price: number;
   discount: number;
   tax_percent: number;
+  free_quantity?: number;
+  is_custom?: number;
+  custom_name?: string;
+  unit_name?: string;
+  batch_number?: string;
+  batch_expiry_date?: string;
   created_at: string;
   updated_at: string;
 }
@@ -547,6 +555,8 @@ export interface InvoiceItem {
   total: number;
 
   schedule_type?: string | null;
+
+  free_quantity?: number | null;
 
   prescription_required?: number;
   prescription_number?: string | null;

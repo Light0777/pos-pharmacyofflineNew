@@ -279,6 +279,7 @@ export class ProductModel {
 
     const stmt = db.prepare(`
       SELECT * FROM products
+      WHERE product_uuid != 'custom-item'
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
     `);
@@ -289,6 +290,7 @@ export class ProductModel {
       db.prepare(`
         SELECT COUNT(*) as count
         FROM products
+        WHERE product_uuid != 'custom-item'
       `).get() as any
     ).count;
 
@@ -307,12 +309,15 @@ export class ProductModel {
     const stmt = db.prepare(`
       SELECT * FROM products
       WHERE
-        name LIKE ?
-        OR sku LIKE ?
-        OR barcode LIKE ?
-        OR composition LIKE ?
-        OR manufacturer LIKE ?
-        OR rack_location LIKE ?
+        product_uuid != 'custom-item'
+        AND (
+          name LIKE ?
+          OR sku LIKE ?
+          OR barcode LIKE ?
+          OR composition LIKE ?
+          OR manufacturer LIKE ?
+          OR rack_location LIKE ?
+        )
       ORDER BY name ASC
       LIMIT ?
     `);
@@ -493,7 +498,7 @@ export class ProductModel {
 
     const stmt = db.prepare(`
       SELECT * FROM products
-      WHERE stock <= ?
+      WHERE product_uuid != 'custom-item' AND stock <= ?
       ORDER BY stock ASC
     `);
 
@@ -515,6 +520,7 @@ export class ProductModel {
     const result = db.prepare(`
       SELECT COUNT(*) as count
       FROM products
+      WHERE product_uuid != 'custom-item'
     `).get() as any;
 
     return result.count;

@@ -27,7 +27,8 @@ export class SaleModel {
       reference?: string;
     }>,
     prescriptions: any[] = [],
-    currentUser?: any
+    currentUser?: any,
+    options?: { remarks?: string }
   ): { sale: Sale; paid: number; balance: number } {
     const saleUuid = uuidv4();
 
@@ -107,6 +108,13 @@ export class SaleModel {
           Number(item.quantity) *
           Number(unit.conversion_factor);
 
+        const normalizedFreeQuantity =
+          Math.max(
+            0,
+            Number((item as any).free_quantity || 0) *
+            Number(unit.conversion_factor)
+          );
+
         if (
           normalizedQuantity <= 0
         ) {
@@ -118,7 +126,7 @@ export class SaleModel {
 
         if (
           Number(product.stock) <
-          normalizedQuantity
+          normalizedQuantity + normalizedFreeQuantity
         ) {
 
           throw new Error(
@@ -244,6 +252,7 @@ export class SaleModel {
           unit,
           prescription,
           normalizedQuantity,
+          normalizedFreeQuantity,
           itemTotal,
           taxAmount
         };
@@ -251,6 +260,15 @@ export class SaleModel {
 
       const grandTotal =
         total + taxTotal;
+
+      // Stored round-off: rounded bill minus the exact bill
+      const roundOff =
+        Math.round(
+          (Math.round(grandTotal * 100) / 100 - grandTotal) * 10000
+        ) / 10000;
+
+      const remarks =
+        String(options?.remarks || '').trim() || null;
 
       // =========================
       // GENERATE INVOICE
@@ -273,13 +291,15 @@ export class SaleModel {
         total,
         tax,
         grand_total,
+        round_off,
+        remarks,
 
         status
 
       ) VALUES (
 
         ?, ?, ?,
-        ?, ?, ?,
+        ?, ?, ?, ?, ?,
         'completed'
       )
     `).run(
@@ -289,7 +309,9 @@ export class SaleModel {
         customerUuid,
         Math.round(total * 100) / 100,
         Math.round(taxTotal * 100) / 100,
-        Math.round(grandTotal * 100) / 100
+        Math.round(grandTotal * 100) / 100,
+        roundOff,
+        remarks
       );
 
       // =========================
@@ -320,7 +342,11 @@ export class SaleModel {
         patient_age,
         patient_gender,
 
-        schedule_type
+        schedule_type,
+
+        free_quantity,
+
+        custom_name
 
       ) VALUES (
 
@@ -330,6 +356,8 @@ export class SaleModel {
         ?, ?,
         ?, ?,
         ?, ?, ?,
+        ?,
+        ?,
         ?
       )
     `);
@@ -340,21 +368,35 @@ export class SaleModel {
           item,
           product,
           prescription,
-          normalizedQuantity
+          normalizedQuantity,
+          normalizedFreeQuantity
         } = prepared;
 
-        const consumedBatches = item.batch_uuid
-          ? [ProductBatchModel.consumeStock(item.batch_uuid, normalizedQuantity)]
+        const combinedQuantity =
+          normalizedQuantity +
+          (normalizedFreeQuantity || 0);
+
+        const consumedBatches = (item as any).is_custom
+          ? [{ batch_uuid: null, quantity: combinedQuantity }]
+          : item.batch_uuid
+          ? [ProductBatchModel.consumeStock(item.batch_uuid, combinedQuantity)]
           : ProductBatchModel.consumeStockFEFO(
               item.product_uuid,
-              normalizedQuantity
+              combinedQuantity
             );
+
+        let remainingPaid = normalizedQuantity;
 
         for (const consumed of consumedBatches) {
 
+          // Paid units come first; the rest of the consumed stock is free
+          const paidTaken = Math.min(remainingPaid, consumed.quantity);
+          const freeTaken = consumed.quantity - paidTaken;
+          remainingPaid -= paidTaken;
+
           const batchTotal =
             Number(item.price) *
-            Number(consumed.quantity);
+            paidTaken;
 
           const batchTax =
             (
@@ -371,7 +413,7 @@ export class SaleModel {
 
               consumed.batch_uuid,
 
-              consumed.quantity,
+              paidTaken,
 
               item.price,
 
@@ -405,7 +447,11 @@ export class SaleModel {
               prescription
                 ?.patient_gender || null,
 
-              product.schedule_type || 'NONE'
+              product.schedule_type || 'NONE',
+
+              freeTaken,
+
+              (item as any).custom_name || null
             );
 
           // =========================
@@ -582,7 +628,7 @@ export class SaleModel {
 
           item.product_uuid,
 
-          -normalizedQuantity,
+          -(normalizedQuantity + (normalizedFreeQuantity || 0)),
 
           saleUuid,
 
@@ -916,7 +962,11 @@ export class SaleModel {
 
       pb.batch_uuid as batch_uuid,
 
-      pb.expiry_date
+      pb.expiry_date,
+
+      si.free_quantity as si_free_quantity,
+
+      si.custom_name as si_custom_name
 
     FROM sale_items si
 
@@ -974,6 +1024,10 @@ export class SaleModel {
       batch_number: string | null;
 
       expiry_date: string | null;
+
+      si_free_quantity: number | null;
+
+      si_custom_name: string | null;
     }>;
 
     // =========================
@@ -1014,7 +1068,7 @@ export class SaleModel {
             item.id,
 
           product_name:
-            item.product_name,
+            item.si_custom_name || item.product_name,
 
           unit_uuid:
             item.unit_uuid,
@@ -1076,6 +1130,9 @@ export class SaleModel {
 
           schedule_type:
             item.schedule_type,
+
+          free_quantity:
+            Number(item.si_free_quantity || 0),
 
           prescription_required:
             item.prescription_required,
@@ -1250,7 +1307,13 @@ export class SaleModel {
         grand_total:
           Number(
             grandTotal.toFixed(2)
-          )
+          ),
+
+        round_off:
+          Number((sale as any).round_off || 0),
+
+        remarks:
+          (sale as any).remarks || undefined
       },
 
       payments,
@@ -1269,6 +1332,11 @@ export class SaleModel {
         warnings
       }
     };
+  }
+
+  // Preview the next invoice number without consuming it
+  static previewInvoiceNumber(): string {
+    return this.generateInvoiceNumber();
   }
 
   // Generate invoice number - Pattern matching PHP

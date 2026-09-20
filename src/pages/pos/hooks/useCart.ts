@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   createCart,
   addItem,
+  addCustomItem,
   getCart,
   updateItem,
   removeItem,
@@ -69,6 +70,7 @@ export function useCart() {
     paymentMethods: any[];
     customerUUID: string | null;
     selectedCustomer: any;
+    remarks?: string;
   } | null>(null);
   
   // Promise resolver for checkout
@@ -186,6 +188,38 @@ export function useCart() {
     await createFreshCart();
   };
 
+  // ─── Add custom (ad-hoc) item to cart ───────────────────────────────────────
+
+  const addCustomItemToCart = async (input: {
+    name: string;
+    price: number;
+    gst_percent: number;
+    quantity: number;
+  }): Promise<boolean> => {
+    if (isCartInitializing) {
+      alert("Cart is initializing, please wait a moment...");
+      return false;
+    }
+    if (!cartUUID) {
+      alert("Cart not initialized. Please restart the app.");
+      return false;
+    }
+
+    setLoading(true);
+
+    try {
+      await addCustomItem(cartUUID, input);
+      await refreshCart();
+      return true;
+    } catch (error: any) {
+      console.error("❌ Error adding custom item to cart:", error);
+      alert(error.message || "Failed to add custom item");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ─── Add item to cart ─────────────────────────────────────────────────────
 
   const addItemToCart = async (product: any, unitUuid?: string, quantity?: number, unitName?: string, batchUuid?: string) => {
@@ -250,10 +284,11 @@ export function useCart() {
       const newQty = item.quantity - 1;
 
       if (newQty <= 0) {
-        await removeItem(cartUUID, item.product_uuid, unitUuid);
+        await removeItem(cartUUID, item.product_uuid, unitUuid, item.batch_uuid ?? null);
       } else {
         await updateItem(cartUUID, item.product_uuid, unitUuid, {
           quantity: newQty,
+          match_batch_uuid: item.batch_uuid ?? null,
         });
       }
       await refreshCart();
@@ -276,6 +311,7 @@ export function useCart() {
       const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
       await updateItem(cartUUID, item.product_uuid, unitUuid, {
         quantity: qty,
+        match_batch_uuid: item.batch_uuid ?? null,
       });
       await refreshCart();
     } catch (error: any) {
@@ -290,13 +326,17 @@ export function useCart() {
 
   const updateCartItem = async (
     item: any,
-    fields: { quantity?: number; price?: number; discount?: number; tax_percent?: number }
+    fields: { quantity?: number; price?: number; discount?: number; tax_percent?: number; free_quantity?: number; batch_uuid?: string | null; new_unit_uuid?: string },
+    matchBatchUuid?: string | null
   ) => {
     if (!cartUUID) return;
     setLoading(true);
     try {
       const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
-      await updateItem(cartUUID, item.product_uuid, unitUuid, fields);
+      await updateItem(cartUUID, item.product_uuid, unitUuid, {
+        ...fields,
+        match_batch_uuid: matchBatchUuid !== undefined ? matchBatchUuid : (item.batch_uuid ?? null),
+      });
       await refreshCart();
     } catch (error: any) {
       console.error("❌ Error updating cart item:", error);
@@ -306,42 +346,18 @@ export function useCart() {
     }
   };
 
-  // ─── Switch a row's batch (existing remove + re-add APIs, price/discount kept)
-  //
-  // The cart API has no in-place batch update, so this removes the line and
-  // re-adds it on the new batch. The row may move to the end of the invoice.
+  // ─── Switch a row batch in place (no row move) ──────────────────────────────
 
   const changeItemBatch = async (item: any, batchUuid: string) => {
-    if (!cartUUID || !batchUuid) return;
-    if (item.batch_uuid === batchUuid) return;
-    const siblings = getCartItems().filter(
-      (i: any) =>
-        i.product_uuid === item.product_uuid &&
-        (i.unit_uuid || '') === (item.unit_uuid || '') &&
-        i.id !== item.id
-    );
-    if (siblings.length > 0) {
-      alert('This product has multiple lines with the same unit. Remove the extra lines before switching batch.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
-      await removeItem(cartUUID, item.product_uuid, unitUuid);
-      await addItem(cartUUID, item.product_uuid, unitUuid, item.quantity || 1, batchUuid);
-      const keep: any = {};
-      if (item.price !== undefined) keep.price = Number(item.price);
-      if (item.discount) keep.discount = Number(item.discount);
-      if (Object.keys(keep).length > 0) {
-        await updateItem(cartUUID, item.product_uuid, unitUuid, keep);
-      }
-      await refreshCart();
-    } catch (error: any) {
-      console.error('❌ Error switching batch:', error);
-      alert(error.message || 'Failed to switch batch');
-    } finally {
-      setLoading(false);
-    }
+    if (!batchUuid || item.batch_uuid === batchUuid) return;
+    await updateCartItem(item, { batch_uuid: batchUuid });
+  };
+
+  // ─── Switch a row unit in place (price adopts new default) ────────────────────
+
+  const changeItemUnit = async (item: any, unitUuid: string) => {
+    if (!unitUuid || unitUuid === item.unit_uuid) return;
+    await updateCartItem(item, { new_unit_uuid: unitUuid });
   };
 
   // ─── Apply discount ────────────────────────────────────────────────────────
@@ -371,7 +387,8 @@ export function useCart() {
   const checkout = async (
     paymentMethods: any[],
     customerUUID: string | null,
-    selectedCustomer: any
+    selectedCustomer: any,
+    remarks?: string
   ): Promise<CheckoutResult | null> => {
     if (!cartUUID) {
       alert("Cart not initialized");
@@ -425,7 +442,7 @@ export function useCart() {
     const prescriptionItem = findPrescriptionProduct();
     if (prescriptionItem) {
       console.log("🔴 Prescription required detected for:", prescriptionItem.product?.name);
-      setPendingCheckout({ paymentMethods, customerUUID, selectedCustomer });
+      setPendingCheckout({ paymentMethods, customerUUID, selectedCustomer, remarks });
       setPrescriptionProduct({
         name: prescriptionItem.product?.name,
         schedule_type: prescriptionItem.product?.schedule_type,
@@ -441,7 +458,7 @@ export function useCart() {
 
     setLoading(true);
     try {
-      const res = await checkoutCart(cartUUID, normalizedPayments, customerUUID, null);
+      const res = await checkoutCart(cartUUID, normalizedPayments, customerUUID, null, remarks);
       console.log("✅ Checkout response:", res);
 
       if (!res.success) {
@@ -454,7 +471,7 @@ export function useCart() {
 
           if (backendItem) {
             console.log("🔴 Found prescription product:", backendItem.product?.name);
-            setPendingCheckout({ paymentMethods, customerUUID, selectedCustomer });
+            setPendingCheckout({ paymentMethods, customerUUID, selectedCustomer, remarks });
             setPrescriptionProduct({
               name: backendItem.product?.name,
               schedule_type: backendItem.product?.schedule_type,
@@ -488,15 +505,15 @@ export function useCart() {
   const handlePrescriptionSubmit = async (prescriptionInfo: any) => {
     console.log("📝 Prescription submitted:", prescriptionInfo);
     setShowPrescriptionModal(false);
-    
+
     const prescriptionWithProduct = {
       ...prescriptionInfo,
       product_uuid: prescriptionProduct?.product_uuid,
     };
-    
+
     const currentPrescriptionProduct = prescriptionProduct;
     setPrescriptionProduct(null);
-    
+
     if (!cartUUID) {
       alert("Cart not initialized");
       if (prescriptionResolver) {
@@ -505,37 +522,37 @@ export function useCart() {
       }
       return null;
     }
-    
+
     if (pendingCheckout) {
-      const { paymentMethods, customerUUID, selectedCustomer } = pendingCheckout;
+      const { paymentMethods, customerUUID, selectedCustomer, remarks } = pendingCheckout;
       setPendingCheckout(null);
-      
+
       setLoading(true);
       try {
-        const res = await checkoutCart(cartUUID, paymentMethods, customerUUID, prescriptionWithProduct);
+        const res = await checkoutCart(cartUUID, paymentMethods, customerUUID, prescriptionWithProduct, remarks);
         console.log("✅ Checkout with prescription response:", res);
-        
+
         let result: CheckoutResult | null = null;
         if (!res.success) {
           throw new Error(res.error || res.message || "Checkout failed");
         }
-        
+
         const invoice = res.invoice || res.data?.invoice;
         await createFreshCart();
-        
+
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('refresh-dashboard'));
           window.dispatchEvent(new Event('refresh-customers'));
         }
-        
+
         result = { success: true, invoice };
-        
+
         // Resolve the promise that checkout is waiting on
         if (prescriptionResolver) {
           prescriptionResolver(result);
           setPrescriptionResolver(null);
         }
-        
+
         return result;
       } catch (err: any) {
         console.error("❌ Checkout with prescription failed:", err);
@@ -580,11 +597,13 @@ export function useCart() {
     grandTotal,
     balance,
     addItem: addItemToCart,
+    addCustomItem: addCustomItemToCart,
     increaseItem,
     decreaseItem,
     updateItemQuantity,
     updateCartItem,
     changeItemBatch,
+    changeItemUnit,
     applyDiscount,
     checkout,
     refreshCart,

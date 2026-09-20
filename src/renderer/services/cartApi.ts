@@ -60,6 +60,10 @@ export async function updateItem(
     price?: number;
     discount?: number;
     tax_percent?: number;
+    free_quantity?: number;
+    batch_uuid?: string | null;
+    new_unit_uuid?: string;
+    match_batch_uuid?: string | null;
   }
 ) {
   const response = await apiPut(
@@ -76,10 +80,14 @@ export async function updateItem(
 export async function removeItem(
   cart_uuid: string,
   product_uuid: string,
-  unit_uuid: string
+  unit_uuid: string,
+  batch_uuid?: string | null
 ) {
+  const qs = batch_uuid !== undefined
+    ? `?batch_uuid=${encodeURIComponent(batch_uuid ?? '')}`
+    : '';
   const response = await apiDelete(
-    `/carts/${cart_uuid}/items/${product_uuid}/${unit_uuid}`
+    `/carts/${cart_uuid}/items/${product_uuid}/${unit_uuid}${qs}`
   );
   return response.data || response;
 }
@@ -130,12 +138,14 @@ export async function checkoutCart(
   cart_uuid: string,
   payments: { method: string; amount: number }[],
   customer_uuid: string | null,
-  prescriptionInfo?: any
+  prescriptionInfo?: any,
+  remarks?: string
 ) {
   const payload: any = {
     payments,
     customer_uuid,
   };
+  if (remarks) payload.remarks = remarks;
 
   // Backend expects 'prescriptions' array, not 'prescription_data'
   if (prescriptionInfo) {

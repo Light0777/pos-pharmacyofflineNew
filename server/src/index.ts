@@ -6,6 +6,7 @@ import { runMigrations } from './database/migrations/001_initial';
 import { runMigration as runSecurityQuestionsMigration } from './database/migrations/002_security_questions';
 import { runMigration as runSupplierBillsMigration } from './database/migrations/003_supplier_bills';
 import { runMigration as runRolesMigration } from './database/migrations/004_roles';
+import { runMigration as runPosGridMigration } from './database/migrations/005_pos_grid';
 import printingRoutes from './routes/printing';
 
 // Import routes
@@ -70,6 +71,7 @@ runMigrations();
 runSecurityQuestionsMigration();
 runSupplierBillsMigration();
 runRolesMigration();
+runPosGridMigration();
 
 const licensed = LicenseService.isLicensed();
 if (!licensed) {

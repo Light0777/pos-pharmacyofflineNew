@@ -1,5 +1,6 @@
 import db from '../database/connection';
 import type { Cart, CartItem, CartWithItems, CartSummary, Product } from '../types/index';
+import { ProductUnitModel } from './ProductUnit';
 import { v4 as uuidv4 } from 'uuid';
 
 export class CartModel {
@@ -95,13 +96,33 @@ export class CartModel {
 
       p.created_at as p_created_at,
 
-      p.updated_at as p_updated_at
+      p.updated_at as p_updated_at,
+
+      ci.free_quantity,
+
+      ci.is_custom,
+
+      ci.custom_name,
+
+      u.unit_name as unit_name,
+
+      pb.batch_number as batch_number,
+
+      pb.expiry_date as batch_expiry_date
 
     FROM cart_items ci
 
     INNER JOIN products p
       ON p.product_uuid =
         ci.product_uuid
+
+    LEFT JOIN product_units u
+      ON u.unit_uuid =
+        ci.unit_uuid
+
+    LEFT JOIN product_batches pb
+      ON pb.batch_uuid =
+        ci.batch_uuid
 
     WHERE ci.cart_uuid = ?
   `).all(uuid) as Array<{
@@ -161,6 +182,18 @@ export class CartModel {
       p_created_at: string;
 
       p_updated_at: string;
+
+      free_quantity: number | null;
+
+      is_custom: number | null;
+
+      custom_name: string | null;
+
+      unit_name: string | null;
+
+      batch_number: string | null;
+
+      batch_expiry_date: string | null;
     }>;
 
     // =========================
@@ -215,6 +248,24 @@ export class CartModel {
         batch_uuid:
           item.batch_uuid || undefined,
 
+        free_quantity:
+          Number((item as any).free_quantity || 0),
+
+        is_custom:
+          Number((item as any).is_custom || 0),
+
+        custom_name:
+          (item as any).custom_name || undefined,
+
+        unit_name:
+          (item as any).unit_name || undefined,
+
+        batch_number:
+          (item as any).batch_number || undefined,
+
+        batch_expiry_date:
+          (item as any).batch_expiry_date || undefined,
+
         quantity:
           item.quantity,
 
@@ -245,7 +296,9 @@ export class CartModel {
             item.p_product_uuid,
 
           name:
-            item.p_name,
+            Number((item as any).is_custom) === 1 && (item as any).custom_name
+              ? (item as any).custom_name
+              : item.p_name,
 
           category_uuid:
             item.p_category_uuid || undefined,
@@ -455,6 +508,62 @@ export class CartModel {
   }
 
   // Update cart item
+  // Add a custom (ad-hoc) row backed by the sentinel product
+  static addCustomItem(
+    cartUuid: string,
+    input: {
+      name: string;
+      price: number;
+      gst_percent: number;
+      quantity: number;
+      free_quantity?: number;
+    }
+  ): CartItem {
+    const name = String(input.name || '').trim();
+    if (!name) throw new Error('Custom item name is required');
+
+    const qty = Math.floor(Number(input.quantity));
+    if (!qty || qty < 1) throw new Error('Quantity must be at least 1');
+
+    const price = Number(input.price);
+    if (isNaN(price) || price < 0) throw new Error('Invalid custom item price');
+
+    let gst = Number(input.gst_percent || 0);
+    if (isNaN(gst) || gst < 0) gst = 0;
+    if (gst > 100) gst = 100;
+
+    const units = ProductUnitModel.getByProduct('custom-item') as any[];
+    const base = units.find((u) => Number(u.is_base_unit) === 1) || units[0];
+    if (!base) throw new Error('Custom item unit is not configured');
+
+    const result = db.prepare(`
+      INSERT INTO cart_items (
+        cart_uuid, product_uuid, unit_uuid, batch_uuid,
+        quantity, price, discount, tax_percent,
+        free_quantity, is_custom, custom_name
+      ) VALUES (
+        ?, 'custom-item', ?, NULL,
+        ?, ?, 0, ?,
+        ?, 1, ?
+      )
+    `).run(
+      cartUuid,
+      base.unit_uuid,
+      qty,
+      price,
+      gst,
+      Math.max(0, Math.floor(Number(input.free_quantity) || 0)),
+      name
+    );
+
+    return db.prepare('SELECT * FROM cart_items WHERE id = ?').get(result.lastInsertRowid) as CartItem;
+  }
+
+  // Update cart item
+  //
+  // Supports scalar edits (quantity / price / discount / tax / free qty)
+  // plus in-place batch and unit switches that preserve the row's position.
+  // matchBatchUuid pins the exact row when sibling lines share product+unit.
   static updateItem(
     cartUuid: string,
     productUuid: string,
@@ -464,19 +573,110 @@ export class CartModel {
       price?: number;
       discount?: number;
       tax_percent?: number;
-    }): CartItem | undefined {
-    const item = db.prepare(`
+      free_quantity?: number;
+      batch_uuid?: string | null;
+      new_unit_uuid?: string;
+    },
+    matchBatchUuid?: string | null
+  ): CartItem | undefined {
+    const rows = db.prepare(`
       SELECT * FROM cart_items
       WHERE cart_uuid = ?
       AND product_uuid = ?
       AND unit_uuid = ?
-    `).get(
+    `).all(
       cartUuid,
       productUuid,
       unitUuid
-    ) as CartItem | undefined;
+    ) as CartItem[];
 
-    if (!item) return undefined;
+    if (rows.length === 0) return undefined;
+
+    let item: CartItem | undefined;
+    if (matchBatchUuid !== undefined) {
+      item = rows.find((r) => ((r as any).batch_uuid || null) === (matchBatchUuid || null));
+      if (!item) return undefined;
+    } else {
+      item = rows[0];
+    }
+
+    // ── In-place unit switch (row keeps its position) ──
+    if (updates.new_unit_uuid && updates.new_unit_uuid !== item.unit_uuid) {
+      const newUnit = ProductUnitModel.findById(String(updates.new_unit_uuid));
+      if (!newUnit || (newUnit as any).product_uuid !== item.product_uuid) {
+        throw new Error('Invalid unit for this product');
+      }
+      const targetBatch =
+        updates.batch_uuid !== undefined
+          ? updates.batch_uuid
+          : (item as any).batch_uuid;
+      const conflict = db.prepare(`
+        SELECT * FROM cart_items
+        WHERE cart_uuid = ?
+        AND product_uuid = ?
+        AND unit_uuid = ?
+        AND ((batch_uuid IS NULL AND ? IS NULL) OR batch_uuid = ?)
+        AND id != ?
+      `).get(
+        cartUuid,
+        productUuid,
+        String(updates.new_unit_uuid),
+        targetBatch || null,
+        targetBatch || null,
+        (item as any).id
+      ) as CartItem | undefined;
+      if (conflict) {
+        // Merge into the conflicting row and drop this one
+        db.prepare(`
+          UPDATE cart_items
+          SET quantity = quantity + ?,
+              free_quantity = COALESCE(free_quantity, 0) + ?,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).run(
+          item.quantity,
+          (item as any).free_quantity || 0,
+          (conflict as any).id
+        );
+        db.prepare(`DELETE FROM cart_items WHERE id = ?`).run((item as any).id);
+        return db.prepare(`SELECT * FROM cart_items WHERE id = ?`).get((conflict as any).id) as CartItem;
+      }
+      // Adopt the new unit's default price only if the row still had the old default
+      const oldUnit = ProductUnitModel.findById(String(item.unit_uuid));
+      const oldDefault = (oldUnit as any)?.price;
+      db.prepare(`
+        UPDATE cart_items
+        SET unit_uuid = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(String(updates.new_unit_uuid), (item as any).id);
+      item = db.prepare(`SELECT * FROM cart_items WHERE id = ?`).get((item as any).id) as CartItem;
+      if (
+        updates.price === undefined &&
+        oldDefault !== undefined &&
+        oldDefault !== null &&
+        Number(item.price) === Number(oldDefault)
+      ) {
+        const newDefault = (newUnit as any).price;
+        if (newDefault !== undefined && newDefault !== null) {
+          updates.price = Number(newDefault);
+        }
+      }
+    }
+
+    // ── Batch switch (validated; stock moves only at checkout) ──
+    if (
+      updates.batch_uuid !== undefined &&
+      ((updates.batch_uuid || null) !== ((item as any).batch_uuid || null))
+    ) {
+      if (updates.batch_uuid) {
+        const batch = db.prepare(
+          `SELECT * FROM product_batches WHERE batch_uuid = ?`
+        ).get(String(updates.batch_uuid)) as any;
+        if (!batch || batch.product_uuid !== item.product_uuid) {
+          throw new Error('Invalid batch for this product');
+        }
+      }
+    }
 
     const updateFields: string[] = [];
     const values: any[] = [];
@@ -497,52 +697,57 @@ export class CartModel {
       updateFields.push('tax_percent = ?');
       values.push(updates.tax_percent);
     }
+    if (updates.free_quantity !== undefined) {
+      updateFields.push('free_quantity = ?');
+      values.push(Math.max(0, Number(updates.free_quantity) || 0));
+    }
+    if (updates.batch_uuid !== undefined) {
+      updateFields.push('batch_uuid = ?');
+      values.push(updates.batch_uuid || null);
+    }
 
     if (updateFields.length > 0) {
       updateFields.push('updated_at = CURRENT_TIMESTAMP');
-      values.push(
-        cartUuid,
-        productUuid,
-        unitUuid
-      );
+      values.push((item as any).id);
 
       db.prepare(`
-        UPDATE cart_items 
-        SET ${updateFields.join(', ')} 
-        WHERE cart_uuid = ?
-        AND product_uuid = ?
-        AND unit_uuid = ?
+        UPDATE cart_items
+        SET ${updateFields.join(', ')}
+        WHERE id = ?
       `).run(...values);
     }
 
     return db.prepare(`
-      SELECT * FROM cart_items 
-      WHERE cart_uuid = ?
-      AND product_uuid = ?
-      AND unit_uuid = ?
+      SELECT * FROM cart_items
+      WHERE id = ?
     `).get(
-      cartUuid,
-      productUuid,
-      unitUuid
+      (item as any).id
     ) as CartItem;
   }
 
-  // Remove item from cart
+  // Remove item from cart (optionally pinned to one batch among sibling lines)
   static removeItem(
     cartUuid: string,
     productUuid: string,
-    unitUuid: string
+    unitUuid: string,
+    matchBatchUuid?: string | null
   ): boolean {
-    const result = db.prepare(`
-      DELETE FROM cart_items 
+    let sql = `
+      DELETE FROM cart_items
       WHERE cart_uuid = ?
       AND product_uuid = ?
       AND unit_uuid = ?
-    `).run(
+    `;
+    const params: any[] = [
       cartUuid,
       productUuid,
       unitUuid
-    );
+    ];
+    if (matchBatchUuid !== undefined) {
+      sql += ` AND ((batch_uuid IS NULL AND ? IS NULL) OR batch_uuid = ?)`;
+      params.push(matchBatchUuid || null, matchBatchUuid || null);
+    }
+    const result = db.prepare(sql).run(...params);
 
     return result.changes > 0;
   }

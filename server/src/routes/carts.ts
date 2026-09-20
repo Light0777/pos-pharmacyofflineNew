@@ -20,6 +20,7 @@ router.post('/:cart_uuid/clear', CartController.clear);
 
 // Item management
 router.post('/:cart_uuid/items', CartController.addItem);
+router.post('/:cart_uuid/custom-item', CartController.addCustomItem);
 router.put('/:cart_uuid/items/:product_uuid', CartController.updateItem);
 router.delete('/:cart_uuid/items/:product_uuid', CartController.removeItem);
 

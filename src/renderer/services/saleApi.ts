@@ -63,6 +63,15 @@ export async function getInvoice(saleUUID: string): Promise<Invoice> {
   return response?.data || response;
 }
 
+export async function getNextInvoice(): Promise<string | null> {
+  try {
+    const response: any = await apiGet("/sales/next-invoice");
+    return response?.data?.invoice_number || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function deleteSale(saleUuid: string) {
   try {
     const response = await apiDelete(`/sales/${saleUuid}`);

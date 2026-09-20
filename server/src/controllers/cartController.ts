@@ -142,25 +142,73 @@ export class CartController {
     }
   };
 
+  // Add custom (ad-hoc) item to cart
+  static addCustomItem = (req: Request, res: Response): void => {
+    try {
+      const cartUuid = String(req.params.cart_uuid);
+      const { name, price, gst_percent, quantity, free_quantity } = req.body;
+
+      const cart = CartModel.findById(cartUuid);
+      if (!cart) {
+        res.status(404).json({
+          success: false,
+          error: 'Cart not found'
+        });
+        return;
+      }
+
+      if (cart.status !== 'active') {
+        res.status(400).json({
+          success: false,
+          error: 'Cart is not active'
+        });
+        return;
+      }
+
+      const item = CartModel.addCustomItem(cartUuid, {
+        name,
+        price,
+        gst_percent,
+        quantity,
+        free_quantity
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Custom item added to cart',
+        data: item
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message || 'Failed to add custom item'
+      });
+    }
+  };
+
   // Update cart item
   static updateItem = (req: Request, res: Response): void => {
     try {
       const cartUuid = String(req.params.cart_uuid);
       const unitUuid = String(req.params.unit_uuid);
       const productUuid = String(req.params.product_uuid);
-      const { quantity, price, discount, tax_percent } = req.body;
+      const { quantity, price, discount, tax_percent, free_quantity, batch_uuid, new_unit_uuid, match_batch_uuid } = req.body;
 
       const updates: any = {};
       if (quantity !== undefined) updates.quantity = parseInt(String(quantity));
       if (price !== undefined) updates.price = parseFloat(String(price));
       if (discount !== undefined) updates.discount = parseFloat(String(discount));
       if (tax_percent !== undefined) updates.tax_percent = parseFloat(String(tax_percent));
+      if (free_quantity !== undefined) updates.free_quantity = parseFloat(String(free_quantity));
+      if (batch_uuid !== undefined) updates.batch_uuid = batch_uuid ? String(batch_uuid) : null;
+      if (new_unit_uuid !== undefined) updates.new_unit_uuid = String(new_unit_uuid);
 
       const item = CartModel.updateItem(
         cartUuid,
         productUuid,
         unitUuid,
-        updates
+        updates,
+        match_batch_uuid !== undefined ? (match_batch_uuid ? String(match_batch_uuid) : null) : undefined
       );
 
       if (!item) {
@@ -195,10 +243,16 @@ export class CartController {
       const unitUuid =
         String(req.params.unit_uuid);
 
+      const matchBatch =
+        req.query.batch_uuid !== undefined
+          ? (req.query.batch_uuid ? String(req.query.batch_uuid) : null)
+          : undefined;
+
       const removed = CartModel.removeItem(
         cartUuid,
         productUuid,
-        unitUuid
+        unitUuid,
+        matchBatch
       );
 
       if (!removed) {
