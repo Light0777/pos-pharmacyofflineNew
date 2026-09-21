@@ -54,7 +54,7 @@ function GridPicker({ value, options, onPick }: {
     <div className="relative">
       <button
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        className="max-w-[96px] flex items-center gap-1 bg-white border border-gray-300 rounded px-1.5 py-0.5 text-xs text-gray-800 hover:border-gray-400 focus:outline-none focus:border-green-500"
+        className="max-w-full w-full overflow-hidden flex items-center gap-1 bg-white border border-gray-300 rounded px-1.5 py-0.5 text-xs text-gray-800 hover:border-gray-400 focus:outline-none focus:border-green-500"
       >
         <span className="truncate">{current?.label || '—'}</span>
         <span className="text-gray-500 text-[9px]">▾</span>
@@ -245,18 +245,18 @@ export default function CartItems({
 
   return (
     <div className="overflow-auto h-full">
-      <table className="w-full border-collapse text-xs leading-snug min-w-[1320px]">
+      <table className="w-full border-collapse table-fixed text-xs leading-snug min-w-[1240px]">
         <thead className="sticky top-0 z-10">
           <tr className="bg-gray-100 text-gray-700">
             <th className={`text-left ${th} w-10`}>S.No</th>
-            <th className={`text-left ${th} w-24`}>Drug Code</th>
-            <th className={`text-left ${th}`}>Drug Name</th>
-            <th className={`text-left ${th} w-16`}>UOM</th>
+            <th className={`text-left ${th} w-20 text-left`}>Drug Code</th>
+            <th className={`text-left ${th} w-64 max-w-64 text-left`}>Drug Name</th>
+            <th className={`text-left ${th} w-20`}>UOM</th>
             <th className={`text-center ${th} w-28`}>Qty</th>
             <th className={`text-center ${th} w-14`}>Free</th>
-            <th className={`text-left ${th} w-24`}>Batch</th>
+            <th className={`text-left ${th} w-28`}>Batch</th>
             <th className={`text-left ${th} w-20`}>Expiry</th>
-            <th className={`text-right ${th} w-20`}>Pur.Price</th>
+            <th className={`text-right ${th} w-20`}>Price</th>
             <th className={`text-right ${th} w-20`}>Rate</th>
             <th className={`text-center ${th} w-12`}>GST%</th>
             <th className={`text-right ${th} w-16`}>GST Amt</th>
@@ -290,10 +290,18 @@ export default function CartItems({
                 className={`border-b border-gray-200 text-gray-800 focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-green-500 ${isActive ? 'bg-blue-50 shadow-[inset_2px_0_0_0_#16a34a]' : 'hover:bg-gray-50'}`}
               >
                 <td className={`${td} text-gray-500`}>{index + 1}</td>
-                <td className={`${td} text-gray-500`}>
-                  {item.product?.sku || item.product?.barcode || '—'}
+                <td
+                  className={`${td} max-w-[80px] overflow-hidden text-ellipsis text-gray-500 text-left`}
+                  title={item.product?.sku || item.product?.barcode || ''}
+                >
+                  <span className="block truncate">
+                    {item.product?.sku || item.product?.barcode || '—'}
+                  </span>
                 </td>
-                <td className={`${td}`}>
+                <td
+                  className={`${td} max-w-[256px] overflow-hidden text-ellipsis text-left`}
+                  title={(item.product?.name || '').replace('[Custom] ', '')}
+                >
                   <span className="font-semibold text-gray-900">
                     {(item.product?.name || t('pos.unknownProduct')).replace('[Custom] ', '')}
                   </span>
@@ -320,7 +328,7 @@ export default function CartItems({
                     </button>
                   )}
                 </td>
-                <td className={`${td} text-gray-600`}>
+                <td className={`${td} max-w-[80px] overflow-hidden text-gray-600`}>
                   {info.units && info.units.length > 1 && onChangeUnit ? (
                     <GridPicker
                       value={item.unit_uuid || ''}
@@ -381,12 +389,12 @@ export default function CartItems({
                     className="w-11 px-1 py-0.5 text-center text-xs text-gray-700 bg-white border border-gray-300 rounded focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </td>
-                <td className={`${td} text-gray-600`}>
+                <td className={`${td} max-w-[112px] overflow-hidden text-gray-600`}>
                   {info.batches && info.batches.length > 1 && onChangeBatch ? (
                     <div className="relative">
                       <button
                         onClick={(e) => { e.stopPropagation(); setBatchOpenFor((cur) => (cur === item.id ? null : item.id)); }}
-                        className="max-w-[128px] flex items-center gap-1 bg-white border border-gray-300 rounded px-1.5 py-0.5 text-xs text-gray-800 hover:border-gray-400 focus:outline-none focus:border-green-500"
+                        className="max-w-full w-full overflow-hidden flex items-center gap-1 bg-white border border-gray-300 rounded px-1.5 py-0.5 text-xs text-gray-800 hover:border-gray-400 focus:outline-none focus:border-green-500"
                         title="Switch batch"
                       >
                         <span className="truncate">{info.batchNo || 'Select'}</span>
