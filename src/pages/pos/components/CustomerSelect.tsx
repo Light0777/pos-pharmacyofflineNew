@@ -28,6 +28,15 @@ export default function CustomerSelect({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // External workstation shortcut: F4 opens customer selection.
+  // The existing auto-focus effect then puts the cursor in its search box.
+  useEffect(() => {
+    const onFocusCustomer = () => setIsOpen(true);
+    window.addEventListener("pos-focus-customer", onFocusCustomer);
+    return () =>
+      window.removeEventListener("pos-focus-customer", onFocusCustomer);
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -58,14 +67,14 @@ export default function CustomerSelect({
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Selected Value Display */}
+      {/* Selected Value Display - compact single-line control */}
       <div
-        className="w-full border border-gray-300 bg-white p-3 rounded-none text-gray-900 flex justify-between items-center cursor-pointer hover:border-gray-400 transition-all duration-200"
+        className="w-full border border-gray-300 bg-white px-2 py-1 rounded-none text-gray-900 flex justify-between items-center gap-2 cursor-pointer hover:border-gray-400 transition-colors"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <div className="flex items-center gap-2">
-          <HugeiconsIcon icon={UserIcon} className="text-gray-400 text-lg"  />
-          <span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <HugeiconsIcon icon={UserIcon} className="text-gray-400 text-base shrink-0"  />
+          <span className="text-xs truncate">
             {selectedCustomer
               ? `${selectedCustomer.name}${
                   selectedCustomer.credit_balance > 0
@@ -76,17 +85,17 @@ export default function CustomerSelect({
           </span>
         </div>
         <HugeiconsIcon icon={ChevronDownIcon}
-          className={`text-gray-400 text-xl transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          className={`text-gray-400 text-base shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
          />
       </div>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-none overflow-hidden z-50 shadow">
+        <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-gray-300 rounded-none overflow-hidden z-50 shadow">
 
           {/* Search Input */}
-          <div className="p-2 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center gap-2 bg-gray-100 rounded-none px-3 py-2">
+          <div className="p-1.5 border-b border-gray-200 bg-gray-50">
+            <div className="flex items-center gap-2 bg-gray-100 rounded-none px-2 py-1">
               <HugeiconsIcon icon={Search01Icon} className="text-gray-400 text-lg shrink-0"  />
               <input
                 ref={searchInputRef}
@@ -96,7 +105,7 @@ export default function CustomerSelect({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t('pos.searchByPhone')}
-                className="flex-1 bg-transparent text-gray-900 text-sm outline-none placeholder-gray-500"
+                className="flex-1 bg-transparent text-gray-900 text-xs outline-none placeholder-gray-500"
               />
               {searchQuery.length > 0 && (
                 <HugeiconsIcon
@@ -111,27 +120,27 @@ export default function CustomerSelect({
           {/* Walk-in Customer Option — hide when actively searching */}
           {!searchQuery.trim() && (
             <div
-              className="p-3 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-200 flex justify-center items-center gap-3"
+              className="px-2 py-1.5 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-200 flex justify-center items-center gap-2"
               onClick={() => {
                 onSelectCustomer(null);
                 setIsOpen(false);
               }}
             >
-              <HugeiconsIcon icon={UserIcon} className="text-gray-400 text-2xl"  />
+              <HugeiconsIcon icon={UserIcon} className="text-gray-400 text-xl"  />
               <div className="text-start">
-                <div className="text-gray-900 font-medium">{t('pos.walkInCustomer')}</div>
-                <div className="text-xs text-gray-400">{t('pos.noCreditAccountNeeded')}</div>
+                <div className="text-gray-900 text-sm font-medium">{t('pos.walkInCustomer')}</div>
+                <div className="text-[11px] text-gray-400">{t('pos.noCreditAccountNeeded')}</div>
               </div>
             </div>
           )}
 
           {/* Customers List */}
-          <div className="max-h-48 overflow-y-auto scrollbar-hide">
+          <div className="max-h-40 overflow-y-auto scrollbar-hide">
             {filteredCustomers.length > 0 ? (
               filteredCustomers.map((c) => (
                 <div
                   key={c.customer_uuid}
-                  className="p-3 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-200 last:border-b-0"
+                  className="px-2 py-1.5 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-200 last:border-b-0"
                   onClick={() => {
                     onSelectCustomer(c);
                     setIsOpen(false);
@@ -139,9 +148,9 @@ export default function CustomerSelect({
                 >
                   <div className="flex justify-between items-center gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="text-gray-900 font-medium truncate">{c.name}</div>
+                      <div className="text-gray-900 text-sm font-medium truncate">{c.name}</div>
                       {c.mobile && (
-                        <div className="text-xs text-gray-400 mt-0.5">{c.mobile}</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">{c.mobile}</div>
                       )}
                     </div>
                     {c.credit_balance > 0 && (
@@ -161,9 +170,9 @@ export default function CustomerSelect({
           </div>
 
           {/* Add New Customer Button */}
-          <div className="border-t border-gray-200 p-3 bg-gray-50">
+          <div className="border-t border-gray-200 px-2 py-1 bg-gray-50">
             <button
-              className="w-full text-center text-blue-400 text-sm hover:text-blue-300 transition-colors flex items-center justify-center gap-2 py-1"
+              className="w-full text-center text-blue-600 text-xs hover:text-blue-700 transition-colors flex items-center justify-center gap-2 py-0.5"
               onClick={() => {
                 onAddNew(searchQuery);
                 setIsOpen(false);

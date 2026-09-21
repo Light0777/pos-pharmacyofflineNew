@@ -51,6 +51,15 @@ export default function SalesModal({ sales, onClose, onViewInvoice, onRefresh }:
   const [fromPickPos, setFromPickPos] = useState({ top: 0, right: 0 });
   const [toPickPos, setToPickPos] = useState({ top: 0, right: 0 });
 
+  // Escape closes the modal without clearing the bill.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   useEffect(() => {
     if (!showFromPicker || !fromBtnRef.current) return;
     const rect = fromBtnRef.current.getBoundingClientRect();

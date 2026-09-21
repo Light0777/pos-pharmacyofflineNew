@@ -276,6 +276,9 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
       } else if (e.key === 'Backspace') {
         e.preventDefault();
         onClose();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
       }
     };
     window.addEventListener('keydown', handleShortcuts);

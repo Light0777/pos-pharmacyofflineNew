@@ -264,7 +264,7 @@ export function useCart() {
     setLoading(true);
     try {
       const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
-      await addItem(cartUUID, item.product_uuid, unitUuid, 1);
+      await addItem(cartUUID, item.product_uuid, unitUuid, 1, item.batch_uuid ?? null);
       await refreshCart();
     } catch (error: any) {
       console.error("❌ Error increasing item:", error);
@@ -295,6 +295,23 @@ export function useCart() {
     } catch (error: any) {
       console.error("❌ Error decreasing item:", error);
       alert(error.message || "Failed to decrease quantity");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── Remove a row outright (Delete key) ────────────────────────────────────
+
+  const removeCartItem = async (item: any) => {
+    if (!cartUUID) return;
+    setLoading(true);
+    try {
+      const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
+      await removeItem(cartUUID, item.product_uuid, unitUuid, item.batch_uuid ?? null);
+      await refreshCart();
+    } catch (error: any) {
+      console.error("❌ Error removing item:", error);
+      alert(error.message || "Failed to remove item");
     } finally {
       setLoading(false);
     }
@@ -600,6 +617,7 @@ export function useCart() {
     addCustomItem: addCustomItemToCart,
     increaseItem,
     decreaseItem,
+    removeCartItem,
     updateItemQuantity,
     updateCartItem,
     changeItemBatch,

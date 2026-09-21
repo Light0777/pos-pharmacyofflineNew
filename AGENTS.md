@@ -70,6 +70,13 @@ Manage product creation/editing with multi-batch system, unit/category dropdowns
 ### In Progress
 - (none)
 
+### POS keyboard-first shortcuts (done, this session)
+- New `src/pages/pos/hooks/usePosShortcuts.ts`: F2 new bill (confirm if lines exist), F3 focus search, F4 customer, F6 discount, F7/F8/F9 payment method, F10 cash input, +/-/Delete on selected row; skips everything while a modal is open, Delete/+/- never fire inside editable elements
+- Row selection mirrored to POSPage via `onSelectRow`; Delete uses new `useCart.removeCartItem` (batch-pinned, no confirm — app has no delete-confirm pattern)
+- Focus loop: quick-add returns focus to search; Enter in cash input → checkout via `pos-checkout-request`; discount Enter → apply; invoice close → focus search
+- Escape closes Customer/Sales/Invoice modals (Prescription is Radix Dialog, native Esc)
+- Ctrl+K/F3 now also select search text; existing Enter-checkout/barcode/F5/Ctrl+K/row-nav untouched
+
 ### Blocked
 - (none)
 

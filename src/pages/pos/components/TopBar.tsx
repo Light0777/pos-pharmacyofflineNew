@@ -83,7 +83,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
   };
 
   return (
-    <div className="flex items-center justify-between pl-4 pr-1 py-1 bg-white border border-gray-200 rounded-none w-[95%] mx-auto mt-[1%] gap-1 sm:gap-3">
+    <div className="flex items-center justify-between pl-4 pr-1 py-1 bg-white border border-gray-200 rounded-full w-[95%] mx-auto mt-[1%] gap-1 sm:gap-3">
       <div className="flex items-center gap-4">
         {shopName && (
           <div className="flex flex-col items-start pl-3">
@@ -93,10 +93,10 @@ export default function TopBar({ onShowSales }: TopBarProps) {
         )}
       </div>
       <div className="flex">
-        <div className="flex gap-2 bg-gray-100 p-1.5 rounded-none">
+        <div className="flex gap-2 bg-gray-100 p-1.5 rounded-full">
         <button
           onClick={() => navigate("/admin/dashboard")}
-          className={`px-4 py-2 rounded-none text-base font-medium transition-all duration-200 ${activeTab === "/admin/dashboard"
+          className={`px-4 py-2 rounded-full text-base font-medium transition-all duration-200 ${activeTab === "/admin/dashboard"
               ? "bg-blue-500 text-white shadow-lg"
               : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
             }`}
@@ -105,7 +105,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
         </button>
         <button
           onClick={() => navigate("/pos")}
-          className={`px-4 py-2 rounded-none text-base font-medium transition-all duration-200 ${activeTab === "/pos"
+          className={`px-4 py-2 rounded-full text-base font-medium transition-all duration-200 ${activeTab === "/pos"
               ? "bg-white text-black shadow-lg"
               : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
             }`}
@@ -114,7 +114,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
         </button>
         <button
           onClick={() => navigate("/admin/products")}
-          className={`px-4 py-2 rounded-none text-base font-medium transition-all duration-200 ${activeTab === "/admin/products"
+          className={`px-4 py-2 rounded-full text-base font-medium transition-all duration-200 ${activeTab === "/admin/products"
               ? "bg-blue-500 text-white shadow-lg"
               : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
             }`}
@@ -128,14 +128,14 @@ export default function TopBar({ onShowSales }: TopBarProps) {
 
         <button
           onClick={() => setShowEOD(true)}
-          className="flex items-center gap-3 px-2 sm:px-4 py-2 sm:py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-none text-base font-medium transition-colors whitespace-nowrap"
+          className="flex items-center gap-3 px-2 sm:px-4 py-2 sm:py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-full text-base font-medium transition-colors whitespace-nowrap"
         >
           <HugeiconsIcon icon={MoonIcon} className="text-xl"  />
           <span className="hidden sm:inline">End of Day</span>
         </button>
 
         <button
-          className="px-3 sm:px-5 py-2 sm:py-3 bg-green-500 text-white rounded-none font-bold flex gap-2 justify-center items-center hover:bg-green-600 transition-colors text-base"
+          className="px-3 sm:px-5 py-2 sm:py-3 bg-green-500 text-white rounded-full font-bold flex gap-2 justify-center items-center hover:bg-green-600 transition-colors text-base"
           onClick={onShowSales}
         >
           <HugeiconsIcon icon={Tag01Icon} className="text-lg"  />
@@ -145,10 +145,10 @@ export default function TopBar({ onShowSales }: TopBarProps) {
         {/* Notifications Bell */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative text-gray-500 hover:text-gray-900 hover:bg-gray-100 border border-gray-300 rounded-none h-12 w-12 flex items-center justify-center focus-visible:ring-0 focus-visible:ring-offset-0">
+            <Button variant="ghost" className="relative text-gray-500 hover:text-gray-900 hover:bg-gray-100 border border-gray-300 rounded-full h-12 w-12 flex items-center justify-center focus-visible:ring-0 focus-visible:ring-offset-0">
               <HugeiconsIcon icon={Notification01Icon} className="text-xl"  />
               {lowStockCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 px-1.5 py-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] rounded-none">
+                <Badge className="absolute -top-1 -right-1 px-1.5 py-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] rounded-full">
                   {lowStockCount > 99 ? '99+' : lowStockCount}
                 </Badge>
               )}
@@ -158,7 +158,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
             <DropdownMenuLabel className="flex justify-between items-center px-4 py-3 border-b border-gray-200">
               <span className="text-sm font-semibold text-gray-900">{t('topbar.notifTitle')}</span>
               {lowStockCount > 0 && (
-                <Badge variant="secondary" className="bg-red-500/10 text-red-600 border border-red-500/30 rounded-none px-2 py-0.5 text-xs font-medium">
+                <Badge variant="secondary" className="bg-red-500/10 text-red-600 border border-red-500/30 rounded-full px-2 py-0.5 text-xs font-medium">
                   {lowStockCount} {lowStockCount > 1 ? t('topbar.notifAlerts') : t('topbar.notifAlert')}
                 </Badge>
               )}
@@ -167,7 +167,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
             <ScrollArea className="h-[320px]">
               {lowStockItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-                  <div className="w-14 h-14 bg-green-500/10 rounded-none flex items-center justify-center mb-4">
+                  <div className="w-14 h-14 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
                     <HugeiconsIcon icon={CheckmarkCircle01Icon} className="text-3xl text-green-500"  />
                   </div>
                   <p className="text-sm font-medium text-gray-700">{t('topbar.notifAllGood')}</p>
@@ -182,7 +182,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
                       className="cursor-pointer p-3 hover:bg-gray-100 transition-colors focus:bg-gray-100"
                     >
                       <div className="flex items-start gap-3 w-full">
-                        <div className={`w-10 h-10 rounded-none flex items-center justify-center flex-shrink-0 ${item.stock === 0 ? 'bg-red-500/20' : 'bg-amber-500/20'}`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${item.stock === 0 ? 'bg-red-500/20' : 'bg-amber-500/20'}`}>
                           <HugeiconsIcon icon={item.stock === 0 ? CancelCircleIcon : Alert01Icon}
                             className={`text-xl ${item.stock === 0 ? 'text-red-500' : 'text-amber-500'}`}
                            />
@@ -219,7 +219,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 h-auto hover:bg-gray-100 rounded-none transition-colors border border-gray-300 focus-visible:ring-0 focus-visible:ring-offset-0">
+            <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 h-auto hover:bg-gray-100 rounded-full transition-colors border border-gray-300 focus-visible:ring-0 focus-visible:ring-offset-0">
               <Avatar className="h-9 w-9">
                 <AvatarFallback className="bg-gradient-to-br from-green-500 to-green-600 text-white">
                   {user?.name?.charAt(0)?.toUpperCase() || 'U'}

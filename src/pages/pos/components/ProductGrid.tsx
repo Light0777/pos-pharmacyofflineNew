@@ -530,6 +530,8 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
       const filtered = prev.filter((id) => id !== product.product_uuid);
       return [product.product_uuid, ...filtered].slice(0, 20);
     });
+    // Row added: hand focus back so the next scan/search starts instantly.
+    searchRef.current?.focus();
   };
 
   // Load batch info for visible products
@@ -621,23 +623,33 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
       if ((e.ctrlKey || e.metaKey) && e.key === 'k' && !editing) {
         e.preventDefault();
         searchRef.current?.focus();
+        // Select existing text so the cashier can immediately retype.
+        searchRef.current?.select();
       }
     };
     const handleFocusSearch = () => {
       searchRef.current?.focus();
+      searchRef.current?.select();
       setDropOpen(true);
     };
     const handleAddProduct = (e: Event) => {
       const product = (e as CustomEvent).detail;
       if (product?.product_uuid) selectProduct(product);
     };
+    // Global toast requests (e.g. F5 refresh confirmation).
+    const handleToast = (e: Event) => {
+      const message = (e as CustomEvent).detail;
+      if (typeof message === "string" && message) showToast(message);
+    };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('pos-focus-search', handleFocusSearch);
     window.addEventListener('pos-add-product', handleAddProduct);
+    window.addEventListener('pos-toast', handleToast);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('pos-focus-search', handleFocusSearch);
       window.removeEventListener('pos-add-product', handleAddProduct);
+      window.removeEventListener('pos-toast', handleToast);
     };
   }, []);
 
@@ -688,7 +700,16 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                 const list = sortedProducts.slice(0, 50);
                 if (e.key === 'ArrowDown' && list.length > 0) { e.preventDefault(); setDropOpen(true); setActiveIdx(i => Math.min(i + 1, list.length - 1)); }
                 else if (e.key === 'ArrowUp' && list.length > 0) { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
-                else if (e.key === 'Enter' && dropOpen && list.length > 0) { e.preventDefault(); selectProduct(list[Math.min(activeIdx, list.length - 1)]); }
+                else if (e.key === 'Enter') {
+                  // Results open: add the highlighted product.
+                  // Empty search box: the bill is done — request checkout.
+                  e.preventDefault();
+                  if (dropOpen && list.length > 0) {
+                    selectProduct(list[Math.min(activeIdx, list.length - 1)]);
+                  } else {
+                    window.dispatchEvent(new CustomEvent('pos-checkout-request'));
+                  }
+                }
                 else if (e.key === 'Escape') { setSearchTerm(''); setDropOpen(false); }
               }}
               className="w-full pl-7 pr-12 py-1 text-xs border border-gray-300 rounded-none bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-transparent font-inter"

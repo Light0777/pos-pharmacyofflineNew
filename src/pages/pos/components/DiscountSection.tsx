@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface DiscountSectionProps {
@@ -12,6 +13,18 @@ export default function DiscountSection({
   onApplyDiscount,
 }: DiscountSectionProps) {
   const { t } = useTranslation();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // External workstation shortcut: F6 focuses this input.
+  useEffect(() => {
+    const onFocusDiscount = () => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    };
+    window.addEventListener("pos-focus-discount", onFocusDiscount);
+    return () =>
+      window.removeEventListener("pos-focus-discount", onFocusDiscount);
+  }, []);
 
   return (
     <div>
@@ -20,11 +33,19 @@ export default function DiscountSection({
         <div className="relative flex-1 min-w-0">
           <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">₹</span>
           <input
+            ref={inputRef}
             type="number"
             className="w-full border border-gray-300 bg-white py-1 pl-6 pr-2 rounded-none text-gray-900 text-xs focus:border-blue-500 focus:outline-none"
             placeholder="0"
             value={discount}
             onChange={(e) => onDiscountChange(Number(e.target.value))}
+            onKeyDown={(e) => {
+              // Enter applies the discount via the existing handler.
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                onApplyDiscount();
+              }
+            }}
           />
         </div>
         <button

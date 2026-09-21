@@ -40,6 +40,7 @@ interface CartItemsProps {
   onUpdateField?: (item: CartItem, fields: { quantity?: number; price?: number; discount?: number; tax_percent?: number }) => void;
   onChangeBatch?: (item: CartItem, batchUuid: string) => void;
   onChangeUnit?: (item: CartItem, unitUuid: string) => void;
+  onSelectRow?: (item: CartItem | null) => void;
 }
 
 // Compact dark dropdown matching the invoice grid (native selects draw OS chrome)
@@ -92,6 +93,7 @@ export default function CartItems({
   onUpdateField,
   onChangeBatch,
   onChangeUnit,
+  onSelectRow,
 }: CartItemsProps) {
   const { t } = useTranslation();
 
@@ -203,7 +205,8 @@ export default function CartItems({
     return () => { cancelled = true; clearTimeout(timer); };
   }, [pq, editRow]);
 
-  // Forward the chosen product to the existing entry workflow (unit/batch modal)
+  // Forward the chosen product to the existing quick-add entry workflow.
+  // selectProduct focuses the main search field once the row is added.
   const requestAddProduct = (product: any) => {
     if (!product?.product_uuid) return;
     setPq('');
@@ -279,7 +282,7 @@ export default function CartItems({
               <tr
                 key={`${item.product_uuid}_${item.unit_uuid || index}`}
                 tabIndex={0}
-                onClick={() => setActiveRow(item.id)}
+                onClick={() => { setActiveRow(item.id); onSelectRow?.(item); }}
                 onKeyDown={(ev) => {
                   const row = ev.currentTarget as HTMLTableRowElement;
                   if ((ev.target as HTMLElement).tagName === 'INPUT') return;
@@ -328,7 +331,7 @@ export default function CartItems({
                     </button>
                   )}
                 </td>
-                <td className={`${td} max-w-[80px] overflow-hidden text-gray-600`}>
+                <td className={`${td} text-gray-600`}>
                   {info.units && info.units.length > 1 && onChangeUnit ? (
                     <GridPicker
                       value={item.unit_uuid || ''}
@@ -389,7 +392,7 @@ export default function CartItems({
                     className="w-11 px-1 py-0.5 text-center text-xs text-gray-700 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </td>
-                <td className={`${td} max-w-[112px] overflow-hidden text-gray-600`}>
+                <td className={`${td} text-gray-600`}>
                   {info.batches && info.batches.length > 1 && onChangeBatch ? (
                     <div className="relative">
                       <button
@@ -537,6 +540,7 @@ export default function CartItems({
                         if (ev.key === 'ArrowDown' && pResults.length > 0) { ev.preventDefault(); setPIdx((i) => Math.min(i + 1, pResults.length - 1)); }
                         else if (ev.key === 'ArrowUp' && pResults.length > 0) { ev.preventDefault(); setPIdx((i) => Math.max(i - 1, 0)); }
                         else if (ev.key === 'Enter' && editRow === e && pResults.length > 0) { ev.preventDefault(); requestAddProduct(pResults[Math.min(pIdx, pResults.length - 1)]); }
+                        else if (ev.key === 'Enter') { ev.preventDefault(); window.dispatchEvent(new CustomEvent('pos-checkout-request')); }
                         else if (ev.key === 'Escape') { setPq(''); setEditRow(null); (ev.target as HTMLInputElement).blur(); }
                       }}
                       className="w-full bg-transparent text-gray-900 placeholder-gray-400 px-1 py-0.5 rounded-none text-xs focus:outline-none focus:bg-gray-50 focus:ring-1 focus:ring-green-500"

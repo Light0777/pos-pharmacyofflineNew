@@ -10,6 +10,7 @@ import PaymentSection from "./components/PaymentSection";
 import CustomerModal from "./modals/CustomerModal";
 import SalesModal from "./modals/SalesModal";
 import { useCart } from "./hooks/useCart";
+import { usePosShortcuts } from "./hooks/usePosShortcuts";
 import { useProducts } from "./hooks/useProducts";
 import { useCustomers } from "./hooks/useCustomers";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -34,6 +35,7 @@ function POSpage() {
   const [showPastInvoiceModal, setShowPastInvoiceModal] = useState(false);
   const [selectedPastInvoice, setSelectedPastInvoice] = useState<any>(null);
   const [showCustomModal, setShowCustomModal] = useState(false);
+  const [showNewBillConfirm, setShowNewBillConfirm] = useState(false);
   const [customForm, setCustomForm] = useState({ name: "", quantity: "1", price: "", gst: "0" });
 
   // REMOVED local prescription state - now coming from useCart
@@ -51,6 +53,7 @@ function POSpage() {
     addCustomItem,
     increaseItem,
     decreaseItem,
+    removeCartItem,
     updateItemQuantity,
     updateCartItem,
     changeItemBatch,
@@ -76,6 +79,9 @@ function POSpage() {
     setShowPrescriptionModal,
     setPrescriptionProduct,
   } = useCart();
+
+  // Currently selected invoice row (keyboard +/-/Delete operate on this)
+  const selectedRowRef = useRef<any>(null);
 
   const {
     customers,
@@ -251,7 +257,7 @@ function POSpage() {
   // Keyboard shortcut: Enter to checkout
   useEffect(() => {
     const handleCheckoutShortcut = (e: KeyboardEvent) => {
-      if (showCustomerModal || showSalesModal || showInvoiceModal || showPastInvoiceModal) {
+      if (showCustomerModal || showSalesModal || showInvoiceModal || showPastInvoiceModal || showCustomModal || showPrescriptionModal || showNewBillConfirm) {
         return;
       }
 
@@ -277,6 +283,9 @@ function POSpage() {
     showSalesModal,
     showInvoiceModal,
     showPastInvoiceModal,
+    showCustomModal,
+    showPrescriptionModal,
+    showNewBillConfirm,
     cartLoading,
     isCartInitializing,
     cartData
@@ -343,19 +352,117 @@ function POSpage() {
     return () => clearTimeout(restoreTimer);
   }, []);
 
-  // F5 to refresh products
-  const refetchRef = useRef(refetch);
-  refetchRef.current = refetch;
+  // (Removed: old standalone F5 handler — F5 now lives in usePosShortcuts
+  // with a visible toast so the refresh is always confirmable.)
+
+  // New-bill flow: in-app confirm (never native confirm), then clear.
+  // Escape cancels the confirm dialog.
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'F5') {
-        e.preventDefault();
-        refetchRef.current();
+    if (!showNewBillConfirm) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowNewBillConfirm(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showNewBillConfirm]);
+  const doNewBill = () => {
+    setShowNewBillConfirm(false);
+    clearCart();
+    selectedRowRef.current = null;
+    window.dispatchEvent(new CustomEvent("pos-focus-search"));
+  };
+  useEffect(() => {
+    const onNewBill = () => {
+      if ((cartData?.cart?.items?.length || 0) > 0) {
+        setShowNewBillConfirm(true);
+      } else {
+        doNewBill();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    window.addEventListener("pos-new-bill-request", onNewBill);
+    return () =>
+      window.removeEventListener("pos-new-bill-request", onNewBill);
+  }, [cartData, clearCart]);
+
+  // ─── Central workstation shortcuts (F2/F3/F4/F5/F6–F10, +/-, Delete) ──────────
+  // Enter, arrows, Ctrl+K, barcode keep their existing dedicated
+  // handlers; this hook only adds the workstation layer on top.
+  usePosShortcuts({
+    refreshProducts: () => {
+      refetch();
+      window.dispatchEvent(
+        new CustomEvent("pos-toast", { detail: "Product list refreshed" })
+      );
+    },
+    hasLines: (cartData?.cart?.items?.length || 0) > 0,
+    modalsOpen:
+      showCustomerModal ||
+      showSalesModal ||
+      showInvoiceModal ||
+      showPastInvoiceModal ||
+      showCustomModal ||
+      showPrescriptionModal ||
+      showNewBillConfirm,
+    getSelectedItem: () => selectedRowRef.current,
+    clearSelectedItem: () => {
+      selectedRowRef.current = null;
+    },
+    increaseSelected: () => {
+      const it = selectedRowRef.current;
+      if (it) increaseItem(it);
+    },
+    decreaseSelected: () => {
+      const it = selectedRowRef.current;
+      if (it) decreaseItem(it);
+    },
+    removeSelected: () => {
+      const it = selectedRowRef.current;
+      if (it) {
+        removeCartItem(it);
+        selectedRowRef.current = null;
+      }
+    },
+    newBill: () => {
+      // The actual clear lives in POSPage behind an in-app confirm dialog.
+      // Never use native window.confirm here — it wedges Electron input.
+      window.dispatchEvent(new CustomEvent("pos-new-bill-request"));
+    },
+  });
+
+
+  const handleCheckoutRef = useRef(handleCheckout);
+  handleCheckoutRef.current = handleCheckout;
+  // Silently ignore checkout requests on an empty cart (avoids alert spam).
+  const hasLinesRef = useRef(false);
+  hasLinesRef.current = (cartData?.cart?.items?.length || 0) > 0;
+  useEffect(() => {
+    const onRequest = () => {
+      if (!hasLinesRef.current) return;
+      if (
+        showCustomerModal ||
+        showSalesModal ||
+        showInvoiceModal ||
+        showPastInvoiceModal ||
+        showCustomModal ||
+        showPrescriptionModal ||
+        showNewBillConfirm
+      ) {
+        return;
+      }
+      handleCheckoutRef.current();
+    };
+    window.addEventListener("pos-checkout-request", onRequest);
+    return () =>
+      window.removeEventListener("pos-checkout-request", onRequest);
+  }, [
+    showCustomerModal,
+    showSalesModal,
+    showInvoiceModal,
+    showPastInvoiceModal,
+    showCustomModal,
+    showPrescriptionModal,
+    showNewBillConfirm,
+  ]);
 
   if (isCartInitializing) {
     return (
@@ -388,9 +495,15 @@ function POSpage() {
     setDiscount(0);
     setSelectedCustomer(null);
     setRemarks("");
+    selectedRowRef.current = null;
     fetchNextBill();
     refetch();
+    // Fresh bill: cashier starts typing the next one immediately.
+    window.dispatchEvent(new CustomEvent("pos-focus-search"));
   };
+
+  // Checkout requested from inside a grid/cash input (Enter there).
+  // handleCheckout already validates cart, customer, and payment state.
 
   return (
     <div className="h-screen w-screen flex flex-col bg-white text-gray-900 font-inter overflow-hidden">
@@ -534,6 +647,9 @@ function POSpage() {
                 onUpdateField={updateCartItem}
                 onChangeBatch={changeItemBatch}
                 onChangeUnit={changeItemUnit}
+                onSelectRow={(item) => {
+                  selectedRowRef.current = item;
+                }}
               />
             )}
             {cartLoading && (cartData?.cart?.items?.length || 0) > 0 && (
@@ -545,23 +661,25 @@ function POSpage() {
         </div>
       </main>
 
-      {/* 5 ─ BOTTOM INFORMATION / TOTALS AREA (existing components, relocated) */}
+      {/* 5 ─ CHECKOUT BAR (single compact workspace: totals · customer · discount · payment · actions) */}
       <section className="shrink-0 border-t border-gray-200 bg-gray-50">
         <div
           ref={paymentSummaryRef}
-          className="flex gap-2 px-2 py-1 overflow-x-auto scrollbar-hide"
+          className="flex items-start gap-5 px-3 pt-1.5 overflow-x-clip"
           id="payment-scroll-container"
         >
-          <div className="w-48 shrink-0">
-            <div className="text-[11px] font-semibold text-gray-500 mb-0.5">Totals</div>
+          {/* TOTALS */}
+          <div className="w-56 shrink-0">
+            <div className="text-[11px] font-semibold text-gray-500">Totals</div>
             <CartSummary
               total={cartData?.summary?.total || 0}
               tax={cartData?.summary?.tax || 0}
               grandTotal={grandTotal}
             />
           </div>
+          {/* CUSTOMER */}
           <div className="w-60 shrink-0">
-            <div className="text-[11px] font-semibold text-gray-500 mb-0.5">Customer</div>
+            <div className="text-[11px] font-semibold text-gray-500">Customer</div>
             <CustomerSelect
               customers={customers}
               selectedCustomer={selectedCustomer}
@@ -569,14 +687,16 @@ function POSpage() {
               onAddNew={(phone) => { setNewCustomerPhone(phone || ""); setShowCustomerModal(true); }}
             />
           </div>
-          <div className="w-48 shrink-0">
+          {/* DISCOUNT */}
+          <div className="w-44 shrink-0">
             <DiscountSection
               discount={discount}
               onDiscountChange={setDiscount}
               onApplyDiscount={() => applyDiscount(cartUUID, discount)}
             />
           </div>
-          <div className="flex-1 min-w-[220px]">
+          {/* PAYMENT */}
+          <div className="flex-1 min-w-[280px]">
             <PaymentSection
               payments={payments}
               onPaymentChange={(index, field, value) => {
@@ -601,51 +721,80 @@ function POSpage() {
             />
           </div>
         </div>
-      </section>
-
-      {/* 6 ─ BOTTOM ACTION BAR (existing actions only, workstation-style) */}
-      <footer className="shrink-0 flex items-center gap-1.5 px-2 py-1 border-t border-gray-200 bg-white text-gray-900 text-xs">
-        <button
-          className="bg-green-600 text-white px-4 py-1 rounded-none font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-700 transition-colors"
-          onClick={handleCheckout}
-          disabled={cartLoading || !cartData?.cart?.items?.length || isCartInitializing}
-        >
-          {cartLoading ? "Processing..." : "Submit [Enter]"}
-        </button>
-        {(cartData?.cart?.items?.length || 0) > 0 && (
+        {/* ACTION ROW */}
+        <div className="flex items-center gap-1.5 px-3 py-1 mt-1 border-t border-gray-200">
           <button
-            onClick={clearCart}
-            className="px-3 py-1 text-red-500 hover:text-red-700 hover:bg-red-50 border border-red-300 rounded-none transition-all"
+            className="bg-green-600 text-white px-4 py-1 rounded-none font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-700 transition-colors text-xs"
+            onClick={handleCheckout}
+            disabled={cartLoading || !cartData?.cart?.items?.length || isCartInitializing}
           >
-            Reset
+            {cartLoading ? "Processing..." : "Submit [Enter]"}
           </button>
-        )}
-        {selectedCustomer?.credit_balance > 0 && (
-          <button
-            className="px-3 py-1 bg-orange-500 text-white rounded-none hover:bg-orange-600 transition-colors"
-            onClick={() => {
-              setPayments([
-                { method: "cash", amount: selectedCustomer.credit_balance },
-              ]);
-            }}
-          >
-            Clear Old Due ₹{selectedCustomer.credit_balance}
-          </button>
-        )}
-        <div className="ml-auto flex items-center gap-1.5">
-          <button
-            className="px-3 py-1 text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-none transition-colors"
-            onClick={() => {
-              loadSales();
-              setShowSalesModal(true);
-            }}
-          >
-            View
-          </button>
+          {(cartData?.cart?.items?.length || 0) > 0 && (
+            <button
+              onClick={clearCart}
+              className="px-3 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 border border-red-300 rounded-none transition-all"
+            >
+              Reset
+            </button>
+          )}
+          {selectedCustomer?.credit_balance > 0 && (
+            <button
+              className="px-3 py-1 text-xs bg-orange-500 text-white rounded-none hover:bg-orange-600 transition-colors"
+              onClick={() => {
+                setPayments([
+                  { method: "cash", amount: selectedCustomer.credit_balance },
+                ]);
+              }}
+            >
+              Clear Old Due ₹{selectedCustomer.credit_balance}
+            </button>
+          )}
+          <div className="ml-auto">
+            <button
+              className="px-3 py-1 text-xs text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-none transition-colors"
+              onClick={() => {
+                loadSales();
+                setShowSalesModal(true);
+              }}
+            >
+              View
+            </button>
+          </div>
         </div>
-      </footer>
-
+      </section>
       {/* Modals */}
+      {showNewBillConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setShowNewBillConfirm(false)}
+        >
+          <div
+            className="w-[300px] bg-white border border-gray-300 rounded-none p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-sm font-bold text-gray-900">Start a new bill?</div>
+            <p className="text-xs text-gray-500 mt-1">
+              The current bill items will be cleared. This cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2 mt-3">
+              <button
+                onClick={() => setShowNewBillConfirm(false)}
+                className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded-none hover:border-gray-400 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                autoFocus
+                onClick={doNewBill}
+                className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-none hover:bg-green-700 transition-colors"
+              >
+                Clear & New
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showCustomModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
