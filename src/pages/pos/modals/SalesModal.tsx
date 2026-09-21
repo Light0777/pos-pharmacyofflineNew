@@ -52,9 +52,10 @@ export default function SalesModal({ sales, onClose, onViewInvoice, onRefresh }:
   const [toPickPos, setToPickPos] = useState({ top: 0, right: 0 });
 
   // Escape closes the modal without clearing the bill.
+  // If an invoice is open on top, let it handle Escape instead.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !document.querySelector("[data-invoice-receipt]")) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

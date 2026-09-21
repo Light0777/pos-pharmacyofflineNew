@@ -800,7 +800,7 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}>
+    <div className="fixed inset-0 z-50" data-invoice-receipt style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}>
         <div className="absolute inset-0 overflow-y-auto flex flex-col items-center p-4">
         <div className={`flex flex-col items-center gap-4 ${isThermal ? 'w-full max-w-[400px] my-auto' : billFormat === 'a4' || billFormat === 'supplier' ? 'w-full max-w-[277mm] my-auto' : billFormat === 'a5' ? 'w-full max-w-[290mm] my-auto' : 'w-full max-w-[900px] my-auto'} pb-20`}>
 

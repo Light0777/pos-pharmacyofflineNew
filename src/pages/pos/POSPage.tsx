@@ -895,7 +895,6 @@ function POSpage() {
               if (fullInvoice && fullInvoice.items && fullInvoice.items.length > 0) {
                 setSelectedPastInvoice(fullInvoice);
                 setShowPastInvoiceModal(true);
-                setShowSalesModal(false);
                 return;
               }
             } catch (err) {
@@ -929,7 +928,6 @@ function POSpage() {
 
             setSelectedPastInvoice(constructedInvoice);
             setShowPastInvoiceModal(true);
-            setShowSalesModal(false);
           }}
         />
       )}
