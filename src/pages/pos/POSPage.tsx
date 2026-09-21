@@ -359,10 +359,10 @@ function POSpage() {
 
   if (isCartInitializing) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[#141414]">
+      <div className="h-screen flex items-center justify-center bg-white text-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-white">Initializing cart...</p>
+          <p className="text-gray-900">Initializing cart...</p>
         </div>
       </div>
     );
@@ -393,7 +393,7 @@ function POSpage() {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#141414] font-inter overflow-hidden">
+    <div className="h-screen w-screen flex flex-col bg-white text-gray-900 font-inter overflow-hidden">
       {/* 1 ─ TOP HEADER AREA (existing TopBar, untouched) */}
       <header className="shrink-0">
         <TopBar
@@ -405,76 +405,76 @@ function POSpage() {
       </header>
 
       {/* 2 ─ TRANSACTION HEADER (dense ERP strip: read-only view of existing bill data) */}
-      <section className="shrink-0 flex items-stretch px-2 py-1 border-b border-gray-800 bg-[#1a1a1a] overflow-x-auto text-[11px] leading-tight">
-        <div className="flex items-center gap-2 pr-3 mr-1 border-r border-gray-800 min-w-0 shrink-0">
+      <section className="shrink-0 flex items-stretch px-2 py-1 border-b border-gray-200 bg-gray-50 overflow-x-auto text-[11px] leading-tight">
+        <div className="flex items-center gap-2 pr-3 mr-1 border-r border-gray-200 min-w-0 shrink-0">
           <div className="rounded bg-black p-1 shrink-0">
             <HugeiconsIcon icon={Store01Icon} className="text-sm text-gray-300" />
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-bold text-white truncate">{shopSettings?.shop_name || 'My Store'}</div>
+            <div className="text-xs font-bold text-gray-900 truncate">{shopSettings?.shop_name || 'My Store'}</div>
             <div className="text-gray-500 truncate">
               {shopSettings?.gstin ? `GSTIN: ${shopSettings.gstin}` : (shopSettings?.address || 'Set address in Settings')}
             </div>
           </div>
         </div>
-        <div className="px-3 border-r border-gray-800 shrink-0">
+        <div className="px-3 border-r border-gray-200 shrink-0">
           <div className="text-gray-500">Bill #</div>
-          <div className="text-xs font-semibold text-white">{nextBillNo || '—'}</div>
+          <div className="text-xs font-semibold text-gray-900">{nextBillNo || '—'}</div>
         </div>
-        <div className="px-3 border-r border-gray-800 shrink-0 min-w-[120px]">
+        <div className="px-3 border-r border-gray-200 shrink-0 min-w-[120px]">
           <div className="text-gray-500">Customer</div>
-          <div className="text-xs font-semibold text-white truncate">
+          <div className="text-xs font-semibold text-gray-900 truncate">
             {selectedCustomer ? selectedCustomer.name : 'Walk-in'}
             {selectedCustomer?.credit_balance > 0 && (
               <span className="ml-1 font-normal text-orange-400">Due ₹{selectedCustomer.credit_balance}</span>
             )}
             {selectedCustomer?.credit_days > 0 && (
-              <span className="ml-1 font-normal text-gray-400">• {selectedCustomer.credit_days}d</span>
+              <span className="ml-1 font-normal text-gray-500">• {selectedCustomer.credit_days}d</span>
             )}
           </div>
         </div>
-        <div className="px-3 border-r border-gray-800 shrink-0">
+        <div className="px-3 border-r border-gray-200 shrink-0">
           <div className="text-gray-500">Pay Mode</div>
-          <div className="text-xs font-semibold text-white">
+          <div className="text-xs font-semibold text-gray-900">
             {({ cash: 'Cash', upi: 'UPI', pay_later: 'Pay Later', card: 'Card' } as Record<string, string>)[payments?.[0]?.method] || payments?.[0]?.method || 'Cash'}
           </div>
         </div>
-        <div className="px-3 border-r border-gray-800 shrink-0">
+        <div className="px-3 border-r border-gray-200 shrink-0">
           <div className="text-gray-500">Tot Qty</div>
-          <div className="text-xs font-semibold text-white">
+          <div className="text-xs font-semibold text-gray-900">
             {(cartData?.cart?.items || []).reduce((s: number, it: any) => s + (Number(it.quantity) || 0), 0)}
           </div>
         </div>
-        <div className="px-3 border-r border-gray-800 shrink-0">
+        <div className="px-3 border-r border-gray-200 shrink-0">
           <div className="text-gray-500">Lines</div>
-          <div className="text-xs font-semibold text-white">{cartData?.cart?.items?.length || 0}</div>
+          <div className="text-xs font-semibold text-gray-900">{cartData?.cart?.items?.length || 0}</div>
         </div>
-        <div className="px-3 border-r border-gray-800 shrink-0">
+        <div className="px-3 border-r border-gray-200 shrink-0">
           <div className="text-gray-500">Discount</div>
-          <div className="text-xs font-semibold text-white">₹{Number(discount || 0).toLocaleString()}</div>
+          <div className="text-xs font-semibold text-gray-900">₹{Number(discount || 0).toLocaleString()}</div>
         </div>
-        <div className="px-3 border-r border-gray-800 shrink-0">
+        <div className="px-3 border-r border-gray-200 shrink-0">
           <div className="text-gray-500">GST</div>
-          <div className="text-xs font-semibold text-white">₹{Number(cartData?.summary?.tax || 0).toLocaleString()}</div>
+          <div className="text-xs font-semibold text-gray-900">₹{Number(cartData?.summary?.tax || 0).toLocaleString()}</div>
         </div>
         <div className="px-3 shrink-0">
           <div className="text-gray-500">Grand Total</div>
-          <div className="text-sm font-bold text-green-400">₹{grandTotal.toLocaleString()}</div>
+          <div className="text-sm font-bold text-green-600">₹{grandTotal.toLocaleString()}</div>
         </div>
-        <div className="px-3 border-r border-gray-800 shrink-0 min-w-[140px]">
+        <div className="px-3 border-r border-gray-200 shrink-0 min-w-[140px]">
           <div className="text-gray-500">Remarks</div>
           <input
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
             placeholder="Bill note…"
             autoComplete="off"
-            className="w-full bg-transparent text-xs font-semibold text-white placeholder-gray-600 focus:outline-none"
+            className="w-full bg-transparent text-xs font-semibold text-gray-900 placeholder-gray-400 focus:outline-none"
           />
         </div>
         <div className="ml-auto pl-3 flex items-center shrink-0">
           <button
             onClick={() => refetch()}
-            className="text-[11px] text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-2 py-1 transition-colors"
+            className="text-[11px] text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded px-2 py-1 transition-colors"
             title="Refresh products (F5)"
           >
             Refresh [F5]
@@ -483,7 +483,7 @@ function POSpage() {
       </section>
 
       {/* 3 ─ PRODUCT SEARCH / ENTRY (selecting adds a new row to the invoice table below) */}
-      <section className="shrink-0 px-2 py-1 border-b border-gray-800 bg-[#141414]">
+      <section className="shrink-0 px-2 py-1 border-b border-gray-200 bg-white text-gray-900">
         <div className="flex items-center gap-2">
           <div className="flex-1 min-w-0">
         <ProductGrid
@@ -499,7 +499,7 @@ function POSpage() {
           </div>
           <button
             onClick={() => setShowCustomModal(true)}
-            className="shrink-0 px-3 py-1 text-xs font-semibold text-gray-200 border border-gray-700 hover:border-gray-500 rounded transition-colors"
+            className="shrink-0 px-3 py-1 text-xs font-semibold text-gray-700 border border-gray-300 hover:border-gray-400 rounded transition-colors"
             title="Add a custom (ad-hoc) item row"
           >
             + Add Item
@@ -509,10 +509,10 @@ function POSpage() {
 
       {/* 4 ─ MAIN INVOICE TABLE (one row = one product, full width) */}
       <main className="flex-1 min-h-0 flex flex-col p-2 overflow-hidden">
-        <div className="flex-1 min-h-0 flex flex-col bg-[#1a1a1a] border border-gray-800 rounded-lg overflow-hidden">
-          <div className="px-3 py-1.5 font-bold text-white text-sm text-start border-b border-gray-800 flex justify-between items-center shrink-0">
+        <div className="flex-1 min-h-0 flex flex-col bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-3 py-1.5 font-bold text-gray-900 text-sm text-start border-b border-gray-200 flex justify-between items-center shrink-0">
             <span>Invoice Items</span>
-            <span className="text-xs font-normal text-gray-400">
+            <span className="text-xs font-normal text-gray-500">
               {cartData?.cart?.items?.length || 0} lines
             </span>
           </div>
@@ -546,14 +546,14 @@ function POSpage() {
       </main>
 
       {/* 5 ─ BOTTOM INFORMATION / TOTALS AREA (existing components, relocated) */}
-      <section className="shrink-0 border-t border-gray-800 bg-[#1a1a1a]">
+      <section className="shrink-0 border-t border-gray-200 bg-gray-50">
         <div
           ref={paymentSummaryRef}
           className="flex gap-2 px-2 py-1 overflow-x-auto scrollbar-hide"
           id="payment-scroll-container"
         >
           <div className="w-48 shrink-0">
-            <div className="text-[11px] font-semibold text-gray-400 mb-0.5">Totals</div>
+            <div className="text-[11px] font-semibold text-gray-500 mb-0.5">Totals</div>
             <CartSummary
               total={cartData?.summary?.total || 0}
               tax={cartData?.summary?.tax || 0}
@@ -561,7 +561,7 @@ function POSpage() {
             />
           </div>
           <div className="w-60 shrink-0">
-            <div className="text-[11px] font-semibold text-gray-400 mb-0.5">Customer</div>
+            <div className="text-[11px] font-semibold text-gray-500 mb-0.5">Customer</div>
             <CustomerSelect
               customers={customers}
               selectedCustomer={selectedCustomer}
@@ -604,7 +604,7 @@ function POSpage() {
       </section>
 
       {/* 6 ─ BOTTOM ACTION BAR (existing actions only, workstation-style) */}
-      <footer className="shrink-0 flex items-center gap-1.5 px-2 py-1 border-t border-gray-800 bg-[#141414] text-xs">
+      <footer className="shrink-0 flex items-center gap-1.5 px-2 py-1 border-t border-gray-200 bg-white text-gray-900 text-xs">
         <button
           className="bg-green-600 text-white px-4 py-1 rounded font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-700 transition-colors"
           onClick={handleCheckout}
@@ -615,7 +615,7 @@ function POSpage() {
         {(cartData?.cart?.items?.length || 0) > 0 && (
           <button
             onClick={clearCart}
-            className="px-3 py-1 text-red-400 hover:text-white hover:bg-red-500/20 border border-red-500/30 rounded transition-all"
+            className="px-3 py-1 text-red-500 hover:text-red-700 hover:bg-red-50 border border-red-300 rounded transition-all"
           >
             Reset
           </button>
@@ -634,7 +634,7 @@ function POSpage() {
         )}
         <div className="ml-auto flex items-center gap-1.5">
           <button
-            className="px-3 py-1 text-gray-300 hover:text-white border border-gray-700 hover:border-gray-500 rounded transition-colors"
+            className="px-3 py-1 text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded transition-colors"
             onClick={() => {
               loadSales();
               setShowSalesModal(true);
@@ -652,55 +652,55 @@ function POSpage() {
           onClick={() => setShowCustomModal(false)}
         >
           <div
-            className="w-[320px] bg-[#1a1a1a] border border-gray-700 rounded-lg p-3"
+            className="w-[320px] bg-white border border-gray-300 rounded-lg p-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-sm font-bold text-white mb-2">Add Custom Item</div>
-            <label className="block text-[11px] text-gray-400 mb-0.5">Name *</label>
+            <div className="text-sm font-bold text-gray-900 mb-2">Add Custom Item</div>
+            <label className="block text-[11px] text-gray-500 mb-0.5">Name *</label>
             <input
               value={customForm.name}
               onChange={(e) => setCustomForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="e.g. Delivery charge"
-              className="w-full mb-2 px-2 py-1 text-xs bg-[#212121] border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
+              className="w-full mb-2 px-2 py-1 text-xs bg-white border border-gray-300 rounded text-gray-900 placeholder-gray-400 focus:outline-none focus:border-green-500"
               autoComplete="off"
             />
             <div className="grid grid-cols-3 gap-2 mb-3">
               <div>
-                <label className="block text-[11px] text-gray-400 mb-0.5">Qty *</label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">Qty *</label>
                 <input
                   type="number"
                   min="1"
                   value={customForm.quantity}
                   onChange={(e) => setCustomForm((f) => ({ ...f, quantity: e.target.value }))}
-                  className="w-full px-2 py-1 text-xs bg-[#212121] border border-gray-700 rounded text-white focus:outline-none focus:border-green-500"
+                  className="w-full px-2 py-1 text-xs bg-white border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-green-500"
                 />
               </div>
               <div>
-                <label className="block text-[11px] text-gray-400 mb-0.5">Rate *</label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">Rate *</label>
                 <input
                   type="number"
                   min="0"
                   value={customForm.price}
                   onChange={(e) => setCustomForm((f) => ({ ...f, price: e.target.value }))}
-                  className="w-full px-2 py-1 text-xs bg-[#212121] border border-gray-700 rounded text-white focus:outline-none focus:border-green-500"
+                  className="w-full px-2 py-1 text-xs bg-white border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-green-500"
                 />
               </div>
               <div>
-                <label className="block text-[11px] text-gray-400 mb-0.5">GST%</label>
+                <label className="block text-[11px] text-gray-500 mb-0.5">GST%</label>
                 <input
                   type="number"
                   min="0"
                   max="100"
                   value={customForm.gst}
                   onChange={(e) => setCustomForm((f) => ({ ...f, gst: e.target.value }))}
-                  className="w-full px-2 py-1 text-xs bg-[#212121] border border-gray-700 rounded text-white focus:outline-none focus:border-green-500"
+                  className="w-full px-2 py-1 text-xs bg-white border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-green-500"
                 />
               </div>
             </div>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowCustomModal(false)}
-                className="px-3 py-1 text-xs text-gray-300 border border-gray-700 rounded hover:border-gray-500 transition-colors"
+                className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:border-gray-400 transition-colors"
               >
                 Cancel
               </button>

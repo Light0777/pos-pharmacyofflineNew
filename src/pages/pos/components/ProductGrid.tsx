@@ -644,10 +644,10 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
   if (loading && products.length === 0) {
     return (
       <div className="p-2">
-        <div className="h-7 rounded bg-gray-700/40 animate-pulse" />
+        <div className="h-7 rounded bg-gray-200 animate-pulse" />
         <div className="mt-2 space-y-1.5">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-6 rounded bg-gray-700/40 animate-pulse" />
+            <div key={i} className="h-6 rounded bg-gray-200 animate-pulse" />
           ))}
         </div>
       </div>
@@ -691,18 +691,18 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                 else if (e.key === 'Enter' && dropOpen && list.length > 0) { e.preventDefault(); selectProduct(list[Math.min(activeIdx, list.length - 1)]); }
                 else if (e.key === 'Escape') { setSearchTerm(''); setDropOpen(false); }
               }}
-              className="w-full pl-7 pr-12 py-1 text-xs border border-gray-700 rounded bg-[#212121] text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-transparent font-inter"
+              className="w-full pl-7 pr-12 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-transparent font-inter"
               autoComplete="off"
             />
             {searchTerm ? (
               <button
                 onClick={() => { setSearchTerm(''); setDropOpen(false); searchRef.current?.focus(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-xs"
               >
                 ✕
               </button>
             ) : (
-              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-bold bg-gray-700 text-gray-300 rounded pointer-events-none">
+              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-bold bg-gray-200 text-gray-600 rounded pointer-events-none">
                 Ctrl+K
               </kbd>
             )}
@@ -716,7 +716,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
           ) : null}
         </div>
         {dropOpen && searchTerm.trim().length >= 1 && (
-          <div ref={dropListRef} className="absolute left-0 right-0 top-full mt-1 z-50 max-h-72 overflow-y-auto bg-[#1a1a1a] border border-gray-700 rounded-md shadow-2xl">
+          <div ref={dropListRef} className="absolute left-0 right-0 top-full mt-1 z-50 max-h-72 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-2xl">
             {sortedProducts.length === 0 ? (
               <div className="px-3 py-4 text-center text-gray-500 text-xs">
                 <p>{t('pos.noProductsFound')}</p>
@@ -736,10 +736,10 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                     data-dd-active={isActive || undefined}
                     onMouseDown={(e) => { e.preventDefault(); selectProduct(p); }}
                     onMouseEnter={() => setActiveIdx(i)}
-                    className={`flex items-center gap-2 px-2 py-1.5 border-b border-gray-800 cursor-pointer text-[11px] leading-tight ${isActive ? 'bg-[#242424]' : ''}`}
+                    className={`flex items-center gap-2 px-2 py-1.5 border-b border-gray-200 cursor-pointer text-[11px] leading-tight ${isActive ? 'bg-blue-50' : ''}`}
                   >
                     <span className="flex-1 min-w-0 truncate">
-                      <span className="font-semibold text-white">{p.name}</span>
+                      <span className="font-semibold text-gray-900">{p.name}</span>
                       {p.manufacturer && (
                         <span className="ml-1.5 text-gray-500">{p.manufacturer}</span>
                       )}
@@ -748,10 +748,10 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                       )}
                     </span>
                     <span className="w-20 shrink-0 truncate text-gray-500">{p.sku || p.barcode || '—'}</span>
-                    <span className={`w-14 shrink-0 text-right font-semibold ${onlyExpired || sellableStock === 0 ? 'text-red-400' : sellableStock < 10 ? 'text-amber-400' : 'text-green-400'}`}>
+                    <span className={`w-14 shrink-0 text-right font-semibold ${onlyExpired || sellableStock === 0 ? 'text-red-500' : sellableStock < 10 ? 'text-amber-600' : 'text-green-600'}`}>
                       {onlyExpired ? 'Expired' : sellableStock}
                     </span>
-                    <span className="w-16 shrink-0 text-right font-semibold text-white">₹{p.price}</span>
+                    <span className="w-16 shrink-0 text-right font-semibold text-gray-900">₹{p.price}</span>
                   </div>
                 );
               })

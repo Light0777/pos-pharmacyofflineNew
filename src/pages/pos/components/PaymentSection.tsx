@@ -77,7 +77,7 @@ export default function PaymentSection({
 
   return (
     <div className="space-y-1.5">
-      <div className="text-[11px] font-semibold text-gray-400">{t('pos.paymentMethod')}</div>
+      <div className="text-[11px] font-semibold text-gray-500">{t('pos.paymentMethod')}</div>
 
       {/* Method Selector */}
       <div className="grid grid-cols-3 gap-2">
@@ -88,10 +88,10 @@ export default function PaymentSection({
             onClick={() => handleMethodSelect(id)}
             className={`border rounded-lg p-1.5 transition-all text-center ${selectedMethod === id
               ? `${activeBorder} ${activeBg}`
-              : "border-gray-700 bg-[#212121] hover:border-gray-600"
+              : "border-gray-300 bg-white hover:border-gray-400"
               }`}
           >
-            <span className={`text-xs font-medium ${selectedMethod === id ? activeText : "text-white"}`}>
+            <span className={`text-xs font-medium ${selectedMethod === id ? activeText : "text-gray-700"}`}>
               {label}
             </span>
           </button>
@@ -99,22 +99,22 @@ export default function PaymentSection({
       </div>
 
       {/* Bill Amount */}
-      <div className="flex justify-between items-center bg-[#212121] rounded-lg px-2 py-1">
-        <span className="text-gray-400 text-xs">{t('pos.billAmount')}</span>
-        <span className="text-white font-bold text-sm">₹{grandTotal.toLocaleString()}</span>
+      <div className="flex justify-between items-center bg-gray-100 rounded-lg px-2 py-1">
+        <span className="text-gray-500 text-xs">{t('pos.billAmount')}</span>
+        <span className="text-gray-900 font-bold text-sm">₹{grandTotal.toLocaleString()}</span>
       </div>
 
       {/* Amount Input - Show only for cash and upi */}
       {selectedMethod !== "pay_later" && (
         <div>
-          <label className="text-xs text-gray-400 mb-1 block">
+          <label className="text-xs text-gray-500 mb-1 block">
             {selectedMethod === "cash" ? t('pos.cashGiven') : t('pos.amountPaid')}
           </label>
-          <div className="flex items-center gap-2 bg-[#212121] border border-gray-600 rounded-lg px-2 py-1 focus-within:border-green-500 transition-colors">
-            <span className="text-gray-400 font-bold text-sm">₹</span>
+          <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-2 py-1 focus-within:border-green-500 transition-colors">
+            <span className="text-gray-500 font-bold text-sm">₹</span>
             <input
               type="number"
-              className="flex-1 bg-transparent text-white text-sm font-bold outline-none min-w-0"  // min-w-0 prevents overflow
+              className="flex-1 bg-transparent text-gray-900 text-sm font-bold outline-none min-w-0"  // min-w-0 prevents overflow
               value={amountGiven || ""}
               placeholder={grandTotal.toString()}
               onChange={(e) => handleAmountChange(Number(e.target.value))}
@@ -139,7 +139,7 @@ export default function PaymentSection({
             </svg>
             <span className="text-orange-400 text-sm font-medium">{t('pos.payLater')}</span>
           </div>
-          <p className="text-gray-400 text-xs mt-1">
+          <p className="text-gray-500 text-xs mt-1">
             {t('pos.payLaterDescription')}
           </p>
         </div>

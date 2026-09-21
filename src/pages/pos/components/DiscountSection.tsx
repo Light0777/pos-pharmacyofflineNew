@@ -15,13 +15,13 @@ export default function DiscountSection({
 
   return (
     <div>
-      <div className="text-[11px] font-semibold text-gray-400 mb-1">{t('pos.applyDiscount')}</div>
+      <div className="text-[11px] font-semibold text-gray-500 mb-1">{t('pos.applyDiscount')}</div>
       <div className="flex gap-1.5">
         <div className="relative flex-1 min-w-0">
           <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">₹</span>
           <input
             type="number"
-            className="w-full border border-gray-700 bg-[#1a1a1a] py-1 pl-6 pr-2 rounded text-white text-xs focus:border-blue-500 focus:outline-none"
+            className="w-full border border-gray-300 bg-white py-1 pl-6 pr-2 rounded text-gray-900 text-xs focus:border-blue-500 focus:outline-none"
             placeholder="0"
             value={discount}
             onChange={(e) => onDiscountChange(Number(e.target.value))}

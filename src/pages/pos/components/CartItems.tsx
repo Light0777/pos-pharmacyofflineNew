@@ -54,7 +54,7 @@ function GridPicker({ value, options, onPick }: {
     <div className="relative">
       <button
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        className="max-w-[96px] flex items-center gap-1 bg-[#1a1a1a] border border-gray-700 rounded px-1.5 py-0.5 text-xs text-gray-200 hover:border-gray-500 focus:outline-none focus:border-green-500"
+        className="max-w-[96px] flex items-center gap-1 bg-white border border-gray-300 rounded px-1.5 py-0.5 text-xs text-gray-800 hover:border-gray-400 focus:outline-none focus:border-green-500"
       >
         <span className="truncate">{current?.label || '—'}</span>
         <span className="text-gray-500 text-[9px]">▾</span>
@@ -65,13 +65,13 @@ function GridPicker({ value, options, onPick }: {
             className="fixed inset-0 z-40"
             onClick={(e) => { e.stopPropagation(); setOpen(false); }}
           />
-          <div className="absolute left-0 top-full mt-0.5 z-50 w-40 max-h-48 overflow-y-auto bg-[#1a1a1a] border border-gray-700 rounded-md shadow-2xl">
+          <div className="absolute left-0 top-full mt-0.5 z-50 w-40 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-2xl">
             {options.map((o) => (
               <button
                 key={o.value}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => { setOpen(false); if (o.value !== value) onPick(o.value); }}
-                className={`w-full text-left px-2 py-1.5 text-xs border-b border-gray-800 last:border-b-0 ${o.value === value ? 'bg-[#242424] text-white' : 'text-gray-300 hover:bg-[#242424]'}`}
+                className={`w-full text-left px-2 py-1.5 text-xs border-b border-gray-200 last:border-b-0 ${o.value === value ? 'bg-blue-50 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
               >
                 {o.label}
               </button>
@@ -240,14 +240,14 @@ export default function CartItems({
 
   // Spreadsheet: filled rows first, then always-visible empty entry rows
   const EMPTY_ROWS = 20;
-  const th = "font-semibold px-2 py-2 border-b border-gray-700 whitespace-nowrap";
+  const th = "font-semibold px-2 py-2 border-b border-gray-300 whitespace-nowrap";
   const td = "px-2 py-1.5 whitespace-nowrap";
 
   return (
     <div className="overflow-auto h-full">
       <table className="w-full border-collapse text-xs leading-snug min-w-[1320px]">
         <thead className="sticky top-0 z-10">
-          <tr className="bg-[#2a2a2a] text-gray-300">
+          <tr className="bg-gray-100 text-gray-700">
             <th className={`text-left ${th} w-10`}>S.No</th>
             <th className={`text-left ${th} w-24`}>Drug Code</th>
             <th className={`text-left ${th}`}>Drug Name</th>
@@ -287,14 +287,14 @@ export default function CartItems({
                   else if (ev.key === 'ArrowUp') { ev.preventDefault(); (row.previousElementSibling as HTMLElement | null)?.focus(); }
                   else if (ev.key === 'Enter') { ev.preventDefault(); inputRefs.current[`qty-${item.id}`]?.focus(); }
                 }}
-                className={`border-b border-gray-800 text-gray-200 focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-green-500 ${isActive ? 'bg-[#242424] shadow-[inset_2px_0_0_0_#22c55e]' : 'hover:bg-[#242424]'}`}
+                className={`border-b border-gray-200 text-gray-800 focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-green-500 ${isActive ? 'bg-blue-50 shadow-[inset_2px_0_0_0_#16a34a]' : 'hover:bg-gray-50'}`}
               >
                 <td className={`${td} text-gray-500`}>{index + 1}</td>
-                <td className={`${td} text-gray-400`}>
+                <td className={`${td} text-gray-500`}>
                   {item.product?.sku || item.product?.barcode || '—'}
                 </td>
                 <td className={`${td}`}>
-                  <span className="font-semibold text-white">
+                  <span className="font-semibold text-gray-900">
                     {(item.product?.name || t('pos.unknownProduct')).replace('[Custom] ', '')}
                   </span>
                   {item.product?.manufacturer && (
@@ -313,14 +313,14 @@ export default function CartItems({
                       onClick={() => {
                         onRemove(item);
                       }}
-                      className="ml-1.5 text-red-400 hover:text-red-300 align-middle"
+                      className="ml-1.5 text-red-500 hover:text-red-700 align-middle"
                       title="Remove"
                     >
                       <HugeiconsIcon icon={Delete01Icon} className="text-xs" />
                     </button>
                   )}
                 </td>
-                <td className={`${td} text-gray-300`}>
+                <td className={`${td} text-gray-600`}>
                   {info.units && info.units.length > 1 && onChangeUnit ? (
                     <GridPicker
                       value={item.unit_uuid || ''}
@@ -333,7 +333,7 @@ export default function CartItems({
                   <div className="flex items-center justify-center gap-0.5">
                     <button
                       onClick={() => onDecrease(item)}
-                      className="w-5 h-5 flex items-center justify-center text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+                      className="w-5 h-5 flex items-center justify-center text-gray-600 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
                     >
                       <HugeiconsIcon icon={Remove01Icon} className="text-[10px]" />
                     </button>
@@ -354,11 +354,11 @@ export default function CartItems({
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-12 px-1 py-1 text-center text-xs font-semibold text-white bg-[#212121] border border-gray-700 rounded focus:outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-12 px-1 py-1 text-center text-xs font-semibold text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <button
                       onClick={() => onIncrease(item)}
-                      className="w-5 h-5 flex items-center justify-center text-gray-300 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+                      className="w-5 h-5 flex items-center justify-center text-gray-600 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
                     >
                       <HugeiconsIcon icon={Add01Icon} className="text-[10px]" />
                     </button>
@@ -378,15 +378,15 @@ export default function CartItems({
                       if (e.key === 'Enter') { commitCell(item, 'free_quantity'); (e.target as HTMLInputElement).blur(); }
                     }}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-11 px-1 py-0.5 text-center text-xs text-gray-300 bg-[#1a1a1a] border border-gray-700 rounded focus:outline-none focus:bg-[#212121] focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    className="w-11 px-1 py-0.5 text-center text-xs text-gray-700 bg-white border border-gray-300 rounded focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </td>
-                <td className={`${td} text-gray-300`}>
+                <td className={`${td} text-gray-600`}>
                   {info.batches && info.batches.length > 1 && onChangeBatch ? (
                     <div className="relative">
                       <button
                         onClick={(e) => { e.stopPropagation(); setBatchOpenFor((cur) => (cur === item.id ? null : item.id)); }}
-                        className="max-w-[128px] flex items-center gap-1 bg-[#1a1a1a] border border-gray-700 rounded px-1.5 py-0.5 text-xs text-gray-200 hover:border-gray-500 focus:outline-none focus:border-green-500"
+                        className="max-w-[128px] flex items-center gap-1 bg-white border border-gray-300 rounded px-1.5 py-0.5 text-xs text-gray-800 hover:border-gray-400 focus:outline-none focus:border-green-500"
                         title="Switch batch"
                       >
                         <span className="truncate">{info.batchNo || 'Select'}</span>
@@ -398,7 +398,7 @@ export default function CartItems({
                             className="fixed inset-0 z-40"
                             onClick={(e) => { e.stopPropagation(); setBatchOpenFor(null); }}
                           />
-                          <div className="absolute left-0 top-full mt-0.5 z-50 w-56 max-h-48 overflow-y-auto bg-[#1a1a1a] border border-gray-700 rounded-md shadow-2xl">
+                          <div className="absolute left-0 top-full mt-0.5 z-50 w-56 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-2xl">
                             {info.batches.map((b) => {
                               const selected = b.batch_uuid === (item as any).batch_uuid;
                               return (
@@ -406,7 +406,7 @@ export default function CartItems({
                                   key={b.batch_uuid}
                                   onMouseDown={(e) => e.preventDefault()}
                                   onClick={() => { setBatchOpenFor(null); if (!selected) onChangeBatch(item, b.batch_uuid); }}
-                                  className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs border-b border-gray-800 last:border-b-0 ${selected ? 'bg-[#242424] text-white' : 'text-gray-300 hover:bg-[#242424]'}`}
+                                  className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs border-b border-gray-200 last:border-b-0 ${selected ? 'bg-blue-50 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
                                 >
                                   <span className="font-semibold truncate">{b.batch_number}</span>
                                   <span className="text-gray-500 whitespace-nowrap">{fmtExp(b.expiry_date)} • {b.quantity}</span>
@@ -419,11 +419,11 @@ export default function CartItems({
                     </div>
                   ) : (info.batchNo || '—')}
                 </td>
-                <td className={`${td} text-gray-400`}>{fmtExp(info.expiry)}</td>
-                <td className={`${td} text-right text-gray-400`}>
+                <td className={`${td} text-gray-500`}>{fmtExp(info.expiry)}</td>
+                <td className={`${td} text-right text-gray-500`}>
                   {item.product?.purchase_price ? `₹${Number(item.product.purchase_price).toFixed(2)}` : '—'}
                 </td>
-                <td className={`${td} text-right text-gray-200`}>
+                <td className={`${td} text-right text-gray-900`}>
                   <input
                     value={cellDraft[`${item.id}:price`] ?? item.price.toFixed(2)}
                     onChange={(e) => {
@@ -437,10 +437,10 @@ export default function CartItems({
                       if (e.key === 'Enter') { commitCell(item, 'price'); (e.target as HTMLInputElement).blur(); }
                     }}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-16 px-1 py-0.5 text-right text-xs text-gray-200 bg-[#1a1a1a] border border-gray-700 rounded focus:outline-none focus:bg-[#212121] focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    className="w-16 px-1 py-0.5 text-right text-xs text-gray-900 bg-white border border-gray-300 rounded focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </td>
-                <td className={`${td} text-center text-gray-400`}>
+                <td className={`${td} text-center text-gray-500`}>
                   <span className="inline-flex items-center">
                     <input
                       value={cellDraft[`${item.id}:tax_percent`] ?? String(item.tax_percent)}
@@ -455,13 +455,13 @@ export default function CartItems({
                         if (e.key === 'Enter') { commitCell(item, 'tax_percent'); (e.target as HTMLInputElement).blur(); }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-10 px-1 py-0.5 text-center text-xs text-gray-300 bg-[#1a1a1a] border border-gray-700 rounded focus:outline-none focus:bg-[#212121] focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-10 px-1 py-0.5 text-center text-xs text-gray-700 bg-white border border-gray-300 rounded focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <span>%</span>
                   </span>
                 </td>
-                <td className={`${td} text-right text-gray-400`}>₹{taxAmount.toFixed(2)}</td>
-                <td className={`${td} text-right text-blue-400`}>
+                <td className={`${td} text-right text-gray-500`}>₹{taxAmount.toFixed(2)}</td>
+                <td className={`${td} text-right text-blue-600`}>
                   <span className="inline-flex items-center justify-end">
                     <span>-₹</span>
                     <input
@@ -478,11 +478,11 @@ export default function CartItems({
                         if (e.key === 'Enter') { commitCell(item, 'discount'); (e.target as HTMLInputElement).blur(); }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-14 px-1 py-0.5 text-right text-xs text-blue-400 bg-[#1a1a1a] border border-gray-700 rounded focus:outline-none focus:bg-[#212121] focus:border-green-500 placeholder-gray-600 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-14 px-1 py-0.5 text-right text-xs text-blue-600 bg-white border border-gray-300 rounded focus:outline-none focus:bg-gray-50 focus:border-green-500 placeholder-gray-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                   </span>
                 </td>
-                <td className={`${td} text-right font-bold text-green-400`}>₹{value.toFixed(2)}</td>
+                <td className={`${td} text-right font-bold text-green-600`}>₹{value.toFixed(2)}</td>
               </tr>
             );
           })}
@@ -511,7 +511,7 @@ export default function CartItems({
                   else if (ev.key === 'ArrowUp') { ev.preventDefault(); (row.previousElementSibling as HTMLElement | null)?.focus(); }
                   else if (ev.key === 'Enter') { ev.preventDefault(); focusRowInput(); }
                 }}
-                className={`border-b border-gray-800 cursor-pointer focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-green-500 ${isActive ? 'bg-[#242424] shadow-[inset_2px_0_0_0_#22c55e]' : isFirst ? 'bg-white/[0.02]' : ''}`}
+                className={`border-b border-gray-200 cursor-pointer focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-green-500 ${isActive ? 'bg-blue-50 shadow-[inset_2px_0_0_0_#16a34a]' : isFirst ? 'bg-gray-50' : ''}`}
               >
                 <td className={`${td} ${isFirst ? 'text-green-500 font-semibold' : 'text-gray-600'}`}>{sno}</td>
                 <td className={td}>&nbsp;</td>
@@ -531,10 +531,10 @@ export default function CartItems({
                         else if (ev.key === 'Enter' && editRow === e && pResults.length > 0) { ev.preventDefault(); requestAddProduct(pResults[Math.min(pIdx, pResults.length - 1)]); }
                         else if (ev.key === 'Escape') { setPq(''); setEditRow(null); (ev.target as HTMLInputElement).blur(); }
                       }}
-                      className="w-full bg-transparent text-white placeholder-gray-600 px-1 py-0.5 rounded text-xs focus:outline-none focus:bg-[#212121] focus:ring-1 focus:ring-green-500"
+                      className="w-full bg-transparent text-gray-900 placeholder-gray-400 px-1 py-0.5 rounded text-xs focus:outline-none focus:bg-gray-50 focus:ring-1 focus:ring-green-500"
                     />
                     {editRow === e && pq.trim().length >= 2 && (
-                      <div className="absolute left-0 top-full mt-0.5 z-50 w-72 max-h-56 overflow-y-auto bg-[#1a1a1a] border border-gray-700 rounded-md shadow-2xl">
+                      <div className="absolute left-0 top-full mt-0.5 z-50 w-72 max-h-56 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-2xl">
                         {pSearching ? (
                           <div className="px-2 py-2 text-gray-500 text-xs">Searching…</div>
                         ) : pResults.length === 0 ? (
@@ -545,9 +545,9 @@ export default function CartItems({
                               key={p.product_uuid}
                               onMouseDown={(me) => { me.preventDefault(); requestAddProduct(p); }}
                               onMouseEnter={() => setPIdx(i)}
-                              className={`px-2 py-1.5 cursor-pointer border-b border-gray-800 ${i === pIdx ? 'bg-[#242424]' : ''}`}
+                              className={`px-2 py-1.5 cursor-pointer border-b border-gray-200 ${i === pIdx ? 'bg-blue-50' : ''}`}
                             >
-                              <div className="font-semibold text-white text-xs truncate">{p.name}</div>
+                              <div className="font-semibold text-gray-900 text-xs truncate">{p.name}</div>
                               <div className="text-gray-500 text-[10px] truncate">
                                 {[p.sku, p.barcode, p.manufacturer].filter(Boolean).join(' • ')}{p.price != null ? ` • ₹${p.price}` : ''}
                               </div>

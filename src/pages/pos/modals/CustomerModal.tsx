@@ -67,23 +67,23 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <form
         onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
-        className="bg-[#1a1a1a] rounded-2xl w-full max-w-lg shadow-2xl border border-gray-700 animate-fadeIn"
+        className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-gray-200 animate-fadeIn"
       >
         {/* Header */}
-        <div className="border-b border-gray-700/80 px-6 py-4 flex justify-between items-center">
+        <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-500/10 rounded-xl">
               <HugeiconsIcon icon={UserAdd01Icon} className="text-blue-400 text-2xl"  />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Add New Customer</h2>
+              <h2 className="text-lg font-bold text-gray-900">Add New Customer</h2>
               <p className="text-xs text-gray-500 mt-0.5">Enter customer details below</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-700/50 rounded-xl transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
           >
             <HugeiconsIcon icon={Cancel01Icon} className="text-gray-400 text-xl"  />
           </button>
@@ -93,27 +93,27 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
         <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">
-              Customer Name <span className="text-red-400">*</span>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Customer Name <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <HugeiconsIcon icon={UserAdd01Icon} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none"  />
               <input
                 type="text"
                 placeholder="Enter customer name"
-                className={`w-full bg-[#212121] border ${errors.name ? 'border-red-500' : 'border-gray-600'} rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all`}
+                className={`w-full bg-white border ${errors.name ? 'border-red-500' : 'border-gray-300'} rounded-xl pl-10 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all`}
                 value={name}
                 onChange={(e) => { setName(e.target.value); setErrors((p) => ({ ...p, name: "" })); }}
                 autoFocus
               />
             </div>
-            {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
+            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
           </div>
 
           {/* Mobile */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">
-              Mobile Number <span className="text-red-400">*</span>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Mobile Number <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <HugeiconsIcon icon={CallIcon} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none"  />
@@ -121,7 +121,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
                 type="tel"
                 inputMode="numeric"
                 placeholder="Enter 10-digit mobile number"
-                className={`w-full bg-[#212121] border ${errors.mobile ? 'border-red-500' : 'border-gray-600'} rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all`}
+                className={`w-full bg-white border ${errors.mobile ? 'border-red-500' : 'border-gray-300'} rounded-xl pl-10 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all`}
                 value={mobile}
                 onChange={(e) => {
                   setMobile(e.target.value.replace(/\D/g, '').slice(0, 10));
@@ -129,7 +129,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
                 }}
               />
             </div>
-            {errors.mobile && <p className="text-red-400 text-xs mt-1">{errors.mobile}</p>}
+            {errors.mobile && <p className="text-red-500 text-xs mt-1">{errors.mobile}</p>}
             <p className="text-xs text-gray-500 mt-1">
               Used for customer identification and payment reminders
             </p>
@@ -137,13 +137,13 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
 
           {/* Address */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Address</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Address</label>
             <div className="relative">
               <HugeiconsIcon icon={MapPinIcon} className="absolute left-3.5 top-3 text-gray-500 text-lg pointer-events-none"  />
               <textarea
                 rows={2}
                 placeholder="Enter customer address (optional)"
-                className="w-full bg-[#212121] border border-gray-600 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
+                className="w-full bg-white border border-gray-300 rounded-xl pl-10 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
               />
@@ -152,13 +152,13 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
 
           {/* GSTIN */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">GSTIN</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">GSTIN</label>
             <div className="relative">
               <HugeiconsIcon icon={File01Icon} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none"  />
               <input
                 type="text"
                 placeholder="Enter GSTIN (optional)"
-                className={`w-full bg-[#212121] border ${errors.gstin ? 'border-red-500' : 'border-gray-600'} rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all uppercase`}
+                className={`w-full bg-white border ${errors.gstin ? 'border-red-500' : 'border-gray-300'} rounded-xl pl-10 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all uppercase`}
                 value={gstin}
                 onChange={(e) => {
                   setGstin(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15));
@@ -167,19 +167,19 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
                 maxLength={15}
               />
             </div>
-            {errors.gstin && <p className="text-red-400 text-xs mt-1">{errors.gstin}</p>}
+            {errors.gstin && <p className="text-red-500 text-xs mt-1">{errors.gstin}</p>}
           </div>
 
           {/* Credit Limit */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Credit Limit</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Credit Limit</label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-lg">₹</span>
               <input
                 type="number"
                 min="0"
                 placeholder="0"
-                className="w-full bg-[#212121] border border-gray-600 rounded-xl pl-9 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full bg-white border border-gray-300 rounded-xl pl-9 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                 value={creditLimit || ""}
                 onChange={(e) => setCreditLimit(e.target.value === "" ? 0 : Number(e.target.value))}
               />
@@ -197,17 +197,17 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
             <div>
               <span className="text-blue-400 text-xs font-semibold uppercase tracking-wider">Note</span>
               <p className="text-gray-500 text-xs mt-0.5">
-                Fields marked with <span className="text-red-400">*</span> are required. Other details can be updated later from the Customers page.
+                Fields marked with <span className="text-red-500">*</span> are required. Other details can be updated later from the Customers page.
               </p>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-700/80 px-6 py-4 flex items-center gap-3">
+        <div className="border-t border-gray-200 px-6 py-4 flex items-center gap-3">
           <button
             type="button"
-            className="flex-1 px-4 py-2.5 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-xl font-medium transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
             onClick={onClose}
             disabled={loading}
           >
