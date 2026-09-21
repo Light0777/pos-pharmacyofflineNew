@@ -120,12 +120,6 @@ export default function PaymentSection({
         ))}
       </div>
 
-      {/* Bill Amount - plain prominent row (calculated value, not an input) */}
-      <div className="flex justify-between items-baseline py-0.5">
-        <span className="text-gray-500 text-xs">{t('pos.billAmount')}</span>
-        <span className="text-gray-900 font-bold text-base">₹{grandTotal.toLocaleString()}</span>
-      </div>
-
       {/* Amount Input - Show only for cash and upi */}
       {selectedMethod !== "pay_later" && (
         <div>

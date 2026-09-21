@@ -712,7 +712,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                 }
                 else if (e.key === 'Escape') { setSearchTerm(''); setDropOpen(false); }
               }}
-              className="w-full pl-7 pr-12 py-1 text-xs border border-gray-300 rounded-none bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-transparent font-inter"
+              className="w-full pl-7 pr-16 py-2 text-xs border border-gray-300 rounded-none bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-transparent font-inter"
               autoComplete="off"
             />
             {searchTerm ? (
@@ -723,7 +723,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                 ✕
               </button>
             ) : (
-              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-bold bg-gray-200 text-gray-600 rounded-none pointer-events-none">
+              <kbd className="absolute right-1.5 top-1/2 -translate-y-1/2 px-1 py-px text-[9px] font-semibold bg-gray-100 text-gray-500 border border-gray-200 rounded-none pointer-events-none whitespace-nowrap">
                 Ctrl+K
               </kbd>
             )}

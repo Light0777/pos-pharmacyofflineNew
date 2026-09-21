@@ -259,12 +259,12 @@ export default function CartItems({
             <th className={`text-center ${th} w-14`}>Free</th>
             <th className={`text-left ${th} w-28`}>Batch</th>
             <th className={`text-left ${th} w-20`}>Expiry</th>
-            <th className={`text-right ${th} w-20`}>Price</th>
-            <th className={`text-right ${th} w-20`}>Rate</th>
+            <th className={`text-center ${th} w-20`}>Price</th>
+            <th className={`text-center ${th} w-20`}>Rate</th>
             <th className={`text-center ${th} w-12`}>GST%</th>
-            <th className={`text-right ${th} w-16`}>GST Amt</th>
-            <th className={`text-right ${th} w-16`}>Disc</th>
-            <th className={`text-right ${th} w-20`}>Value</th>
+            <th className={`text-center ${th} w-16`}>GST Amt</th>
+            <th className={`text-center ${th} w-16`}>Disc</th>
+            <th className={`text-center ${th} w-20`}>Value</th>
           </tr>
         </thead>
         <tbody>
@@ -431,10 +431,10 @@ export default function CartItems({
                   ) : (info.batchNo || '—')}
                 </td>
                 <td className={`${td} text-gray-500`}>{fmtExp(info.expiry)}</td>
-                <td className={`${td} text-right text-gray-500`}>
+                <td className={`${td} text-center text-gray-500`}>
                   {item.product?.purchase_price ? `₹${Number(item.product.purchase_price).toFixed(2)}` : '—'}
                 </td>
-                <td className={`${td} text-right text-gray-900`}>
+                <td className={`${td} text-center text-gray-900`}>
                   <input
                     value={cellDraft[`${item.id}:price`] ?? item.price.toFixed(2)}
                     onChange={(e) => {
@@ -448,7 +448,7 @@ export default function CartItems({
                       if (e.key === 'Enter') { commitCell(item, 'price'); (e.target as HTMLInputElement).blur(); }
                     }}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-16 px-1 py-0.5 text-right text-xs text-gray-900 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    className="w-16 px-1 py-0.5 text-center text-xs text-gray-900 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </td>
                 <td className={`${td} text-center text-gray-500`}>
@@ -471,8 +471,8 @@ export default function CartItems({
                     <span>%</span>
                   </span>
                 </td>
-                <td className={`${td} text-right text-gray-500`}>₹{taxAmount.toFixed(2)}</td>
-                <td className={`${td} text-right text-blue-600`}>
+                <td className={`${td} text-center text-gray-500`}>₹{taxAmount.toFixed(2)}</td>
+                <td className={`${td} text-center text-blue-600`}>
                   <span className="inline-flex items-center justify-end">
                     <span>-₹</span>
                     <input
@@ -489,11 +489,11 @@ export default function CartItems({
                         if (e.key === 'Enter') { commitCell(item, 'discount'); (e.target as HTMLInputElement).blur(); }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-14 px-1 py-0.5 text-right text-xs text-blue-600 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 placeholder-gray-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-14 px-1 py-0.5 text-center text-xs text-blue-600 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 placeholder-gray-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                   </span>
                 </td>
-                <td className={`${td} text-right font-bold text-green-600`}>₹{value.toFixed(2)}</td>
+                <td className={`${td} text-center font-bold text-green-600`}>₹{value.toFixed(2)}</td>
               </tr>
             );
           })}

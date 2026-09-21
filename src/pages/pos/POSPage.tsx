@@ -612,7 +612,7 @@ function POSpage() {
           </div>
           <button
             onClick={() => setShowCustomModal(true)}
-            className="shrink-0 px-3 py-1 text-xs font-semibold text-gray-700 border border-gray-300 hover:border-gray-400 rounded-none transition-colors"
+            className="shrink-0 self-stretch px-3 text-xs font-semibold text-gray-700 border border-gray-300 hover:border-gray-400 rounded-none transition-colors flex items-center"
             title="Add a custom (ad-hoc) item row"
           >
             + Add Item
