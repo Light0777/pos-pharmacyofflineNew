@@ -86,7 +86,7 @@ export default function PaymentSection({
             key={id}
             type="button"
             onClick={() => handleMethodSelect(id)}
-            className={`border rounded-lg p-1.5 transition-all text-center ${selectedMethod === id
+            className={`border rounded-none p-1.5 transition-all text-center ${selectedMethod === id
               ? `${activeBorder} ${activeBg}`
               : "border-gray-300 bg-white hover:border-gray-400"
               }`}
@@ -99,7 +99,7 @@ export default function PaymentSection({
       </div>
 
       {/* Bill Amount */}
-      <div className="flex justify-between items-center bg-gray-100 rounded-lg px-2 py-1">
+      <div className="flex justify-between items-center bg-gray-100 rounded-none px-2 py-1">
         <span className="text-gray-500 text-xs">{t('pos.billAmount')}</span>
         <span className="text-gray-900 font-bold text-sm">₹{grandTotal.toLocaleString()}</span>
       </div>
@@ -110,7 +110,7 @@ export default function PaymentSection({
           <label className="text-xs text-gray-500 mb-1 block">
             {selectedMethod === "cash" ? t('pos.cashGiven') : t('pos.amountPaid')}
           </label>
-          <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-2 py-1 focus-within:border-green-500 transition-colors">
+          <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-none px-2 py-1 focus-within:border-green-500 transition-colors">
             <span className="text-gray-500 font-bold text-sm">₹</span>
             <input
               type="number"
@@ -121,7 +121,7 @@ export default function PaymentSection({
             />
             <button
               type="button"
-              className="text-xs text-green-500 border border-green-500/50 px-2 py-1 rounded-lg hover:bg-green-500/10 transition-colors flex-shrink-0 whitespace-normal text-center leading-tight"
+              className="text-xs text-green-500 border border-green-500/50 px-2 py-1 rounded-none hover:bg-green-500/10 transition-colors flex-shrink-0 whitespace-normal text-center leading-tight"
               onClick={() => handleAmountChange(grandTotal)}
             >
               {t('pos.exact')}
@@ -147,7 +147,7 @@ export default function PaymentSection({
 
       {/* Change / Due - Show only for cash and upi */}
       {selectedMethod !== "pay_later" && amountGiven > 0 && (
-        <div className={`rounded-lg px-2 py-1 flex justify-between items-center ${change >= 0
+        <div className={`rounded-none px-2 py-1 flex justify-between items-center ${change >= 0
           ? "bg-green-500/10 border border-green-500/30"
           : "bg-red-500/10 border border-red-500/30"
           }`}>

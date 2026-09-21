@@ -187,7 +187,7 @@ function UnitSelectionModal({
                         <div className="flex items-center justify-between gap-2">
                           <span className={`font-semibold text-sm ${isExpired ? 'text-gray-500' : 'text-gray-900'}`}>{batch.batch_number}</span>
                           {!isExpired && (
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-none ${
                               isExpiringSoon
                                 ? 'bg-amber-100 text-amber-700'
                                 : 'bg-green-100 text-green-700'
@@ -196,7 +196,7 @@ function UnitSelectionModal({
                             </span>
                           )}
                           {isExpired && (
-                            <span className="text-xs font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                            <span className="text-xs font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-none">
                               Expired
                             </span>
                           )}
@@ -208,8 +208,8 @@ function UnitSelectionModal({
                         </div>
                         {/* Expiry progress bar */}
                         {!isExpired && (
-                          <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${barWidth}%` }} />
+                          <div className="mt-2 h-1.5 bg-gray-100 rounded-none overflow-hidden">
+                            <div className={`h-full rounded-none ${barColor} transition-all`} style={{ width: `${barWidth}%` }} />
                           </div>
                         )}
                       </div>
@@ -644,10 +644,10 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
   if (loading && products.length === 0) {
     return (
       <div className="p-2">
-        <div className="h-7 rounded bg-gray-200 animate-pulse" />
+        <div className="h-7 rounded-none bg-gray-200 animate-pulse" />
         <div className="mt-2 space-y-1.5">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-6 rounded bg-gray-200 animate-pulse" />
+            <div key={i} className="h-6 rounded-none bg-gray-200 animate-pulse" />
           ))}
         </div>
       </div>
@@ -663,7 +663,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
           toast.visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
         }`}
       >
-        <div className="bg-red-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium">
+        <div className="bg-red-600 text-white px-5 py-3 rounded-xl shadow flex items-center gap-3 text-sm font-medium">
           <HugeiconsIcon icon={AlertCircleIcon} className="text-lg shrink-0"  />
           <span>{toast.message}</span>
         </div>
@@ -691,7 +691,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                 else if (e.key === 'Enter' && dropOpen && list.length > 0) { e.preventDefault(); selectProduct(list[Math.min(activeIdx, list.length - 1)]); }
                 else if (e.key === 'Escape') { setSearchTerm(''); setDropOpen(false); }
               }}
-              className="w-full pl-7 pr-12 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-transparent font-inter"
+              className="w-full pl-7 pr-12 py-1 text-xs border border-gray-300 rounded-none bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-transparent font-inter"
               autoComplete="off"
             />
             {searchTerm ? (
@@ -702,13 +702,13 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                 ✕
               </button>
             ) : (
-              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-bold bg-gray-200 text-gray-600 rounded pointer-events-none">
+              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-bold bg-gray-200 text-gray-600 rounded-none pointer-events-none">
                 Ctrl+K
               </kbd>
             )}
           </div>
           {searchLoading ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500 shrink-0" />
+            <div className="animate-spin rounded-none h-4 w-4 border-b-2 border-green-500 shrink-0" />
           ) : searchTerm ? (
             <div className="text-[11px] text-gray-500 whitespace-nowrap shrink-0">
               {t('pos.foundProducts', { count: filteredProducts.length })}
@@ -716,7 +716,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
           ) : null}
         </div>
         {dropOpen && searchTerm.trim().length >= 1 && (
-          <div ref={dropListRef} className="absolute left-0 right-0 top-full mt-1 z-50 max-h-72 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-2xl">
+          <div ref={dropListRef} className="absolute left-0 right-0 top-full mt-1 z-50 max-h-72 overflow-y-auto bg-white border border-gray-300 rounded-md shadow">
             {sortedProducts.length === 0 ? (
               <div className="px-3 py-4 text-center text-gray-500 text-xs">
                 <p>{t('pos.noProductsFound')}</p>
@@ -744,7 +744,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                         <span className="ml-1.5 text-gray-500">{p.manufacturer}</span>
                       )}
                       {p.prescription_required === 1 && (
-                        <span className="ml-1.5 text-[9px] bg-red-500 text-white px-1 rounded-full font-medium">Rx</span>
+                        <span className="ml-1.5 text-[9px] bg-red-500 text-white px-1 rounded-none font-medium">Rx</span>
                       )}
                     </span>
                     <span className="w-20 shrink-0 truncate text-gray-500">{p.sku || p.barcode || '—'}</span>

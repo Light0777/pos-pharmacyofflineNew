@@ -67,12 +67,12 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <form
         onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
-        className="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-gray-200 animate-fadeIn"
+        className="bg-white rounded-none w-full max-w-lg shadow-2xl border border-gray-200"
       >
         {/* Header */}
         <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 rounded-xl">
+            <div className="p-2 bg-blue-500/10 rounded-none">
               <HugeiconsIcon icon={UserAdd01Icon} className="text-blue-400 text-2xl"  />
             </div>
             <div>
@@ -83,7 +83,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
           <button
             type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-none transition-colors"
           >
             <HugeiconsIcon icon={Cancel01Icon} className="text-gray-400 text-xl"  />
           </button>
@@ -101,7 +101,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
               <input
                 type="text"
                 placeholder="Enter customer name"
-                className={`w-full bg-white border ${errors.name ? 'border-red-500' : 'border-gray-300'} rounded-xl pl-10 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all`}
+                className={`w-full bg-white border ${errors.name ? 'border-red-500' : 'border-gray-300'} rounded-none pl-10 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all`}
                 value={name}
                 onChange={(e) => { setName(e.target.value); setErrors((p) => ({ ...p, name: "" })); }}
                 autoFocus
@@ -121,7 +121,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
                 type="tel"
                 inputMode="numeric"
                 placeholder="Enter 10-digit mobile number"
-                className={`w-full bg-white border ${errors.mobile ? 'border-red-500' : 'border-gray-300'} rounded-xl pl-10 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all`}
+                className={`w-full bg-white border ${errors.mobile ? 'border-red-500' : 'border-gray-300'} rounded-none pl-10 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all`}
                 value={mobile}
                 onChange={(e) => {
                   setMobile(e.target.value.replace(/\D/g, '').slice(0, 10));
@@ -143,7 +143,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
               <textarea
                 rows={2}
                 placeholder="Enter customer address (optional)"
-                className="w-full bg-white border border-gray-300 rounded-xl pl-10 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
+                className="w-full bg-white border border-gray-300 rounded-none pl-10 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
               />
@@ -158,7 +158,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
               <input
                 type="text"
                 placeholder="Enter GSTIN (optional)"
-                className={`w-full bg-white border ${errors.gstin ? 'border-red-500' : 'border-gray-300'} rounded-xl pl-10 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all uppercase`}
+                className={`w-full bg-white border ${errors.gstin ? 'border-red-500' : 'border-gray-300'} rounded-none pl-10 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all uppercase`}
                 value={gstin}
                 onChange={(e) => {
                   setGstin(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15));
@@ -179,7 +179,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
                 type="number"
                 min="0"
                 placeholder="0"
-                className="w-full bg-white border border-gray-300 rounded-xl pl-9 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full bg-white border border-gray-300 rounded-none pl-9 pr-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                 value={creditLimit || ""}
                 onChange={(e) => setCreditLimit(e.target.value === "" ? 0 : Number(e.target.value))}
               />
@@ -191,7 +191,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
         </div>
 
         {/* Info Box */}
-        <div className="mx-6 mb-4 p-3 bg-blue-500/5 border border-blue-500/15 rounded-xl">
+        <div className="mx-6 mb-4 p-3 bg-blue-500/5 border border-blue-500/15 rounded-none">
           <div className="flex items-start gap-2">
             <HugeiconsIcon icon={InformationCircleIcon} className="text-blue-400 text-lg mt-0.5 shrink-0"  />
             <div>
@@ -207,7 +207,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
         <div className="border-t border-gray-200 px-6 py-4 flex items-center gap-3">
           <button
             type="button"
-            className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-none font-medium transition-colors disabled:opacity-50"
             onClick={onClose}
             disabled={loading}
           >
@@ -215,7 +215,7 @@ export default function CustomerModal({ initialMobile, onClose, onCreateCustomer
           </button>
           <button
             type="submit"
-            className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-none font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             disabled={loading}
           >
             {loading ? (

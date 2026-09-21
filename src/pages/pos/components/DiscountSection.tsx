@@ -21,14 +21,14 @@ export default function DiscountSection({
           <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">₹</span>
           <input
             type="number"
-            className="w-full border border-gray-300 bg-white py-1 pl-6 pr-2 rounded text-gray-900 text-xs focus:border-blue-500 focus:outline-none"
+            className="w-full border border-gray-300 bg-white py-1 pl-6 pr-2 rounded-none text-gray-900 text-xs focus:border-blue-500 focus:outline-none"
             placeholder="0"
             value={discount}
             onChange={(e) => onDiscountChange(Number(e.target.value))}
           />
         </div>
         <button
-          className="bg-green-600 font-bold text-white text-xs px-3 rounded hover:bg-green-700 transition shrink-0"
+          className="bg-green-600 font-bold text-white text-xs px-3 rounded-none hover:bg-green-700 transition shrink-0"
           onClick={onApplyDiscount}
         >
           {t('pos.apply')}

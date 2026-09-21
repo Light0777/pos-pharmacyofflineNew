@@ -474,7 +474,7 @@ function POSpage() {
         <div className="ml-auto pl-3 flex items-center shrink-0">
           <button
             onClick={() => refetch()}
-            className="text-[11px] text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded px-2 py-1 transition-colors"
+            className="text-[11px] text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-none px-2 py-1 transition-colors"
             title="Refresh products (F5)"
           >
             Refresh [F5]
@@ -499,7 +499,7 @@ function POSpage() {
           </div>
           <button
             onClick={() => setShowCustomModal(true)}
-            className="shrink-0 px-3 py-1 text-xs font-semibold text-gray-700 border border-gray-300 hover:border-gray-400 rounded transition-colors"
+            className="shrink-0 px-3 py-1 text-xs font-semibold text-gray-700 border border-gray-300 hover:border-gray-400 rounded-none transition-colors"
             title="Add a custom (ad-hoc) item row"
           >
             + Add Item
@@ -509,7 +509,7 @@ function POSpage() {
 
       {/* 4 ─ MAIN INVOICE TABLE (one row = one product, full width) */}
       <main className="flex-1 min-h-0 flex flex-col p-2 overflow-hidden">
-        <div className="flex-1 min-h-0 flex flex-col bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col bg-gray-50 border border-gray-200 rounded-none overflow-hidden">
           <div className="px-3 py-1.5 font-bold text-gray-900 text-sm text-start border-b border-gray-200 flex justify-between items-center shrink-0">
             <span>Invoice Items</span>
             <span className="text-xs font-normal text-gray-500">
@@ -606,7 +606,7 @@ function POSpage() {
       {/* 6 ─ BOTTOM ACTION BAR (existing actions only, workstation-style) */}
       <footer className="shrink-0 flex items-center gap-1.5 px-2 py-1 border-t border-gray-200 bg-white text-gray-900 text-xs">
         <button
-          className="bg-green-600 text-white px-4 py-1 rounded font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-700 transition-colors"
+          className="bg-green-600 text-white px-4 py-1 rounded-none font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-700 transition-colors"
           onClick={handleCheckout}
           disabled={cartLoading || !cartData?.cart?.items?.length || isCartInitializing}
         >
@@ -615,14 +615,14 @@ function POSpage() {
         {(cartData?.cart?.items?.length || 0) > 0 && (
           <button
             onClick={clearCart}
-            className="px-3 py-1 text-red-500 hover:text-red-700 hover:bg-red-50 border border-red-300 rounded transition-all"
+            className="px-3 py-1 text-red-500 hover:text-red-700 hover:bg-red-50 border border-red-300 rounded-none transition-all"
           >
             Reset
           </button>
         )}
         {selectedCustomer?.credit_balance > 0 && (
           <button
-            className="px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors"
+            className="px-3 py-1 bg-orange-500 text-white rounded-none hover:bg-orange-600 transition-colors"
             onClick={() => {
               setPayments([
                 { method: "cash", amount: selectedCustomer.credit_balance },
@@ -634,7 +634,7 @@ function POSpage() {
         )}
         <div className="ml-auto flex items-center gap-1.5">
           <button
-            className="px-3 py-1 text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded transition-colors"
+            className="px-3 py-1 text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-none transition-colors"
             onClick={() => {
               loadSales();
               setShowSalesModal(true);
@@ -652,7 +652,7 @@ function POSpage() {
           onClick={() => setShowCustomModal(false)}
         >
           <div
-            className="w-[320px] bg-white border border-gray-300 rounded-lg p-3"
+            className="w-[320px] bg-white border border-gray-300 rounded-none p-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-sm font-bold text-gray-900 mb-2">Add Custom Item</div>
@@ -661,7 +661,7 @@ function POSpage() {
               value={customForm.name}
               onChange={(e) => setCustomForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="e.g. Delivery charge"
-              className="w-full mb-2 px-2 py-1 text-xs bg-white border border-gray-300 rounded text-gray-900 placeholder-gray-400 focus:outline-none focus:border-green-500"
+              className="w-full mb-2 px-2 py-1 text-xs bg-white border border-gray-300 rounded-none text-gray-900 placeholder-gray-400 focus:outline-none focus:border-green-500"
               autoComplete="off"
             />
             <div className="grid grid-cols-3 gap-2 mb-3">
@@ -672,7 +672,7 @@ function POSpage() {
                   min="1"
                   value={customForm.quantity}
                   onChange={(e) => setCustomForm((f) => ({ ...f, quantity: e.target.value }))}
-                  className="w-full px-2 py-1 text-xs bg-white border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-green-500"
+                  className="w-full px-2 py-1 text-xs bg-white border border-gray-300 rounded-none text-gray-900 focus:outline-none focus:border-green-500"
                 />
               </div>
               <div>
@@ -682,7 +682,7 @@ function POSpage() {
                   min="0"
                   value={customForm.price}
                   onChange={(e) => setCustomForm((f) => ({ ...f, price: e.target.value }))}
-                  className="w-full px-2 py-1 text-xs bg-white border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-green-500"
+                  className="w-full px-2 py-1 text-xs bg-white border border-gray-300 rounded-none text-gray-900 focus:outline-none focus:border-green-500"
                 />
               </div>
               <div>
@@ -693,21 +693,21 @@ function POSpage() {
                   max="100"
                   value={customForm.gst}
                   onChange={(e) => setCustomForm((f) => ({ ...f, gst: e.target.value }))}
-                  className="w-full px-2 py-1 text-xs bg-white border border-gray-300 rounded text-gray-900 focus:outline-none focus:border-green-500"
+                  className="w-full px-2 py-1 text-xs bg-white border border-gray-300 rounded-none text-gray-900 focus:outline-none focus:border-green-500"
                 />
               </div>
             </div>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowCustomModal(false)}
-                className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:border-gray-400 transition-colors"
+                className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded-none hover:border-gray-400 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddCustom}
                 disabled={!customForm.name.trim() || cartLoading}
-                className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-none hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Add Row
               </button>
