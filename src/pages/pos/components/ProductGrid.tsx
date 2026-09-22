@@ -498,7 +498,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
   // Select a product: quick-add a row with the same defaults the modal used
   // (base unit, qty 1, earliest-expiry batch) so billing is never interrupted.
   // Unit/qty/batch can then be adjusted inline in the invoice grid.
-  const selectProduct = async (product: Product) => {
+  const selectProduct = async (product: Product, fromGrid = false) => {
     setDropOpen(false);
     setSearchTerm("");
     setActiveIdx(0);
@@ -530,8 +530,8 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
       const filtered = prev.filter((id) => id !== product.product_uuid);
       return [product.product_uuid, ...filtered].slice(0, 20);
     });
-    // Row added: hand focus back so the next scan/search starts instantly.
-    searchRef.current?.focus();
+    // Row focus is handled in CartItems: the new row's name cell takes
+    // focus so the Enter chain (name → uom → qty → …) can start at once.
   };
 
   // Load batch info for visible products
@@ -633,8 +633,10 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
       setDropOpen(true);
     };
     const handleAddProduct = (e: Event) => {
-      const product = (e as CustomEvent).detail;
-      if (product?.product_uuid) selectProduct(product);
+      const d = (e as CustomEvent).detail;
+      const product = d?.product ?? d;
+      const fromGrid = !!d?.fromGrid;
+      if (product?.product_uuid) selectProduct(product, fromGrid);
     };
     // Global toast requests (e.g. F5 refresh confirmation).
     const handleToast = (e: Event) => {
@@ -702,12 +704,10 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                 else if (e.key === 'ArrowUp' && list.length > 0) { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
                 else if (e.key === 'Enter') {
                   // Results open: add the highlighted product.
-                  // Empty search box: the bill is done — request checkout.
+                  // Otherwise Enter does nothing here (Submit is Ctrl+Enter).
                   e.preventDefault();
                   if (dropOpen && list.length > 0) {
                     selectProduct(list[Math.min(activeIdx, list.length - 1)]);
-                  } else {
-                    window.dispatchEvent(new CustomEvent('pos-checkout-request'));
                   }
                 }
                 else if (e.key === 'Escape') { setSearchTerm(''); setDropOpen(false); }

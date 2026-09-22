@@ -227,3 +227,14 @@ body.dropdown-open {
   width: 6px;
   height: 6px;
 }
+
+/* POS invoice grid: unmissable cell/row focus for keyboard billing */
+[data-cell]:focus {
+  outline: 2px solid #16a34a !important;
+  outline-offset: -2px;
+  background-color: #dcfce7 !important;
+}
+tbody tr[tabindex]:focus {
+  outline: 2px solid #16a34a !important;
+  outline-offset: -2px;
+}

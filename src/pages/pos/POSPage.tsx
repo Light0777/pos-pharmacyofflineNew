@@ -254,7 +254,7 @@ function POSpage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [addItem]);
 
-  // Keyboard shortcut: Enter to checkout
+  // Keyboard shortcut: Ctrl+Enter to checkout (plain Enter drives grid cells)
   useEffect(() => {
     const handleCheckoutShortcut = (e: KeyboardEvent) => {
       if (showCustomerModal || showSalesModal || showInvoiceModal || showPastInvoiceModal || showCustomModal || showPrescriptionModal || showNewBillConfirm) {
@@ -270,7 +270,7 @@ function POSpage() {
         return;
       }
 
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         handleCheckout();
       }
@@ -517,81 +517,44 @@ function POSpage() {
         />
       </header>
 
-      {/* 2 ─ TRANSACTION HEADER (dense ERP strip: read-only view of existing bill data) */}
-      <section className="shrink-0 flex items-stretch px-2 py-1 border-b border-gray-200 bg-gray-50 overflow-x-auto text-[11px] leading-tight">
-        <div className="flex items-center gap-2 pr-3 mr-1 border-r border-gray-200 min-w-0 shrink-0">
-          <div className="rounded bg-black p-1 shrink-0">
-            <HugeiconsIcon icon={Store01Icon} className="text-sm text-gray-300" />
+      {/* 2 ─ BILL PARTIES (boxed seller / buyer cards + invoice meta) */}
+      <section className="shrink-0 px-2 py-1 border-b border-gray-200 bg-gray-50 text-sm leading-snug">
+        <div className="border border-gray-300 bg-white grid grid-cols-2 text-sm font-bold text-gray-900 text-left">
+          <div className="px-2 py-1 min-w-0">
+            <div className="truncate text-lg">FROM</div>
+            <div className="truncate">
+              name: {shopSettings?.shop_name || 'My Store'}
+            </div>
+            <div className="truncate">
+              address: {shopSettings?.address || ''}
+            </div>
+            <div className="truncate">
+              GSTIN: {shopSettings?.gstin || ''}
+            </div>
+            <div className="truncate">
+              Drug Lic: {shopSettings?.drug_license_number || ''}
+            </div>
           </div>
-          <div className="min-w-0">
-            <div className="text-xs font-bold text-gray-900 truncate">{shopSettings?.shop_name || 'My Store'}</div>
-            <div className="text-gray-500 truncate">
-              {shopSettings?.gstin ? `GSTIN: ${shopSettings.gstin}` : (shopSettings?.address || 'Set address in Settings')}
+          <div className="px-2 py-1 min-w-0 border-l border-gray-300">
+            <div className="truncate text-lg">TO</div>
+            <div className="truncate">
+              name: {selectedCustomer?.name || 'Walk-in'}
+            </div>
+            <div className="truncate">
+              phone: {selectedCustomer?.mobile || ''}
             </div>
           </div>
         </div>
-        <div className="px-3 border-r border-gray-200 shrink-0">
-          <div className="text-gray-500">Bill #</div>
-          <div className="text-xs font-semibold text-gray-900">{nextBillNo || '—'}</div>
-        </div>
-        <div className="px-3 border-r border-gray-200 shrink-0 min-w-[120px]">
-          <div className="text-gray-500">Customer</div>
-          <div className="text-xs font-semibold text-gray-900 truncate">
-            {selectedCustomer ? selectedCustomer.name : 'Walk-in'}
-            {selectedCustomer?.credit_balance > 0 && (
-              <span className="ml-1 font-normal text-orange-400">Due ₹{selectedCustomer.credit_balance}</span>
-            )}
-            {selectedCustomer?.credit_days > 0 && (
-              <span className="ml-1 font-normal text-gray-500">• {selectedCustomer.credit_days}d</span>
-            )}
-          </div>
-        </div>
-        <div className="px-3 border-r border-gray-200 shrink-0">
-          <div className="text-gray-500">Pay Mode</div>
-          <div className="text-xs font-semibold text-gray-900">
-            {({ cash: 'Cash', upi: 'UPI', pay_later: 'Pay Later', card: 'Card' } as Record<string, string>)[payments?.[0]?.method] || payments?.[0]?.method || 'Cash'}
-          </div>
-        </div>
-        <div className="px-3 border-r border-gray-200 shrink-0">
-          <div className="text-gray-500">Tot Qty</div>
-          <div className="text-xs font-semibold text-gray-900">
-            {(cartData?.cart?.items || []).reduce((s: number, it: any) => s + (Number(it.quantity) || 0), 0)}
-          </div>
-        </div>
-        <div className="px-3 border-r border-gray-200 shrink-0">
-          <div className="text-gray-500">Lines</div>
-          <div className="text-xs font-semibold text-gray-900">{cartData?.cart?.items?.length || 0}</div>
-        </div>
-        <div className="px-3 border-r border-gray-200 shrink-0">
-          <div className="text-gray-500">Discount</div>
-          <div className="text-xs font-semibold text-gray-900">₹{Number(discount || 0).toLocaleString()}</div>
-        </div>
-        <div className="px-3 border-r border-gray-200 shrink-0">
-          <div className="text-gray-500">GST</div>
-          <div className="text-xs font-semibold text-gray-900">₹{Number(cartData?.summary?.tax || 0).toLocaleString()}</div>
-        </div>
-        <div className="px-3 shrink-0">
-          <div className="text-gray-500">Grand Total</div>
-          <div className="text-sm font-bold text-green-600">₹{grandTotal.toLocaleString()}</div>
-        </div>
-        <div className="px-3 border-r border-gray-200 shrink-0 min-w-[140px]">
-          <div className="text-gray-500">Remarks</div>
-          <input
-            value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
-            placeholder="Bill note…"
-            autoComplete="off"
-            className="w-full bg-transparent text-xs font-semibold text-gray-900 placeholder-gray-400 focus:outline-none"
-          />
-        </div>
-        <div className="ml-auto pl-3 flex items-center shrink-0">
-          <button
-            onClick={() => refetch()}
-            className="text-[11px] text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-none px-2 py-1 transition-colors"
-            title="Refresh products (F5)"
-          >
-            Refresh [F5]
-          </button>
+        <div className="flex items-center gap-4 px-1 pt-1 text-gray-600 text-left">
+          <span>
+            Invoice No: <span className="font-semibold text-gray-900">{nextBillNo || ''}</span>
+          </span>
+          <span>
+            Date: <span className="font-semibold text-gray-900">{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+          </span>
+          <span>
+            Payment: <span className="font-semibold text-gray-900">{({ cash: 'Cash', upi: 'UPI', pay_later: 'Pay Later', card: 'Card' } as Record<string, string>)[payments?.[0]?.method] || payments?.[0]?.method || 'Cash'}</span>
+          </span>
         </div>
       </section>
 
@@ -634,27 +597,23 @@ function POSpage() {
             className="flex-1 overflow-auto scrollbar-hide min-h-0 relative"
             id="cart-scroll-container"
           >
-            {cartLoading && !(cartData?.cart?.items?.length) ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-              </div>
-            ) : (
-              <CartItems
-                items={cartData?.cart?.items || []}
-                onIncrease={increaseItem}
-                onDecrease={decreaseItem}
-                onUpdateQty={updateItemQuantity}
-                onUpdateField={updateCartItem}
-                onChangeBatch={changeItemBatch}
-                onChangeUnit={changeItemUnit}
-                onSelectRow={(item) => {
-                  selectedRowRef.current = item;
-                }}
-              />
-            )}
-            {cartLoading && (cartData?.cart?.items?.length || 0) > 0 && (
-              <div className="absolute top-1 right-2 z-20 pointer-events-none">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500" />
+            {/* CartItems stays mounted across refreshes: unmounting it would
+                reset row state, drafts, and keyboard focus on every add. */}
+            <CartItems
+              items={cartData?.cart?.items || []}
+              onIncrease={increaseItem}
+              onDecrease={decreaseItem}
+              onUpdateQty={updateItemQuantity}
+              onUpdateField={updateCartItem}
+              onChangeBatch={changeItemBatch}
+              onChangeUnit={changeItemUnit}
+              onSelectRow={(item) => {
+                selectedRowRef.current = item;
+              }}
+            />
+            {cartLoading && (
+              <div className="absolute inset-0 z-20 flex items-start justify-center bg-white/60 pointer-events-none">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mt-10" />
               </div>
             )}
           </div>
@@ -728,7 +687,7 @@ function POSpage() {
             onClick={handleCheckout}
             disabled={cartLoading || !cartData?.cart?.items?.length || isCartInitializing}
           >
-            {cartLoading ? "Processing..." : "Submit [Enter]"}
+            {cartLoading ? "Processing..." : "Submit [Ctrl+Enter]"}
           </button>
           {(cartData?.cart?.items?.length || 0) > 0 && (
             <button

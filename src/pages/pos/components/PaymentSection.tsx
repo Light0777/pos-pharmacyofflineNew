@@ -136,8 +136,8 @@ export default function PaymentSection({
               placeholder={grandTotal.toString()}
               onChange={(e) => handleAmountChange(Number(e.target.value))}
               onKeyDown={(e) => {
-                // Enter in Cash Given continues to checkout via existing logic.
-                if (e.key === 'Enter') {
+                // Ctrl+Enter in Cash Given submits via the existing checkout.
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault();
                   window.dispatchEvent(new CustomEvent('pos-checkout-request'));
                 }
