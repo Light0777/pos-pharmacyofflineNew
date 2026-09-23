@@ -127,6 +127,28 @@ export function usePosShortcuts(handlers: PosShortcutHandlers) {
           }
           break;
         default:
+          // Type-anywhere-to-bill: a lone printable keystroke landing on
+          // non-interactive chrome (body, labels, dead space) jumps into
+          // the grid instead of dying, so typing always bills.
+          // Excluded: editable elements, buttons/links (native behavior),
+          // modifier combos, and anything while a modal is open (guarded
+          // above). Barcode bursts still work: the first char lands in the
+          // entry input and the rest types natively into it.
+          if (
+            !editing &&
+            e.key.length === 1 &&
+            !e.ctrlKey && !e.metaKey && !e.altKey &&
+            e.target instanceof HTMLElement &&
+            typeof e.target.closest === "function" &&
+            !e.target.closest("button") &&
+            !e.target.closest("a") &&
+            !e.target.closest("input,select,textarea")
+          ) {
+            e.preventDefault();
+            window.dispatchEvent(
+              new CustomEvent("pos-grid-type", { detail: e.key })
+            );
+          }
           break;
       }
     };

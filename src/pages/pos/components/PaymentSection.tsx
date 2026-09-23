@@ -99,10 +99,10 @@ export default function PaymentSection({
 
   return (
     <div className="space-y-1.5">
-      <div className="text-[11px] font-semibold text-gray-500">{t('pos.paymentMethod')}</div>
+      <div className="text-[11px] font-semibold text-gray-500 text-center">{t('pos.paymentMethod')}</div>
 
-      {/* Method Selector - three equal controls */}
-      <div className="grid grid-cols-3 gap-1">
+      {/* Method Selector - three full-width stacked controls */}
+      <div className="flex flex-col gap-1">
         {methods.map(({ id, label, activeBorder, activeBg, activeText }) => (
           <button
             key={id}

@@ -28,7 +28,7 @@ export default function DiscountSection({
 
   return (
     <div>
-      <div className="text-[11px] font-semibold text-gray-500 mb-1">{t('pos.applyDiscount')}</div>
+      <div className="text-[11px] font-semibold text-gray-500 text-center">{t('pos.applyDiscount')}</div>
       <div className="flex gap-1.5">
         <div className="relative flex-1 min-w-0">
           <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">₹</span>

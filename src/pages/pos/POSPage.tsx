@@ -624,38 +624,39 @@ function POSpage() {
       <section className="shrink-0 border-t border-gray-200 bg-gray-50">
         <div
           ref={paymentSummaryRef}
-          className="flex items-start gap-5 px-3 pt-1.5 overflow-x-clip"
+          className="grid grid-cols-[35%_35%_30%] items-center gap-4 px-3 pt-1.5 overflow-x-clip"
           id="payment-scroll-container"
         >
           {/* TOTALS */}
-          <div className="w-56 shrink-0">
-            <div className="text-[11px] font-semibold text-gray-500">Totals</div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold text-gray-500 text-center">Totals</div>
             <CartSummary
               total={cartData?.summary?.total || 0}
               tax={cartData?.summary?.tax || 0}
               grandTotal={grandTotal}
             />
           </div>
-          {/* CUSTOMER */}
-          <div className="w-60 shrink-0">
-            <div className="text-[11px] font-semibold text-gray-500">Customer</div>
-            <CustomerSelect
-              customers={customers}
-              selectedCustomer={selectedCustomer}
-              onSelectCustomer={setSelectedCustomer}
-              onAddNew={(phone) => { setNewCustomerPhone(phone || ""); setShowCustomerModal(true); }}
-            />
-          </div>
-          {/* DISCOUNT */}
-          <div className="w-44 shrink-0">
-            <DiscountSection
-              discount={discount}
-              onDiscountChange={setDiscount}
-              onApplyDiscount={() => applyDiscount(cartUUID, discount)}
-            />
+          {/* CUSTOMER + DISCOUNT (single middle column) */}
+          <div className="min-w-0 space-y-1.5">
+            <div>
+              <div className="text-[11px] font-semibold text-gray-500 text-center">Customer</div>
+              <CustomerSelect
+                customers={customers}
+                selectedCustomer={selectedCustomer}
+                onSelectCustomer={setSelectedCustomer}
+                onAddNew={(phone) => { setNewCustomerPhone(phone || ""); setShowCustomerModal(true); }}
+              />
+            </div>
+            <div>
+              <DiscountSection
+                discount={discount}
+                onDiscountChange={setDiscount}
+                onApplyDiscount={() => applyDiscount(cartUUID, discount)}
+              />
+            </div>
           </div>
           {/* PAYMENT */}
-          <div className="flex-1 min-w-[280px]">
+          <div className="min-w-0">
             <PaymentSection
               payments={payments}
               onPaymentChange={(index, field, value) => {

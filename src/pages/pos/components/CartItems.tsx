@@ -53,6 +53,17 @@ function GridPicker({ value, options, onPick }: {
   const current = options.find((o) => o.value === value);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // When the list opens from the keyboard, land focus on the first option
+  // immediately so arrows work without an extra step.
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => {
+      const first = listRef.current?.querySelector('button') as HTMLElement | null;
+      first?.focus();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [open ]);
+
   // Arrow keys move inside the open list; Enter activates natively.
   const moveInList = (dir: 1 | -1) => {
     const btns = Array.from(
@@ -71,11 +82,19 @@ function GridPicker({ value, options, onPick }: {
         data-cell="uom"
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
         onKeyDown={(e) => {
-          // While open, arrows jump into the option list instead of the grid.
-          if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+          // Enter toggles the list open/closed (row flow continues inside it).
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((o) => !o);
+          } else if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            // While open, arrows jump into the option list instead of the grid.
             e.preventDefault();
             e.stopPropagation();
             moveInList(e.key === 'ArrowDown' ? 1 : -1);
+          } else if (e.key === 'Escape' && open) {
+            e.stopPropagation();
+            setOpen(false);
           }
         }}
         className="max-w-full w-full overflow-hidden flex items-center gap-1 bg-white border border-gray-300 rounded-none px-1.5 py-0.5 text-xs text-gray-800 hover:border-gray-400 focus:outline-none focus:border-green-500"
@@ -101,14 +120,22 @@ function GridPicker({ value, options, onPick }: {
                 setOpen(false);
               }
             }}
-            className="absolute left-0 top-full mt-0.5 z-50 w-40 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-none shadow"
+            className="absolute left-0 top-full mt-0.5 z-50 w-40 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-none shadow flex flex-col"
           >
             {options.map((o) => (
               <button
                 key={o.value}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => { setOpen(false); if (o.value !== value) onPick(o.value); }}
-                className={`w-full text-left px-2 py-1.5 text-xs border-b border-gray-200 last:border-b-0 ${o.value === value ? 'bg-blue-50 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
+                onClick={(e) => {
+                  const tr = (e.target as HTMLElement).closest('tr');
+                  setOpen(false);
+                  if (o.value !== value) onPick(o.value);
+                  // Continue the flow on this row's Qty cell.
+                  requestAnimationFrame(() => {
+                    (tr?.querySelector('[data-cell="qty"]') as HTMLElement | null)?.focus();
+                  });
+                }}
+                className={`block w-full text-left px-2 py-1.5 text-xs border-b border-gray-200 last:border-b-0 focus:outline-none focus:bg-blue-100 focus:text-gray-900 ${o.value === value ? 'bg-blue-50 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
               >
                 {o.label}
               </button>
@@ -142,6 +169,12 @@ export default function CartItems({
   const [cellDraft, setCellDraft] = useState<Record<string, string>>({});
   const prevCountRef = useRef(items.length);
   const lastFocusRef = useRef<{ rowId: string; cell: string } | null>(null);
+  const [pinnedCell, setPinnedCell] = useState<string | null>(null);
+
+  // CSS class pinning the last-touched cell so the green outline survives
+  // focus leaving the grid (clicking totals, search, parties, etc.).
+  const pc = (rowKey: string | number, cell: string) =>
+    pinnedCell === `${rowKey}:${cell}` ? ' cell-pinned' : '';
   const [pq, setPq] = useState('');
   const [pResults, setPResults] = useState<any[]>([]);
   const [pSearching, setPSearching] = useState(false);
@@ -200,6 +233,18 @@ export default function CartItems({
   const [rowInfo, setRowInfo] = useState<Record<string, { unit?: string; batchNo?: string; expiry?: string; units?: Array<{ unit_uuid: string; unit_name: string; conversion_factor: number; price?: number }>; batches?: Array<{ batch_uuid: string; batch_number: string; expiry_date: string; quantity: number }> }>>({});
   const [activeRow, setActiveRow] = useState<number | string | null>(null);
   const [batchOpenFor, setBatchOpenFor] = useState<number | null>(null);
+
+  // When a batch list opens from the keyboard, land focus on its first
+  // option at once (mirrors the UOM picker): one Enter arrives open and
+  // highlighted, arrows walk, Enter picks and advances.
+  useEffect(() => {
+    if (batchOpenFor == null) return;
+    const t = setTimeout(() => {
+      const list = document.querySelector('[data-batch-list]');
+      (list?.querySelector('button') as HTMLElement | null)?.focus();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [batchOpenFor]);
 
   // Enrich rows with unit / batch display data using the existing product APIs
   useEffect(() => {
@@ -334,6 +379,42 @@ export default function CartItems({
     }
   }, [items]);
 
+  // Type-anywhere-to-bill receiver: drop a stray printable keystroke into
+  // the pinned cell's input when it has one, else the first entry input.
+  useEffect(() => {
+    const onGridType = (e: Event) => {
+      const ch = (e as CustomEvent).detail;
+      if (typeof ch !== 'string' || ch.length !== 1) return;
+      let input: HTMLInputElement | null = null;
+      const parts = (pinnedCell || '').split(':');
+      if (parts.length === 2) {
+        const row = document.querySelector(`tr[data-rowid="${parts[0]}"]`);
+        const cellEl = row?.querySelector(`[data-cell="${parts[1]}"]`) as HTMLElement | null;
+        const cellInput = (
+          cellEl?.tagName === 'INPUT' ? cellEl : cellEl?.querySelector('input')
+        ) as HTMLInputElement | null;
+        if (cellInput) input = cellInput;
+      }
+      if (!input) {
+        input = document.querySelector('tbody [data-cell="code"]') as HTMLInputElement | null;
+      }
+      if (!input) return;
+      input.focus();
+      try {
+        const proto = HTMLInputElement.prototype;
+        const getter = Object.getOwnPropertyDescriptor(proto, 'value')?.get;
+        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+        const cur = getter ? String(getter.call(input) ?? '') : input.value;
+        setter?.call(input, cur + ch);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      } catch {
+        /* focus alone is still a win */
+      }
+    };
+    window.addEventListener('pos-grid-type', onGridType);
+    return () => window.removeEventListener('pos-grid-type', onGridType);
+  }, [pinnedCell]);
+
   // Forward the chosen product to the existing quick-add entry workflow.
   // selectProduct focuses the main search field once the row is added.
   const requestAddProduct = (product: any) => {
@@ -371,13 +452,22 @@ export default function CartItems({
   };
 
   // Spreadsheet: filled rows first, then always-visible empty entry rows
-  const EMPTY_ROWS = 20;
+  const EMPTY_ROWS = 5;
   const th = "font-semibold px-2 py-2 border border-gray-300 whitespace-nowrap";
   const td = "px-2 py-1.5 whitespace-nowrap border border-gray-200";
 
   return (
-    <div className="overflow-auto h-full">
-      <table className="w-full border-collapse table-fixed text-xs leading-snug min-w-[1240px]">
+    <div
+      className="overflow-auto h-full"
+      onClick={(e) => {
+        // Clicking bare grid background (not a row, cell, or control)
+        // parks focus in the first entry cell instead of losing it.
+        if (e.target === e.currentTarget) {
+          (e.currentTarget.querySelector('[data-cell="code"]') as HTMLElement | null)?.focus();
+        }
+      }}
+    >
+      <table className="invoice-grid w-full border-collapse table-fixed text-xs leading-snug min-w-[1240px]">
         <thead className="sticky top-0 z-10">
           <tr className="bg-gray-100 text-gray-700">
             <th className={`text-left ${th} w-10`}>S.No</th>
@@ -392,7 +482,6 @@ export default function CartItems({
             <th className={`text-center ${th} w-20`}>Rate</th>
             <th className={`text-center ${th} w-12`}>GST%</th>
             <th className={`text-center ${th} w-16`}>GST Amt</th>
-            <th className={`text-center ${th} w-16`}>Disc</th>
             <th className={`text-center ${th} w-20`}>Value</th>
           </tr>
         </thead>
@@ -400,15 +489,21 @@ export default function CartItems({
           onFocusCapture={(e) => {
             // Remember where the cashier is: after any cart refresh that
             // drops focus, we put it back on the same row + cell.
+            // Also pin the highlight so it survives focus leaving the grid.
             const t = e.target as HTMLElement;
-            const cell = t.closest?.('[data-cell]');
             const row = t.closest?.('tr');
+            const rowKey = row?.getAttribute('data-rowid');
+            const cell = t.closest?.('[data-cell]');
+            const cellName = cell?.getAttribute('data-cell');
+            if (rowKey && cellName) {
+              setPinnedCell(`${rowKey}:${cellName}`);
+            }
             const nameEl = row?.querySelector('[data-cell="name"]');
             const rowId = nameEl?.getAttribute('data-row');
             if (cell && rowId) {
               lastFocusRef.current = {
                 rowId,
-                cell: cell.getAttribute('data-cell') || '',
+                cell: cellName || '',
               };
             }
           }}
@@ -429,6 +524,7 @@ export default function CartItems({
             return (
               <tr
                 key={`${item.product_uuid}_${item.unit_uuid || index}`}
+                data-rowid={item.id}
                 tabIndex={0}
                 onClick={() => { setActiveRow(item.id); onSelectRow?.(item); }}
                 onKeyDown={(ev) => {
@@ -454,7 +550,17 @@ export default function CartItems({
                     const idx = cur ? cells.indexOf(cur as HTMLElement) : -1;
                     console.log('[GRID] nav from', (cur as HTMLElement | null)?.getAttribute?.('data-cell'), 'idx', idx, 'of', cells.length);
                     if (idx >= 0 && idx < cells.length - 1) {
-                      cells[idx + 1].focus();
+                      const next = cells[idx + 1] as HTMLElement;
+                      next.focus();
+                      // Landing on a picker opens it at once, so arrows
+                      // work immediately without a second Enter press.
+                      // (Skipped when its list is already open.)
+                      if (
+                        next.matches('[data-cell="uom"],[data-cell="batch"]') &&
+                        !next.parentElement?.querySelector('[data-uom-list],[data-batch-list]')
+                      ) {
+                        next.click();
+                      }
                     } else {
                       const nextRow = row.nextElementSibling as HTMLElement | null;
                       const nextTarget = nextRow?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null;
@@ -474,7 +580,7 @@ export default function CartItems({
                   </span>
                 </td>
                 <td
-                  className={`${td} max-w-[256px] overflow-hidden text-ellipsis text-left`}
+                  className={`${td} max-w-[256px] overflow-hidden text-ellipsis text-left${pc(item.id, 'name')}`}
                   title={(item.product?.name || '').replace('[Custom] ', '')}
                 >
                   <span
@@ -508,7 +614,7 @@ export default function CartItems({
                     </button>
                   )}
                 </td>
-                <td className={`${td} text-gray-600`}>
+                <td className={`${td} text-gray-600${pc(item.id, 'uom')}`}>
                   {info.units && info.units.length > 1 && onChangeUnit ? (
                     <GridPicker
                       value={item.unit_uuid || ''}
@@ -517,7 +623,7 @@ export default function CartItems({
                     />
                   ) : (info.unit || '—')}
                 </td>
-                <td className={`${td}`}>
+                <td className={`${td}${pc(item.id, 'qty')}`}>
                   <div className="flex items-center justify-center gap-0.5">
                     <button
                       onClick={() => onDecrease(item)}
@@ -554,7 +660,7 @@ export default function CartItems({
                     </button>
                   </div>
                 </td>
-                <td className={`${td}`}>
+                <td className={`${td}${pc(item.id, 'free')}`}>
                   <input
                     data-cell="free"
                     value={cellDraft[`${item.id}:free_quantity`] ?? String(item.free_quantity ?? 0)}
@@ -576,12 +682,36 @@ export default function CartItems({
                     className="w-11 px-1 py-0.5 text-center text-xs text-gray-700 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </td>
-                <td className={`${td} text-gray-600`}>
+                <td className={`${td} text-gray-600${pc(item.id, 'batch')}`}>
                   {info.batches && info.batches.length > 1 && onChangeBatch ? (
                     <div className="relative">
                       <button
                         data-cell="batch"
                         onClick={(e) => { e.stopPropagation(); setBatchOpenFor((cur) => (cur === item.id ? null : item.id)); }}
+                        onKeyDown={(e) => {
+                          // Enter toggles the list; arrows jump into it.
+                          const isOpen = batchOpenFor === item.id;
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setBatchOpenFor(isOpen ? null : item.id);
+                            if (!isOpen) {
+                              const cell = (e.target as HTMLElement).closest('td');
+                              requestAnimationFrame(() => {
+                                (cell?.querySelector('[data-batch-list] button') as HTMLElement | null)?.focus();
+                              });
+                            }
+                          } else if (isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const cell = (e.target as HTMLElement).closest('td');
+                            const btns = Array.from(cell?.querySelectorAll('[data-batch-list] button') ?? []) as HTMLElement[];
+                            if (btns.length) btns[e.key === 'ArrowDown' ? 0 : btns.length - 1].focus();
+                          } else if (e.key === 'Escape' && isOpen) {
+                            e.stopPropagation();
+                            setBatchOpenFor(null);
+                          }
+                        }}
                         className="max-w-full w-full overflow-hidden flex items-center gap-1 bg-white border border-gray-300 rounded-none px-1.5 py-0.5 text-xs text-gray-800 hover:border-gray-400 focus:outline-none focus:border-green-500"
                         title="Switch batch"
                       >
@@ -619,7 +749,16 @@ export default function CartItems({
                                 <button
                                   key={b.batch_uuid}
                                   onMouseDown={(e) => e.preventDefault()}
-                                  onClick={() => { setBatchOpenFor(null); if (!selected) onChangeBatch(item, b.batch_uuid); }}
+                                  onClick={(e) => {
+                                    const tr = (e.target as HTMLElement).closest('tr');
+                                    setBatchOpenFor(null);
+                                    if (!selected) onChangeBatch(item, b.batch_uuid);
+                                    // Continue the flow on the next line's Code cell.
+                                    requestAnimationFrame(() => {
+                                      const nr = tr?.nextElementSibling as HTMLElement | null;
+                                      (nr?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null)?.focus();
+                                    });
+                                  }}
                                   className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs border-b border-gray-200 last:border-b-0 focus:outline-none focus:bg-blue-100 focus:text-gray-900 ${selected ? 'bg-blue-50 text-gray-900' : 'text-gray-600 hover:bg-blue-50'}`}
                                 >
                                   <span className="font-semibold truncate">{b.batch_number}</span>
@@ -675,27 +814,6 @@ export default function CartItems({
                   </span>
                 </td>
                 <td className={`${td} text-center text-gray-500`}>₹{taxAmount.toFixed(2)}</td>
-                <td className={`${td} text-center text-blue-600`}>
-                  <span className="inline-flex items-center justify-end">
-                    <span>-₹</span>
-                    <input
-                      value={cellDraft[`${item.id}:discount`] ?? (item.discount > 0 ? item.discount.toFixed(2) : '')}
-                      placeholder="—"
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === '' || /^\d*\.?\d*$/.test(v)) {
-                          setCellDraft((prev) => ({ ...prev, [`${item.id}:discount`]: v }));
-                        }
-                      }}
-                      onBlur={() => commitCell(item, 'discount')}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') { commitCell(item, 'discount'); (e.target as HTMLInputElement).blur(); }
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-14 px-1 py-0.5 text-center text-xs text-blue-600 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 placeholder-gray-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    />
-                  </span>
-                </td>
                 <td className={`${td} text-center font-bold text-green-600`}>₹{value.toFixed(2)}</td>
               </tr>
             );
@@ -713,6 +831,7 @@ export default function CartItems({
             return (
               <tr
                 key={`empty-${e}`}
+                data-rowid={`empty-${e}`}
                 tabIndex={0}
                 title="Type a drug code or name in this row to begin billing"
                 onClick={(ev) => {
@@ -729,10 +848,10 @@ export default function CartItems({
                 className={`cursor-pointer focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-green-500 ${isActive ? 'bg-blue-50 shadow-[inset_2px_0_0_0_#16a34a]' : isFirst ? 'bg-gray-50' : ''}`}
               >
                 <td className={`${td} ${isFirst ? 'text-green-600 font-semibold' : 'text-gray-500'}`}>{sno}</td>
-                <td className={td} onClick={(ev) => ev.stopPropagation()}>
+                <td className={`${td}${pc(`empty-${e}`, 'code')}`} onClick={(ev) => ev.stopPropagation()}>
                   {renderEntryInput(e, 'code', isFirst ? 'Code…' : '')}
                 </td>
-                <td className={td} onClick={(ev) => ev.stopPropagation()}>
+                <td className={`${td}${pc(`empty-${e}`, 'name')}`} onClick={(ev) => ev.stopPropagation()}>
                   {renderEntryInput(e, 'name', isFirst ? 'Product name…' : '')}
                 </td>
                 <td className={td}>&nbsp;</td>

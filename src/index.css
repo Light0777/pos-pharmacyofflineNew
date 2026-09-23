@@ -228,13 +228,31 @@ body.dropdown-open {
   height: 6px;
 }
 
-/* POS invoice grid: unmissable cell/row focus for keyboard billing */
-[data-cell]:focus {
+/* POS invoice grid: the TABLE CELL owns the active outline.
+   Inner inputs/buttons blend into the cell - they never draw their own
+   ring, so there is exactly ONE green rectangle per active cell. */
+.invoice-grid td:focus-within {
   outline: 2px solid #16a34a !important;
   outline-offset: -2px;
-  background-color: #dcfce7 !important;
+}
+.invoice-grid td:focus-within input,
+.invoice-grid td:focus-within button {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.invoice-grid td input:focus,
+.invoice-grid td button:focus,
+.invoice-grid td [tabindex]:focus {
+  outline: none !important;
+  box-shadow: none !important;
 }
 tbody tr[tabindex]:focus {
+  outline: 2px solid #16a34a !important;
+  outline-offset: -2px;
+}
+/* Pinned cell: keeps the green outline on the last-touched cell even
+   after focus leaves the spreadsheet (totals, search, parties, etc.). */
+.invoice-grid td.cell-pinned {
   outline: 2px solid #16a34a !important;
   outline-offset: -2px;
 }
