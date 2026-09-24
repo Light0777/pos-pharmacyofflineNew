@@ -94,6 +94,28 @@ function POSpage() {
   } = useCustomers();
 
   const [remarks, setRemarks] = useState("");
+  const [billPhone, setBillPhone] = useState("");
+  const [billName, setBillName] = useState("");
+  // Keep the bill name/phone in step with the chosen customer. Typing a full
+  // number that matches a customer selects them; otherwise the typed values
+  // ride along on the bill itself (walk-in overrides, stored on the sale),
+  // and a custom name is auto-saved to the customer list at checkout.
+  useEffect(() => {
+    setBillPhone(selectedCustomer?.mobile ? String(selectedCustomer.mobile).replace(/\D/g, '') : "");
+    setBillName(selectedCustomer?.name || "");
+  }, [selectedCustomer?.customer_uuid]);
+
+  const handleBillPhoneChange = (digits: string) => {
+    setBillPhone(digits);
+    if (digits.length === 10) {
+      const match = (customers || []).find(
+        (c: any) => String(c.mobile || '').replace(/\D/g, '') === digits
+      );
+      if (match && match.customer_uuid !== selectedCustomer?.customer_uuid) {
+        setSelectedCustomer(match);
+      }
+    }
+  };
   const [nextBillNo, setNextBillNo] = useState<string | null>(null);
   const fetchNextBill = async () => {
     try {
@@ -130,6 +152,7 @@ function POSpage() {
 
   const handleCheckout = async () => {
     console.log("🔵 handleCheckout called");
+    console.log("🔵 checkout customer:", selectedCustomer?.customer_uuid || null);
 
     if (!cartUUID || !cartData) {
       alert("Cart not ready. Please wait...");
@@ -149,8 +172,43 @@ function POSpage() {
       return;
     }
 
+    const typedName = billName.trim();
+    const selectedName = selectedCustomer?.name || '';
+    let custUuid = selectedCustomer?.customer_uuid || null;
+    let custCustomer = selectedCustomer;
+
+    // Custom typed name: save it to the customer list automatically (with the
+    // typed number when present). Whatever happens, the typed values also ride
+    // on the bill itself, so the invoice is correct for every role — even when
+    // customer creation is not permitted and silently falls through.
+    if (typedName && typedName.toLowerCase() !== 'walk-in' && typedName !== selectedName) {
+      const dup = billPhone.length === 10
+        ? (customers || []).find((c: any) => String(c.mobile || '').replace(/\D/g, '') === billPhone)
+        : undefined;
+      if (dup) {
+        custUuid = dup.customer_uuid;
+        custCustomer = dup;
+        setSelectedCustomer(dup);
+      } else {
+        try {
+          const created: any = await createNewCustomer({
+            name: typedName,
+            mobile: billPhone.length === 10 ? billPhone : '',
+          });
+          const rec = created?.customer_uuid ? created : created?.data;
+          if (rec?.customer_uuid) {
+            custUuid = rec.customer_uuid;
+            custCustomer = rec;
+            setSelectedCustomer(rec);
+          }
+        } catch {
+          // fall through: typed name/phone still go on the bill as overrides
+        }
+      }
+    }
+
     const isCreditPayment = currentMethodRef.current === 'pay_later';
-    if (isCreditPayment && !selectedCustomer) {
+    if (isCreditPayment && !custUuid) {
       alert("Please select a customer for Pay Later option");
       return;
     }
@@ -162,9 +220,11 @@ function POSpage() {
 
     const result = await checkout(
       forcedPayments,
-      selectedCustomer?.customer_uuid || null,
-      selectedCustomer,
-      remarks.trim() || undefined
+      custUuid,
+      custCustomer,
+      remarks.trim() || undefined,
+      billPhone || undefined,
+      typedName && typedName.toLowerCase() !== 'walk-in' ? typedName : undefined
     );
 
     console.log("🔵 Checkout result:", result);
@@ -186,6 +246,12 @@ function POSpage() {
       console.log("Checkout failed");
     }
   };
+
+  // Always-fresh checkout entry: effects below must call through this ref,
+  // never a render closure (closures go stale when cart/modal state changes
+  // without re-subscribing their effects — e.g. customer picked after add).
+  const handleCheckoutRef = useRef(handleCheckout);
+  handleCheckoutRef.current = handleCheckout;
 
   // Check cart status
   useEffect(() => {
@@ -257,22 +323,15 @@ function POSpage() {
   // Keyboard shortcut: Ctrl+Enter to checkout (plain Enter drives grid cells)
   useEffect(() => {
     const handleCheckoutShortcut = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if (showCustomerModal || showSalesModal || showInvoiceModal || showPastInvoiceModal || showCustomModal || showPrescriptionModal || showNewBillConfirm) {
         return;
       }
 
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable) {
-        return;
-      }
-
-      if (barcodeScannedRef.current) {
-        return;
-      }
-
+      // Submit is an explicit chord: honored even from inside inputs.
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        handleCheckout();
+        handleCheckoutRef.current();
       }
     };
 
@@ -356,7 +415,6 @@ function POSpage() {
   // with a visible toast so the refresh is always confirmable.)
 
   // New-bill flow: in-app confirm (never native confirm), then clear.
-  // Escape cancels the confirm dialog.
   useEffect(() => {
     if (!showNewBillConfirm) return;
     const onKey = (e: KeyboardEvent) => {
@@ -369,7 +427,7 @@ function POSpage() {
     setShowNewBillConfirm(false);
     clearCart();
     selectedRowRef.current = null;
-    window.dispatchEvent(new CustomEvent("pos-focus-search"));
+    window.dispatchEvent(new CustomEvent("pos-focus-grid"));
   };
   useEffect(() => {
     const onNewBill = () => {
@@ -430,9 +488,8 @@ function POSpage() {
   });
 
 
-  const handleCheckoutRef = useRef(handleCheckout);
-  handleCheckoutRef.current = handleCheckout;
   // Silently ignore checkout requests on an empty cart (avoids alert spam).
+  // (handleCheckoutRef is declared once, right after handleCheckout above.)
   const hasLinesRef = useRef(false);
   hasLinesRef.current = (cartData?.cart?.items?.length || 0) > 0;
   useEffect(() => {
@@ -498,8 +555,8 @@ function POSpage() {
     selectedRowRef.current = null;
     fetchNextBill();
     refetch();
-    // Fresh bill: cashier starts typing the next one immediately.
-    window.dispatchEvent(new CustomEvent("pos-focus-search"));
+    // Fresh bill: cashier continues typing in the spreadsheet.
+    window.dispatchEvent(new CustomEvent("pos-focus-grid"));
   };
 
   // Checkout requested from inside a grid/cash input (Enter there).
@@ -538,10 +595,30 @@ function POSpage() {
           <div className="px-2 py-1 min-w-0 border-l border-gray-300">
             <div className="truncate text-lg">TO</div>
             <div className="truncate">
-              name: {selectedCustomer?.name || 'Walk-in'}
+              name:{' '}
+              <input
+                value={billName}
+                autoComplete="off"
+                placeholder="Walk-in"
+                onChange={(e) => setBillName(e.target.value.slice(0, 100))}
+                className="w-32 bg-gray-50 border border-gray-300 rounded-none px-1 py-px outline-none placeholder-gray-400 focus:border-green-500 focus:bg-white transition-colors"
+              />
             </div>
+            {selectedCustomer?.address ? (
+              <div className="truncate">
+                address: {selectedCustomer.address}
+              </div>
+            ) : null}
             <div className="truncate">
-              phone: {selectedCustomer?.mobile || ''}
+              phone:{' '}
+              <input
+                value={billPhone}
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Enter number"
+                onChange={(e) => handleBillPhoneChange(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                className="w-28 bg-gray-50 border border-gray-300 rounded-none px-1 py-px outline-none placeholder-gray-400 focus:border-green-500 focus:bg-white transition-colors"
+              />
             </div>
           </div>
         </div>
@@ -644,6 +721,7 @@ function POSpage() {
                 customers={customers}
                 selectedCustomer={selectedCustomer}
                 onSelectCustomer={setSelectedCustomer}
+                displayName={billName}
                 onAddNew={(phone) => { setNewCustomerPhone(phone || ""); setShowCustomerModal(true); }}
               />
             </div>
@@ -656,7 +734,7 @@ function POSpage() {
             </div>
           </div>
           {/* PAYMENT */}
-          <div className="min-w-0">
+          <div className="min-w-0 pr-8">
             <PaymentSection
               payments={payments}
               onPaymentChange={(index, field, value) => {

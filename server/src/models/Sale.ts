@@ -28,7 +28,7 @@ export class SaleModel {
     }>,
     prescriptions: any[] = [],
     currentUser?: any,
-    options?: { remarks?: string }
+    options?: { remarks?: string; customerMobile?: string; customerName?: string }
   ): { sale: Sale; paid: number; balance: number } {
     const saleUuid = uuidv4();
 
@@ -270,6 +270,12 @@ export class SaleModel {
       const remarks =
         String(options?.remarks || '').trim() || null;
 
+      const customerMobile =
+        String(options?.customerMobile || '').replace(/\D/g, '').slice(0, 15) || null;
+
+      const customerName =
+        String(options?.customerName || '').trim().slice(0, 100) || null;
+
       // =========================
       // GENERATE INVOICE
       // =========================
@@ -293,6 +299,8 @@ export class SaleModel {
         grand_total,
         round_off,
         remarks,
+        customer_mobile,
+        customer_name,
 
         status
 
@@ -300,6 +308,8 @@ export class SaleModel {
 
         ?, ?, ?,
         ?, ?, ?, ?, ?,
+        ?,
+        ?,
         'completed'
       )
     `).run(
@@ -311,7 +321,9 @@ export class SaleModel {
         Math.round(taxTotal * 100) / 100,
         Math.round(grandTotal * 100) / 100,
         roundOff,
-        remarks
+        remarks,
+        customerMobile,
+        customerName
       );
 
       // =========================
@@ -912,6 +924,21 @@ export class SaleModel {
     `).get(
         sale.customer_uuid
       ) as Customer | undefined;
+    }
+
+    // Bill-level customer overrides (typed at the POS).
+    // Explicit values win over the customer record; a name with no record
+    // synthesizes a walk-in entry so the bill always shows what was typed.
+    const saleMobile = (sale as any).customer_mobile || null;
+    const saleName = (sale as any).customer_name || null;
+    if (saleMobile || saleName) {
+      customer = {
+        ...(customer || {}),
+        name: saleName || customer?.name || 'Walk-in Customer',
+        mobile: saleMobile || customer?.mobile || null,
+      } as Customer;
+    } else if (!customer) {
+      customer = { name: 'Walk-in Customer', mobile: null } as Customer;
     }
 
     // =========================

@@ -139,13 +139,17 @@ export async function checkoutCart(
   payments: { method: string; amount: number }[],
   customer_uuid: string | null,
   prescriptionInfo?: any,
-  remarks?: string
+  remarks?: string,
+  customerMobile?: string,
+  customerName?: string
 ) {
   const payload: any = {
     payments,
     customer_uuid,
   };
   if (remarks) payload.remarks = remarks;
+  if (customerMobile) payload.customer_mobile = customerMobile;
+  if (customerName) payload.customer_name = customerName;
 
   // Backend expects 'prescriptions' array, not 'prescription_data'
   if (prescriptionInfo) {

@@ -52,6 +52,7 @@ function GridPicker({ value, options, onPick }: {
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.value === value);
   const listRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   // When the list opens from the keyboard, land focus on the first option
   // immediately so arrows work without an extra step.
@@ -80,13 +81,20 @@ function GridPicker({ value, options, onPick }: {
     <div className="relative">
       <button
         data-cell="uom"
+        ref={btnRef}
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
         onKeyDown={(e) => {
-          // Enter toggles the list open/closed (row flow continues inside it).
+          // Enter always opens and steps INTO the list (never toggles shut:
+          // closing would trap the row flow in an open/close loop).
+          // Escape closes; arrows step into the list when open.
           if (e.key === 'Enter') {
             e.preventDefault();
             e.stopPropagation();
-            setOpen((o) => !o);
+            if (!open) setOpen(true);
+            requestAnimationFrame(() => {
+              const btns = Array.from(listRef.current?.querySelectorAll('button') ?? []) as HTMLElement[];
+              btns[0]?.focus();
+            });
           } else if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
             // While open, arrows jump into the option list instead of the grid.
             e.preventDefault();
@@ -112,12 +120,14 @@ function GridPicker({ value, options, onPick }: {
             ref={listRef}
             data-uom-list
             onKeyDown={(e) => {
-              e.stopPropagation();
               if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
+                e.stopPropagation();
                 moveInList(e.key === 'ArrowDown' ? 1 : -1);
               } else if (e.key === 'Escape') {
+                e.stopPropagation();
                 setOpen(false);
+                btnRef.current?.focus();
               }
             }}
             className="absolute left-0 top-full mt-0.5 z-50 w-40 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-none shadow flex flex-col"
@@ -175,6 +185,57 @@ export default function CartItems({
   // focus leaving the grid (clicking totals, search, parties, etc.).
   const pc = (rowKey: string | number, cell: string) =>
     pinnedCell === `${rowKey}:${cell}` ? ' cell-pinned' : '';
+
+  // Focus the next line's first editable cell (Code input, else Name).
+  // Used whenever a row's last navigable cell is submitted.
+  const focusNextLine = (row: HTMLElement | null) => {
+    const nr = row?.nextElementSibling as HTMLElement | null;
+    (nr?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null)?.focus();
+  };
+
+  // Arrow-key cell navigation across the spreadsheet (Up/Down/Left/Right).
+  // Text inputs keep native caret for Left/Right; open picker lists and the
+  // product dropdown own their arrows via stopPropagation before this runs.
+  const gridArrowNav = (ev: React.KeyboardEvent, row: HTMLTableRowElement): boolean => {
+    const key = ev.key;
+    if (key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'ArrowLeft' && key !== 'ArrowRight') return false;
+    const t = ev.target as HTMLElement;
+    // Plain Left/Right keep native caret inside text inputs; with Ctrl held
+    // they navigate between cells instead.
+    if ((t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && (key === 'ArrowLeft' || key === 'ArrowRight') && !ev.ctrlKey && !ev.metaKey) return false;
+    ev.preventDefault();
+    const focusableOf = (cell: Element): HTMLElement | null => {
+      const el = cell as HTMLElement;
+      if (el.tagName === 'INPUT' || el.tagName === 'BUTTON' || el.tagName === 'SELECT' || el.hasAttribute('tabindex')) return el;
+      return cell.querySelector('input,button,select,[tabindex]') as HTMLElement | null;
+    };
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      const cells = Array.from(row.querySelectorAll('[data-cell]'));
+      const cur = t.closest?.('[data-cell]');
+      let idx = cur ? cells.indexOf(cur) : -1;
+      const step = key === 'ArrowRight' ? 1 : -1;
+      idx += step;
+      while (idx >= 0 && idx < cells.length && !focusableOf(cells[idx])) idx += step;
+      if (idx >= 0 && idx < cells.length) {
+        focusableOf(cells[idx])?.focus();
+        return true;
+      }
+      return false;
+    }
+    const cur = t.closest?.('[data-cell]');
+    const cellName = cur?.getAttribute('data-cell');
+    const sib = (key === 'ArrowDown' ? row.nextElementSibling : row.previousElementSibling) as HTMLElement | null;
+    if (sib && sib.tagName === 'TR') {
+      let target: HTMLElement | null = null;
+      if (cellName) {
+        const cell = sib.querySelector(`[data-cell="${cellName}"]`);
+        target = cell ? focusableOf(cell) : null;
+      }
+      (target ?? (sib.hasAttribute('tabindex') ? sib : null))?.focus();
+      return true;
+    }
+    return false;
+  };
   const [pq, setPq] = useState('');
   const [pResults, setPResults] = useState<any[]>([]);
   const [pSearching, setPSearching] = useState(false);
@@ -195,15 +256,17 @@ export default function CartItems({
         onFocus={() => { setEditRow(e); setEditField(field); setActiveRow(`empty-${e}`); }}
         onBlur={() => setTimeout(() => { setEditRow((cur) => (cur === e ? null : cur)); }, 150)}
         onKeyDown={(ev) => {
-          ev.stopPropagation();
-          if (ev.key === 'ArrowDown' && pResults.length > 0) { ev.preventDefault(); setPIdx((i) => Math.min(i + 1, pResults.length - 1)); }
-          else if (ev.key === 'ArrowUp' && pResults.length > 0) { ev.preventDefault(); setPIdx((i) => Math.max(i - 1, 0)); }
-          else if (ev.key === 'Enter' && editRow === e && editField === field && pResults.length > 0) { ev.preventDefault(); requestAddProduct(pResults[Math.min(pIdx, pResults.length - 1)]); }
-          else if (ev.key === 'Escape') { setPq(''); setEditRow(null); (ev.target as HTMLInputElement).blur(); }
+          // Only swallow keys this input handles; everything else
+          // (F-keys included) must keep bubbling to the grid + shortcuts.
+          if (ev.key === 'ArrowDown' && pResults.length > 0 && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); setPIdx((i) => Math.min(i + 1, pResults.length - 1)); }
+          else if (ev.key === 'ArrowUp' && pResults.length > 0 && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); setPIdx((i) => Math.max(i - 1, 0)); }
+          else if (ev.key === 'Enter' && editRow === e && editField === field && pResults.length > 0 && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); requestAddProduct(pResults[Math.min(pIdx, pResults.length - 1)]); }
+          else if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); ev.stopPropagation(); window.dispatchEvent(new CustomEvent('pos-checkout-request')); }
+          else if (ev.key === 'Escape') { ev.stopPropagation(); setPq(''); setEditRow(null); (ev.target as HTMLInputElement).blur(); }
         }}
         className="w-full bg-transparent text-gray-900 placeholder-gray-400 px-1 py-0.5 rounded-none text-xs focus:outline-none focus:bg-gray-50 focus:ring-1 focus:ring-green-500"
       />
-      {editRow === e && editField === field && pq.trim().length >= 2 && (
+      {editRow === e && editField === field && pq.trim().length >= 1 && (
         <div className="absolute left-0 top-full mt-0.5 z-50 w-72 max-h-56 overflow-y-auto bg-white border border-gray-300 rounded-none shadow">
           {pSearching ? (
             <div className="px-2 py-2 text-gray-500 text-xs">Searching…</div>
@@ -313,7 +376,7 @@ export default function CartItems({
   // Debounced product lookup for the in-grid product cell (existing search API)
   useEffect(() => {
     const q = pq.trim();
-    if (editRow === null || q.length < 2) {
+    if (editRow === null || q.length < 1) {
       setPResults([]);
       return;
     }
@@ -349,8 +412,19 @@ export default function CartItems({
     prevCountRef.current = items.length;
   }, [items]);
 
-  // New session / reload: start with the first Code cell focused so the
-  // green highlight is always present and billing can begin by typing.
+  // External focus requests into the grid (fresh/new bill keeps billing
+  // in the spreadsheet instead of jumping to the search bar).
+  useEffect(() => {
+    const onFocusGrid = () => {
+      setActiveRow('empty-0');
+      const el = document.querySelector(
+        'tbody [data-cell="code"]'
+      ) as HTMLElement | null;
+      el?.focus();
+    };
+    window.addEventListener('pos-focus-grid', onFocusGrid);
+    return () => window.removeEventListener('pos-focus-grid', onFocusGrid);
+  }, []);
   useEffect(() => {
     const t = setTimeout(() => {
       setActiveRow('empty-0');
@@ -529,7 +603,10 @@ export default function CartItems({
                 onClick={() => { setActiveRow(item.id); onSelectRow?.(item); }}
                 onKeyDown={(ev) => {
                   const row = ev.currentTarget as HTMLTableRowElement;
-                  if ((ev.target as HTMLElement).tagName === 'INPUT') return;
+                  const t = ev.target as HTMLElement;
+                  const inText = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA';
+                  const cellNavKey = ev.key === 'ArrowUp' || ev.key === 'ArrowDown' || ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && (ev.ctrlKey || ev.metaKey));
+                  if (inText && !cellNavKey) return;
                   // An open option list owns its keys (arrows/Enter/Escape).
                   if ((ev.target as HTMLElement).closest('[data-uom-list],[data-batch-list]')) return;
                   // Arrows on an open batch picker jump into its options.
@@ -539,9 +616,10 @@ export default function CartItems({
                     if (btns.length) btns[ev.key === 'ArrowDown' ? 0 : btns.length - 1].focus();
                     return;
                   }
-                  if (ev.key === 'ArrowDown') { ev.preventDefault(); (row.nextElementSibling as HTMLElement | null)?.focus(); }
-                  else if (ev.key === 'ArrowUp') { ev.preventDefault(); (row.previousElementSibling as HTMLElement | null)?.focus(); }
-                  else if (ev.key === 'Enter') {
+                  if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp' || ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') {
+                    if (gridArrowNav(ev, row)) return;
+                  }
+                  else if (ev.key === 'Enter' && !inText) {
                     // Cell-to-cell flow: name → uom → qty → free → batch → next line.
                     // Expiry/Price/Rate/GST/Disc/Value are display-only and skipped.
                     ev.preventDefault();
@@ -550,17 +628,10 @@ export default function CartItems({
                     const idx = cur ? cells.indexOf(cur as HTMLElement) : -1;
                     console.log('[GRID] nav from', (cur as HTMLElement | null)?.getAttribute?.('data-cell'), 'idx', idx, 'of', cells.length);
                     if (idx >= 0 && idx < cells.length - 1) {
-                      const next = cells[idx + 1] as HTMLElement;
-                      next.focus();
-                      // Landing on a picker opens it at once, so arrows
-                      // work immediately without a second Enter press.
-                      // (Skipped when its list is already open.)
-                      if (
-                        next.matches('[data-cell="uom"],[data-cell="batch"]') &&
-                        !next.parentElement?.querySelector('[data-uom-list],[data-batch-list]')
-                      ) {
-                        next.click();
-                      }
+                      // Focus only: a second Enter opens pickers, arrows move
+                      // inside open lists. Never auto-clicks (that trapped
+                      // the flow in open/close loops).
+                      cells[idx + 1].focus();
                     } else {
                       const nextRow = row.nextElementSibling as HTMLElement | null;
                       const nextTarget = nextRow?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null;
@@ -675,7 +746,9 @@ export default function CartItems({
                       if (e.key === 'Enter') {
                         commitCell(item, 'free_quantity');
                         const row = (e.target as HTMLElement).closest('tr');
-                        (row?.querySelector('[data-cell="batch"]') as HTMLElement | null)?.focus();
+                        const batchBtn = row?.querySelector('[data-cell="batch"]') as HTMLElement | null;
+                        if (batchBtn) batchBtn.focus();
+                        else focusNextLine(row);
                       }
                     }}
                     onClick={(e) => e.stopPropagation()}
@@ -689,18 +762,17 @@ export default function CartItems({
                         data-cell="batch"
                         onClick={(e) => { e.stopPropagation(); setBatchOpenFor((cur) => (cur === item.id ? null : item.id)); }}
                         onKeyDown={(e) => {
-                          // Enter toggles the list; arrows jump into it.
+                          // Enter always opens and steps INTO the list (never
+                          // toggles shut: closing would trap the row flow).
                           const isOpen = batchOpenFor === item.id;
                           if (e.key === 'Enter') {
                             e.preventDefault();
                             e.stopPropagation();
-                            setBatchOpenFor(isOpen ? null : item.id);
-                            if (!isOpen) {
-                              const cell = (e.target as HTMLElement).closest('td');
-                              requestAnimationFrame(() => {
-                                (cell?.querySelector('[data-batch-list] button') as HTMLElement | null)?.focus();
-                              });
-                            }
+                            if (!isOpen) setBatchOpenFor(item.id);
+                            const cell = (e.target as HTMLElement).closest('td');
+                            requestAnimationFrame(() => {
+                              (cell?.querySelector('[data-batch-list] button') as HTMLElement | null)?.focus();
+                            });
                           } else if (isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
                             e.preventDefault();
                             e.stopPropagation();
@@ -727,15 +799,17 @@ export default function CartItems({
                           <div
                             data-batch-list
                             onKeyDown={(e) => {
-                              // Own the arrows while open so the row below doesn't steal them.
-                              e.stopPropagation();
+                              // Own handled keys while open so the row below
+                              // doesn't steal them; F-keys keep bubbling.
                               if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                                 e.preventDefault();
+                                e.stopPropagation();
                                 const btns = Array.from(e.currentTarget.querySelectorAll('button')) as HTMLElement[];
                                 const i = btns.indexOf(document.activeElement as HTMLElement);
                                 const n = e.key === 'ArrowDown' ? Math.min(i + 1, btns.length - 1) : Math.max(i - 1, 0);
                                 btns[n]?.focus();
                               } else if (e.key === 'Escape') {
+                                e.stopPropagation();
                                 setBatchOpenFor(null);
                                 const cell = (e.currentTarget as HTMLElement).closest('td');
                                 (cell?.querySelector('[data-cell="batch"]') as HTMLElement | null)?.focus();
@@ -756,7 +830,9 @@ export default function CartItems({
                                     // Continue the flow on the next line's Code cell.
                                     requestAnimationFrame(() => {
                                       const nr = tr?.nextElementSibling as HTMLElement | null;
-                                      (nr?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null)?.focus();
+                                      const el = nr?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null;
+                                      console.log('[GRID] batch-pick advance:', el ? `FOUND ${el.tagName}` : 'MISSING', '| nextRow:', !!nr);
+                                      el?.focus();
                                     });
                                   }}
                                   className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs border-b border-gray-200 last:border-b-0 focus:outline-none focus:bg-blue-100 focus:text-gray-900 ${selected ? 'bg-blue-50 text-gray-900' : 'text-gray-600 hover:bg-blue-50'}`}
@@ -840,10 +916,14 @@ export default function CartItems({
                 }}
                 onKeyDown={(ev) => {
                   const row = ev.currentTarget as HTMLTableRowElement;
-                  if ((ev.target as HTMLElement).tagName === 'INPUT') return;
-                  if (ev.key === 'ArrowDown') { ev.preventDefault(); (row.nextElementSibling as HTMLElement | null)?.focus(); }
-                  else if (ev.key === 'ArrowUp') { ev.preventDefault(); (row.previousElementSibling as HTMLElement | null)?.focus(); }
-                  else if (ev.key === 'Enter') { ev.preventDefault(); focusRowInput(); }
+                  const t = ev.target as HTMLElement;
+                  const inText = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA';
+                  const cellNavKey = ev.key === 'ArrowUp' || ev.key === 'ArrowDown' || ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && (ev.ctrlKey || ev.metaKey));
+                  if (inText && !cellNavKey) return;
+                  if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp' || ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') {
+                    if (gridArrowNav(ev, row)) return;
+                  }
+                  else if (ev.key === 'Enter' && !inText) { ev.preventDefault(); focusRowInput(); }
                 }}
                 className={`cursor-pointer focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-green-500 ${isActive ? 'bg-blue-50 shadow-[inset_2px_0_0_0_#16a34a]' : isFirst ? 'bg-gray-50' : ''}`}
               >

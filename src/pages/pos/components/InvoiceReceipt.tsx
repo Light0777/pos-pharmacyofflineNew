@@ -499,6 +499,46 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
   const totalCgst = hcgstTotal.reduce((s: number, g: any) => s + g.cgst, 0);
   const totalSgst = hcgstTotal.reduce((s: number, g: any) => s + g.sgst, 0);
 
+  // Shared FROM/TO parties header mirroring the POS billing screen.
+  // Inline styles so it prints identically in every paper format.
+  const renderPartyHeader = (scale: 'full' | 'compact') => {
+    const fs = scale === 'full' ? 14 : 9;
+    const pad = scale === 'full' ? '6px 10px' : '3px 5px';
+    const titleFs = scale === 'full' ? 14 : 10;
+    const metaFs = scale === 'full' ? 12 : 8;
+    const custName = customer?.name || 'Walk-in Customer';
+    const custPhone = customer?.mobile || '';
+    const invDate = formattedInvoice.created_at
+      ? new Date(formattedInvoice.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      : '';
+    const invTime = formattedInvoice.created_at
+      ? new Date(formattedInvoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+      : '';
+    return (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid #000', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: fs, color: '#111' }}>
+          <div style={{ padding: pad, borderRight: '1px solid #000', fontWeight: 'bold' }}>
+            <div style={{ fontSize: titleFs }}>FROM</div>
+            <div>name: {shop.name}</div>
+            {shop.address ? <div>address: {shop.address}</div> : null}
+            <div>GSTIN: {shop.gstin || ''}</div>
+            <div>Drug Lic: {shop.drug_license_number || ''}</div>
+          </div>
+          <div style={{ padding: pad, fontWeight: 'bold' }}>
+            <div style={{ fontSize: titleFs }}>TO</div>
+            <div>name: {custName}</div>
+            <div>phone: {custPhone}</div>
+          </div>
+        </div>
+        <div style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: metaFs, color: '#111', padding: '4px 2px', display: 'flex', gap: 16 }}>
+          <span>Invoice No: <strong>{formattedInvoice.invoice_number}</strong></span>
+          <span>Date: <strong>{invDate}</strong></span>
+          {invTime ? <span>Time: <strong>{invTime}</strong></span> : null}
+        </div>
+      </div>
+    );
+  };
+
   const isThermal = billFormat === '80mm' || billFormat === '58mm';
   const charWidth = billFormat === '58mm' ? 32 : 42;
 
@@ -535,15 +575,7 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
     const totalIgst2 = 0;
     return (
     <div id="receipt" className="a4-sheet" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 14, color: '#111' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #000', padding: '8px 10px' }}>
-        <div style={{ fontWeight: 'bold', fontSize: 18 }}>{shop.name}</div>
-        <div style={{ fontSize: 12, textAlign: 'right', lineHeight: 1.5 }}>
-          {shop.name}<br />
-          Invoice No: {formattedInvoice.invoice_number}<br />
-          Date: {invDate}<br />
-          Time: {invTime}
-        </div>
-      </div>
+      {renderPartyHeader('full')}
       <table style={{ width: '100%', borderCollapse: 'collapse', borderTop: '1px solid #000' }}>
         <thead>
           <tr>
@@ -649,15 +681,7 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
     const totalIgst2 = 0;
     return (
     <div id="receipt" className="a5-sheet" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 12, color: '#111' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #000', padding: '4px 6px' }}>
-        <div style={{ fontWeight: 'bold', fontSize: 12 }}>{shop.name}</div>
-        <div style={{ fontSize: 8, textAlign: 'right', lineHeight: 1.4 }}>
-          {shop.name}<br />
-          Invoice No: {formattedInvoice.invoice_number}<br />
-          Date: {invDate}<br />
-          Time: {invTime}
-        </div>
-      </div>
+      {renderPartyHeader('compact')}
       <table style={{ width: '100%', borderCollapse: 'collapse', borderTop: '1px solid #000' }}>
         <thead>
           <tr>
@@ -754,6 +778,7 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
     lines.push(thermalLine(`Invoice #: ${formattedInvoice.invoice_number}`));
     lines.push(thermalLine(`Date: ${formatDate(formattedInvoice.created_at)}`));
     if (customer?.name && customer.name !== 'Walk-in Customer') lines.push(thermalLine(`Customer: ${customer.name}`));
+    if (customer?.mobile) lines.push(thermalLine(`Ph: ${customer.mobile}`));
     lines.push(thermalSep());
     lines.push(thermalLine('TAX INVOICE', 'center'));
     lines.push(thermalSep());

@@ -71,6 +71,8 @@ export function useCart() {
     customerUUID: string | null;
     selectedCustomer: any;
     remarks?: string;
+    customerMobile?: string;
+    customerName?: string;
   } | null>(null);
   
   // Promise resolver for checkout
@@ -405,7 +407,9 @@ export function useCart() {
     paymentMethods: any[],
     customerUUID: string | null,
     selectedCustomer: any,
-    remarks?: string
+    remarks?: string,
+    customerMobile?: string,
+    customerName?: string
   ): Promise<CheckoutResult | null> => {
     if (!cartUUID) {
       alert("Cart not initialized");
@@ -459,7 +463,7 @@ export function useCart() {
     const prescriptionItem = findPrescriptionProduct();
     if (prescriptionItem) {
       console.log("🔴 Prescription required detected for:", prescriptionItem.product?.name);
-      setPendingCheckout({ paymentMethods, customerUUID, selectedCustomer, remarks });
+      setPendingCheckout({ paymentMethods, customerUUID, selectedCustomer, remarks, customerMobile, customerName });
       setPrescriptionProduct({
         name: prescriptionItem.product?.name,
         schedule_type: prescriptionItem.product?.schedule_type,
@@ -475,7 +479,7 @@ export function useCart() {
 
     setLoading(true);
     try {
-      const res = await checkoutCart(cartUUID, normalizedPayments, customerUUID, null, remarks);
+      const res = await checkoutCart(cartUUID, normalizedPayments, customerUUID, null, remarks, customerMobile, customerName);
       console.log("✅ Checkout response:", res);
 
       if (!res.success) {
@@ -488,7 +492,7 @@ export function useCart() {
 
           if (backendItem) {
             console.log("🔴 Found prescription product:", backendItem.product?.name);
-            setPendingCheckout({ paymentMethods, customerUUID, selectedCustomer, remarks });
+            setPendingCheckout({ paymentMethods, customerUUID, selectedCustomer, remarks, customerMobile, customerName });
             setPrescriptionProduct({
               name: backendItem.product?.name,
               schedule_type: backendItem.product?.schedule_type,
@@ -541,12 +545,12 @@ export function useCart() {
     }
 
     if (pendingCheckout) {
-      const { paymentMethods, customerUUID, selectedCustomer, remarks } = pendingCheckout;
+      const { paymentMethods, customerUUID, selectedCustomer, remarks, customerMobile, customerName } = pendingCheckout;
       setPendingCheckout(null);
 
       setLoading(true);
       try {
-        const res = await checkoutCart(cartUUID, paymentMethods, customerUUID, prescriptionWithProduct, remarks);
+        const res = await checkoutCart(cartUUID, paymentMethods, customerUUID, prescriptionWithProduct, remarks, customerMobile, customerName);
         console.log("✅ Checkout with prescription response:", res);
 
         let result: CheckoutResult | null = null;

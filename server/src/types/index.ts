@@ -258,6 +258,8 @@ export interface Sale {
   grand_total: number;
   round_off?: number;
   remarks?: string;
+  customer_mobile?: string;
+  customer_name?: string;
   status: 'completed' | 'refunded' | 'pending';
   created_at: string;
   updated_at: string;

@@ -77,6 +77,7 @@ export function usePosShortcuts(handlers: PosShortcutHandlers) {
           break;
         case "F4":
           e.preventDefault();
+          console.log("🔵 F4 pressed → requesting customer dropdown");
           window.dispatchEvent(new CustomEvent("pos-focus-customer"));
           break;
         case "F6":

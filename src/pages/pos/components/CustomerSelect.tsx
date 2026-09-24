@@ -14,6 +14,7 @@ interface CustomerSelectProps {
   selectedCustomer: any | null;
   onSelectCustomer: (customer: any | null) => void;
   onAddNew: (phone?: string) => void;
+  displayName?: string;
 }
 
 export default function CustomerSelect({
@@ -21,17 +22,24 @@ export default function CustomerSelect({
   selectedCustomer,
   onSelectCustomer,
   onAddNew,
+  displayName,
 }: CustomerSelectProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [highlightIdx, setHighlightIdx] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // External workstation shortcut: F4 opens customer selection.
   // The existing auto-focus effect then puts the cursor in its search box.
+  // Always refocuses, so repeated F4 presses visibly respond.
   useEffect(() => {
-    const onFocusCustomer = () => setIsOpen(true);
+    const onFocusCustomer = () => {
+      console.log("🔵 Customer dropdown requested → opening");
+      setIsOpen(true);
+      setTimeout(() => searchInputRef.current?.focus(), 60);
+    };
     window.addEventListener("pos-focus-customer", onFocusCustomer);
     return () =>
       window.removeEventListener("pos-focus-customer", onFocusCustomer);
@@ -54,6 +62,7 @@ export default function CustomerSelect({
     } else {
       setSearchQuery('');
     }
+    setHighlightIdx(0);
   }, [isOpen]);
 
   // Filter customers — only match against phone number digits
@@ -64,6 +73,36 @@ export default function CustomerSelect({
         return query.length > 0 && digits.includes(query);
       })
     : customers.slice(0, 10);
+
+  // Keyboard selection: arrows move, Enter picks, Esc closes.
+  // Index 0 is Walk-in whenever it is visible, customers follow it.
+  const walkInVisible = !searchQuery.trim();
+  const optionCount = filteredCustomers.length + (walkInVisible ? 1 : 0);
+  const pickOption = (idx: number) => {
+    if (walkInVisible && idx === 0) {
+      console.log('[CUSTOMER] keyboard pick: Walk-in');
+      onSelectCustomer(null);
+    } else {
+      const c = filteredCustomers[idx - (walkInVisible ? 1 : 0)];
+      console.log('[CUSTOMER] keyboard pick:', (c as any)?.customer_uuid, (c as any)?.name);
+      if (c) onSelectCustomer(c);
+    }
+    setIsOpen(false);
+  };
+  const onSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightIdx((i) => Math.min(i + 1, Math.max(optionCount - 1, 0)));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightIdx((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      if (optionCount > 0) pickOption(Math.min(highlightIdx, optionCount - 1));
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -81,7 +120,9 @@ export default function CustomerSelect({
                     ? ` (${t('pos.dueLabel')}: ₹${selectedCustomer.credit_balance})`
                     : ''
                 }`
-              : t('pos.walkInCustomer')}
+              : displayName?.trim()
+                ? displayName.trim()
+                : t('pos.walkInCustomer')}
           </span>
         </div>
         <HugeiconsIcon icon={ChevronDownIcon}
@@ -103,7 +144,8 @@ export default function CustomerSelect({
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setHighlightIdx(0); }}
+                onKeyDown={onSearchKeyDown}
                 placeholder={t('pos.searchByPhone')}
                 className="flex-1 bg-transparent text-gray-900 text-xs outline-none placeholder-gray-500"
               />
@@ -120,7 +162,8 @@ export default function CustomerSelect({
           {/* Walk-in Customer Option — hide when actively searching */}
           {!searchQuery.trim() && (
             <div
-              className="px-2 py-1.5 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-200 flex justify-center items-center gap-2"
+              className={`px-2 py-1.5 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-200 flex justify-center items-center gap-2 ${highlightIdx === 0 ? 'bg-blue-50' : ''}`}
+              onMouseEnter={() => setHighlightIdx(0)}
               onClick={() => {
                 onSelectCustomer(null);
                 setIsOpen(false);
@@ -137,10 +180,11 @@ export default function CustomerSelect({
           {/* Customers List */}
           <div className="max-h-40 overflow-y-auto scrollbar-hide">
             {filteredCustomers.length > 0 ? (
-              filteredCustomers.map((c) => (
+              filteredCustomers.map((c, idx) => (
                 <div
                   key={c.customer_uuid}
-                  className="px-2 py-1.5 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-200 last:border-b-0"
+                  className={`px-2 py-1.5 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-200 last:border-b-0 ${highlightIdx === (idx + (walkInVisible ? 1 : 0)) ? 'bg-blue-50' : ''}`}
+                  onMouseEnter={() => setHighlightIdx(idx + (walkInVisible ? 1 : 0))}
                   onClick={() => {
                     onSelectCustomer(c);
                     setIsOpen(false);

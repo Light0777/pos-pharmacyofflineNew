@@ -342,11 +342,13 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
   const [productUnits, setProductUnits] = useState<ProductUnit[]>([]);
   const [productBatches, setProductBatches] = useState<BatchInfo[]>([]);
 
-  // Toast notification state
+  // Toast notification state (error red, success green)
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: "", visible: false });
+  const [toastTone, setToastTone] = useState<'error' | 'success'>('error');
   const clickSeqRef = useRef(0);
 
-  const showToast = (message: string) => {
+  const showToast = (message: string, tone: 'error' | 'success' = 'error') => {
+    setToastTone(tone);
     setToast({ message, visible: true });
     setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 3000);
   };
@@ -549,7 +551,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
 
   // Server-side search when user types (debounced)
   useEffect(() => {
-    if (searchTerm.trim().length < 2) {
+    if (searchTerm.trim().length < 1) {
       setSearchResults(null);
       return;
     }
@@ -638,10 +640,10 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
       const fromGrid = !!d?.fromGrid;
       if (product?.product_uuid) selectProduct(product, fromGrid);
     };
-    // Global toast requests (e.g. F5 refresh confirmation).
+    // Global toast requests (e.g. F5 refresh confirmation) show as success.
     const handleToast = (e: Event) => {
       const message = (e as CustomEvent).detail;
-      if (typeof message === "string" && message) showToast(message);
+      if (typeof message === "string" && message) showToast(message, 'success');
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('pos-focus-search', handleFocusSearch);
@@ -677,7 +679,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
           toast.visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
         }`}
       >
-        <div className="bg-red-600 text-white px-5 py-3 rounded-xl shadow flex items-center gap-3 text-sm font-medium">
+        <div className={`${toastTone === 'success' ? 'bg-green-600' : 'bg-red-600'} text-white px-5 py-3 rounded-xl shadow flex items-center gap-3 text-sm font-medium`}>
           <HugeiconsIcon icon={AlertCircleIcon} className="text-lg shrink-0"  />
           <span>{toast.message}</span>
         </div>
@@ -704,9 +706,11 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                 else if (e.key === 'ArrowUp' && list.length > 0) { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
                 else if (e.key === 'Enter') {
                   // Results open: add the highlighted product.
-                  // Otherwise Enter does nothing here (Submit is Ctrl+Enter).
+                  // Ctrl+Enter here always means submit instead.
                   e.preventDefault();
-                  if (dropOpen && list.length > 0) {
+                  if ((e.ctrlKey || e.metaKey)) {
+                    window.dispatchEvent(new CustomEvent('pos-checkout-request'));
+                  } else if (dropOpen && list.length > 0) {
                     selectProduct(list[Math.min(activeIdx, list.length - 1)]);
                   }
                 }
