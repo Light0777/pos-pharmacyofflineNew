@@ -29,6 +29,8 @@ function POSpage() {
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
   const [showSalesModal, setShowSalesModal] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any>(null);
+  // false = unsaved draft preview; nothing is written until Save is pressed.
+  const [invoiceSaved, setInvoiceSaved] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [autoPrint, setAutoPrint] = useState(false);
 
@@ -44,6 +46,8 @@ function POSpage() {
   const cartItemsRef = useRef<HTMLDivElement>(null);
   const paymentSummaryRef = useRef<HTMLDivElement>(null);
   const barcodeScannedRef = useRef(false);
+  // Guards double-Submit (two rapid Save clicks must not create two sales).
+  const savingRef = useRef(false);
 
   const { products, loading: productsLoading, page, totalPages, goToPage, refetch } = useProducts();
   const {
@@ -125,6 +129,9 @@ function POSpage() {
     }
   };
   useEffect(() => { fetchNextBill(); }, []);
+  useEffect(() => {
+    console.log('[POS] loaded: draft-flow + save-button + cart-ref + ctrl-enter build');
+  }, []);
 
   const [shopSettings, setShopSettings] = useState<any>(null);
   useEffect(() => {
@@ -150,7 +157,79 @@ function POSpage() {
     console.log('Saved scroll positions:', scrollState);
   };
 
+  // Review step: builds an unsaved draft preview from the live cart.
+  // Nothing is written to the database, stock, ledger, or dashboard here —
+  // that happens only when Save is pressed inside the invoice modal.
+  const handleReview = () => {
+    if (!cartUUID || !cartData) {
+      alert("Cart not ready. Please wait...");
+      return;
+    }
+
+    const cartStatus = cartData?.status || cartData?.cart?.status;
+    if (cartStatus === 'completed') {
+      alert("Cart was already processed. Please try again.");
+      return;
+    }
+
+    const cartItems = cartData?.cart?.items || cartData?.items;
+    if (!cartItems || cartItems.length === 0) {
+      alert("No items in cart");
+      return;
+    }
+
+    if (currentMethodRef.current === 'pay_later' && !selectedCustomer && !billName.trim()) {
+      alert("Please select a customer for Pay Later option");
+      return;
+    }
+
+    const summary = cartData?.summary || cartData?.cart?.summary || {};
+    const draft = {
+      invoice_number: nextBillNo || 'DRAFT',
+      created_at: new Date().toISOString(),
+      isDraft: true,
+      customer: selectedCustomer
+        ? {
+            name: selectedCustomer.name,
+            mobile: selectedCustomer.mobile || billPhone || '',
+            address: selectedCustomer.address || '',
+            gstin: selectedCustomer.gstin || '',
+          }
+        : {
+            name: billName.trim() || 'Walk-in Customer',
+            mobile: billPhone || '',
+          },
+      shop: shopSettings || {},
+      items: cartItems.map((ci: any) => ({
+        product_name: ((ci.product?.name || 'Unknown') as string).replace('[Custom] ', ''),
+        quantity: ci.quantity,
+        price: ci.price,
+        total: Number(ci.price) * Number(ci.quantity),
+        hsn_code: ci.product?.hsn_code || '',
+        gst_percent: ci.tax_percent || 0,
+        batch_number: '',
+        manufacturer: ci.product?.manufacturer || '',
+        expiry: '',
+        unit: '',
+      })),
+      summary: {
+        subtotal: Number(summary.total || 0),
+        tax: Number(summary.tax || 0),
+        grand_total: grandTotal,
+      },
+      discount,
+      payments: [{ method: currentMethodRef.current, amount: grandTotal }],
+    };
+
+    setInvoiceData(draft);
+    setInvoiceSaved(false);
+    setShowInvoiceModal(true);
+  };
+
   const handleCheckout = async () => {
+    console.log("🔵 handleCheckout called");
+    if (savingRef.current) return;
+    savingRef.current = true;
     console.log("🔵 handleCheckout called");
     console.log("🔵 checkout customer:", selectedCustomer?.customer_uuid || null);
 
@@ -238,6 +317,7 @@ function POSpage() {
         await refreshAllCustomerData();
       }
       setInvoiceData(result.invoice);
+      setInvoiceSaved(true);
       setShowInvoiceModal(true);
     } else if (result === null) {
       // Checkout is waiting for prescription or was cancelled
@@ -245,13 +325,18 @@ function POSpage() {
     } else {
       console.log("Checkout failed");
     }
+    savingRef.current = false;
   };
 
-  // Always-fresh checkout entry: effects below must call through this ref,
-  // never a render closure (closures go stale when cart/modal state changes
+  // Always-fresh entries: effects below must call through these refs,
+  // never render closures (closures go stale when cart/modal state changes
   // without re-subscribing their effects — e.g. customer picked after add).
+  // Submit (button or Ctrl+Enter) always opens the unsaved draft review;
+  // only the modal's Save button performs the real checkout.
   const handleCheckoutRef = useRef(handleCheckout);
   handleCheckoutRef.current = handleCheckout;
+  const handleReviewRef = useRef(handleReview);
+  handleReviewRef.current = handleReview;
 
   // Check cart status
   useEffect(() => {
@@ -279,6 +364,20 @@ function POSpage() {
       // Ignore if user is typing in an input field
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable) return;
+
+      // Modifier chords (Ctrl+Enter submit etc.) are shortcuts, never scans.
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        barcodeBuffer = '';
+        return;
+      }
+
+      // Only single printable characters feed the scan buffer. Anything else
+      // (arrows, F-keys, bare modifiers) resets it, so key names can never
+      // accumulate into a fake barcode lookup.
+      if (e.key !== 'Enter' && e.key.length !== 1) {
+        barcodeBuffer = '';
+        return;
+      }
 
       const now = Date.now();
       const timeDiff = now - lastKeyTime;
@@ -331,7 +430,7 @@ function POSpage() {
       // Submit is an explicit chord: honored even from inside inputs.
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        handleCheckoutRef.current();
+        handleReviewRef.current();
       }
     };
 
@@ -506,7 +605,8 @@ function POSpage() {
       ) {
         return;
       }
-      handleCheckoutRef.current();
+      // Review first — the modal's Save button performs the real checkout.
+      handleReviewRef.current();
     };
     window.addEventListener("pos-checkout-request", onRequest);
     return () =>
@@ -548,6 +648,8 @@ function POSpage() {
   const handleCloseInvoice = () => {
     setShowInvoiceModal(false);
     setInvoiceData(null);
+    setInvoiceSaved(false);
+    savingRef.current = false;
     setPayments([{ method: "cash", amount: 0 }]);
     setDiscount(0);
     setSelectedCustomer(null);
@@ -576,7 +678,7 @@ function POSpage() {
 
       {/* 2 ─ BILL PARTIES (boxed seller / buyer cards + invoice meta) */}
       <section className="shrink-0 px-2 py-1 border-b border-gray-200 bg-gray-50 text-sm leading-snug">
-        <div className="border border-gray-300 bg-white grid grid-cols-2 text-sm font-bold text-gray-900 text-left">
+        <div className="border border-gray-300 bg-white grid grid-cols-1 sm:grid-cols-2 text-sm font-bold text-gray-900 text-left">
           <div className="px-2 py-1 min-w-0">
             <div className="truncate text-lg">FROM</div>
             <div className="truncate">
@@ -588,11 +690,8 @@ function POSpage() {
             <div className="truncate">
               GSTIN: {shopSettings?.gstin || ''}
             </div>
-            <div className="truncate">
-              Drug Lic: {shopSettings?.drug_license_number || ''}
-            </div>
           </div>
-          <div className="px-2 py-1 min-w-0 border-l border-gray-300">
+          <div className="px-2 py-1 min-w-0 border-t sm:border-t-0 sm:border-l border-gray-300">
             <div className="truncate text-lg">TO</div>
             <div className="truncate">
               name:{' '}
@@ -622,7 +721,7 @@ function POSpage() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4 px-1 pt-1 text-gray-600 text-left">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 px-1 pt-1 text-gray-600 text-left">
           <span>
             Invoice No: <span className="font-semibold text-gray-900">{nextBillNo || ''}</span>
           </span>
@@ -698,10 +797,10 @@ function POSpage() {
       </main>
 
       {/* 5 ─ CHECKOUT BAR (single compact workspace: totals · customer · discount · payment · actions) */}
-      <section className="shrink-0 border-t border-gray-200 bg-gray-50">
+      <section className="shrink-0 border-t border-gray-200 bg-gray-50 max-h-[42vh] overflow-y-auto lg:max-h-none lg:overflow-visible">
         <div
           ref={paymentSummaryRef}
-          className="grid grid-cols-[35%_35%_30%] items-center gap-4 px-3 pt-1.5 overflow-x-clip"
+          className="grid grid-cols-1 lg:grid-cols-[35%_35%_30%] items-center gap-2 lg:gap-4 px-3 pt-1.5 overflow-x-clip"
           id="payment-scroll-container"
         >
           {/* TOTALS */}
@@ -734,7 +833,7 @@ function POSpage() {
             </div>
           </div>
           {/* PAYMENT */}
-          <div className="min-w-0 pr-8">
+          <div className="min-w-0 pr-0 lg:pr-8">
             <PaymentSection
               payments={payments}
               onPaymentChange={(index, field, value) => {
@@ -760,10 +859,10 @@ function POSpage() {
           </div>
         </div>
         {/* ACTION ROW */}
-        <div className="flex items-center gap-1.5 px-3 py-1 mt-1 border-t border-gray-200">
+        <div className="flex flex-wrap items-center gap-1.5 px-3 py-1 mt-1 border-t border-gray-200">
           <button
             className="bg-green-600 text-white px-4 py-1 rounded-none font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-700 transition-colors text-xs"
-            onClick={handleCheckout}
+            onClick={handleReview}
             disabled={cartLoading || !cartData?.cart?.items?.length || isCartInitializing}
           >
             {cartLoading ? "Processing..." : "Submit [Ctrl+Enter]"}
@@ -975,6 +1074,8 @@ function POSpage() {
           invoice={invoiceData}
           onClose={handleCloseInvoice}
           autoPrint={autoPrint}
+          isDraft={!invoiceSaved}
+          onSave={handleCheckout}
         />
       )}
 
@@ -998,6 +1099,7 @@ function POSpage() {
           onClose={() => {
             setShowPrescriptionModal(false);
             setPrescriptionProduct(null);
+            savingRef.current = false;
           }}
           onConfirm={handlePrescriptionSubmit}
         />

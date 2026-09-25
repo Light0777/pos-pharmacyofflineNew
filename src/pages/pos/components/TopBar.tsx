@@ -87,8 +87,8 @@ export default function TopBar({ onShowSales }: TopBarProps) {
       <div className="flex items-center gap-4">
         {shopName && (
           <div className="flex flex-col items-start pl-3">
-            <span className="text-gray-500 font-semibold text-xs leading-none">Hello,</span>
-            <span className="text-gray-900 font-bold text-lg tracking-tight whitespace-nowrap">{shopName}</span>
+            <span className="hidden sm:block text-gray-500 font-semibold text-xs leading-none">Hello,</span>
+            <span className="text-gray-900 font-bold text-base sm:text-lg tracking-tight whitespace-nowrap">{shopName}</span>
           </div>
         )}
       </div>
@@ -96,7 +96,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
         <div className="flex gap-2 bg-gray-100 p-1.5 rounded-full">
         <button
           onClick={() => navigate("/admin/dashboard")}
-          className={`px-4 py-2 rounded-full text-base font-medium transition-all duration-200 ${activeTab === "/admin/dashboard"
+          className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm sm:text-base font-medium transition-all duration-200 ${activeTab === "/admin/dashboard"
               ? "bg-blue-500 text-white shadow-lg"
               : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
             }`}
@@ -105,7 +105,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
         </button>
         <button
           onClick={() => navigate("/pos")}
-          className={`px-4 py-2 rounded-full text-base font-medium transition-all duration-200 ${activeTab === "/pos"
+          className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm sm:text-base font-medium transition-all duration-200 ${activeTab === "/pos"
               ? "bg-white text-black shadow-lg"
               : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
             }`}
@@ -114,7 +114,7 @@ export default function TopBar({ onShowSales }: TopBarProps) {
         </button>
         <button
           onClick={() => navigate("/admin/products")}
-          className={`px-4 py-2 rounded-full text-base font-medium transition-all duration-200 ${activeTab === "/admin/products"
+          className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-full text-sm sm:text-base font-medium transition-all duration-200 ${activeTab === "/admin/products"
               ? "bg-blue-500 text-white shadow-lg"
               : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
             }`}

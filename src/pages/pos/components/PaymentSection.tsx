@@ -25,6 +25,10 @@ export default function PaymentSection({
   const [amountGiven, setAmountGiven] = useState<number>(0);
   const [hasManualInput, setHasManualInput] = useState(false);
   const cashInputRef = useRef<HTMLInputElement>(null);
+  // Same staleness guard as ProductGrid: the pos-select-payment listener is
+  // registered once, so it must read the latest total + handler via ref.
+  const liveRef = useRef({ grandTotal, onPaymentChange });
+  liveRef.current = { grandTotal, onPaymentChange };
 
   // External workstation shortcuts (central usePosShortcuts dispatcher):
   // F7/F8/F9 select the payment method, F10 focuses the cash input.
@@ -70,18 +74,19 @@ export default function PaymentSection({
   const change = amountGiven - grandTotal;
 
   const handleMethodSelect = (method: string) => {
+    const { grandTotal: liveTotal, onPaymentChange: liveChange } = liveRef.current;
     console.log("🟢 Method selected in PaymentSection:", method);
     console.log("🟢 Current payments before change:", payments);
 
     setSelectedMethod(method);
-    onPaymentChange(0, "method", method);
+    liveChange(0, "method", method);
     console.log("🟢 Called onPaymentChange with method:", method);
 
     if (method === "pay_later") {
-      console.log("🟢 Setting pay_later amount to:", grandTotal);
-      setAmountGiven(grandTotal);
-      onPaymentChange(0, "amount", grandTotal);
-      console.log("🟢 Called onPaymentChange with amount:", grandTotal);
+      console.log("🟢 Setting pay_later amount to:", liveTotal);
+      setAmountGiven(liveTotal);
+      liveChange(0, "amount", liveTotal);
+      console.log("🟢 Called onPaymentChange with amount:", liveTotal);
     }
   };
 

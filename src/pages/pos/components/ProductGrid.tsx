@@ -327,6 +327,11 @@ function UnitSelectionModal({
 
 export default function ProductGrid({ products, loading, page, totalPages, onPageChange, onAddItem }: ProductGridProps) {
   const { t } = useTranslation();
+  // Window listeners below (pos-add-product) are registered once — they must
+  // always call the LATEST onAddItem, otherwise adds keep posting to the
+  // cart that was active on first render (stale cartUUID after new bills).
+  const onAddItemRef = useRef(onAddItem);
+  onAddItemRef.current = onAddItem;
   const [searchTerm, setSearchTerm] = useState("");
   const [recentUUIDs, setRecentUUIDs] = useState<string[]>([]);
   const [batchInfo, setBatchInfo] = useState<Record<string, BatchInfo[]>>({});
@@ -485,7 +490,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
   // Handle unit selection confirmation
   const handleUnitConfirm = (unitUuid: string, quantity: number, unitName: string, price: number, batchUuid?: string) => {
     if (selectedProduct) {
-      onAddItem(selectedProduct, unitUuid, quantity, unitName, batchUuid);
+      onAddItemRef.current(selectedProduct, unitUuid, quantity, unitName, batchUuid);
       setRecentUUIDs(prev => {
         const filtered = prev.filter(id => id !== selectedProduct.product_uuid);
         return [selectedProduct.product_uuid, ...filtered].slice(0, 20);
@@ -527,7 +532,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
       showToast(`"${product.name}" has expired and cannot be sold.`);
       return;
     }
-    onAddItem(product, base.unit_uuid, 1, base.unit_name, firstSellable.batch_uuid);
+    onAddItemRef.current(product, base.unit_uuid, 1, base.unit_name, firstSellable.batch_uuid);
     setRecentUUIDs((prev) => {
       const filtered = prev.filter((id) => id !== product.product_uuid);
       return [product.product_uuid, ...filtered].slice(0, 20);
@@ -535,6 +540,12 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
     // Row focus is handled in CartItems: the new row's name cell takes
     // focus so the Enter chain (name → uom → qty → …) can start at once.
   };
+
+  // The pos-add-product window listener is registered once — it must invoke
+  // the LATEST selectProduct (which reads the latest onAddItem through its
+  // own ref), never the first-render closure.
+  const selectProductRef = useRef(selectProduct);
+  selectProductRef.current = selectProduct;
 
   // Load batch info for visible products
   useEffect(() => {
@@ -638,7 +649,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
       const d = (e as CustomEvent).detail;
       const product = d?.product ?? d;
       const fromGrid = !!d?.fromGrid;
-      if (product?.product_uuid) selectProduct(product, fromGrid);
+      if (product?.product_uuid) selectProductRef.current(product, fromGrid);
     };
     // Global toast requests (e.g. F5 refresh confirmation) show as success.
     const handleToast = (e: Event) => {

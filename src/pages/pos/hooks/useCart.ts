@@ -62,6 +62,13 @@ export function useCart() {
   const [discount, setDiscount] = useState(0);
   const [payments, setPayments] = useState([{ method: "cash", amount: 0 }]);
   const currentMethodRef = useRef("cash");
+  // Live cart id: window listeners (pos-add-product) and other once-registered
+  // callbacks can invoke cart operations through stale render closures that
+  // still hold the PREVIOUS bill's UUID after checkout creates a fresh cart.
+  // Reading the id through this ref always yields the current bill, so an add
+  // can never be posted to an already-completed cart again.
+  const cartUUIDRef = useRef<string | null>(null);
+  cartUUIDRef.current = cartUUID;
 
   // Prescription modal state
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
@@ -152,9 +159,13 @@ export function useCart() {
   // ─── Refresh cart ─────────────────────────────────────────────────────────
 
   const refreshCart = async () => {
-    if (!cartUUID) return;
+    const uuid = cartUUIDRef.current;
+    if (!uuid) return;
     try {
-      const response = await getCart(cartUUID);
+      const response = await getCart(uuid);
+      // Never let an error payload overwrite live cart state (e.g. a late
+      // response for a completed bill wiping the fresh empty bill).
+      if ((response as any)?.success === false && !(response as any)?.data && !(response as any)?.cart) return;
       setCartData(normalizeCartData(response));
     } catch (error) {
       console.error("❌ Error refreshing cart:", error);
@@ -181,9 +192,10 @@ export function useCart() {
   // ─── Clear cart ───────────────────────────────────────────────────────────
 
   const clearCartHandler = async () => {
-    if (!cartUUID) return;
+    const uuid = cartUUIDRef.current;
+    if (!uuid) return;
     try {
-      await clearCart(cartUUID);
+      await clearCart(uuid);
     } catch (e) {
       console.error("Error clearing cart:", e);
     }
@@ -202,7 +214,8 @@ export function useCart() {
       alert("Cart is initializing, please wait a moment...");
       return false;
     }
-    if (!cartUUID) {
+    const uuid = cartUUIDRef.current;
+    if (!uuid) {
       alert("Cart not initialized. Please restart the app.");
       return false;
     }
@@ -210,7 +223,8 @@ export function useCart() {
     setLoading(true);
 
     try {
-      await addCustomItem(cartUUID, input);
+      const res: any = await addCustomItem(uuid, input);
+      if (res && res.success === false) throw new Error(res.error || "Failed to add custom item");
       await refreshCart();
       return true;
     } catch (error: any) {
@@ -225,13 +239,14 @@ export function useCart() {
   // ─── Add item to cart ─────────────────────────────────────────────────────
 
   const addItemToCart = async (product: any, unitUuid?: string, quantity?: number, unitName?: string, batchUuid?: string) => {
-    console.log("🟢 addItemToCart called for:", product?.name);
+    const uuid = cartUUIDRef.current;
+    console.log("🟢 addItemToCart called for:", product?.name, "cart:", uuid?.slice(0, 8));
 
     if (isCartInitializing) {
       alert("Cart is initializing, please wait a moment...");
       return;
     }
-    if (!cartUUID) {
+    if (!uuid) {
       alert("Cart not initialized. Please restart the app.");
       return;
     }
@@ -246,7 +261,13 @@ export function useCart() {
 
       const finalQuantity = quantity || 1;
 
-      const result = await addItem(cartUUID, product.product_uuid, finalUnitUuid, finalQuantity, batchUuid);
+      const result: any = await addItem(uuid, product.product_uuid, finalUnitUuid, finalQuantity, batchUuid);
+      // apiPost resolves (never throws) on HTTP errors, so surface backend
+      // rejections here — otherwise refreshCart would re-display the wrong
+      // (completed) bill as a phantom row that vanishes a second later.
+      if (result && result.success === false) {
+        throw new Error(result.error || "Failed to add item");
+      }
 
       await refreshCart();
       console.log("🟢 Cart refreshed successfully");
@@ -262,11 +283,12 @@ export function useCart() {
   // ─── Increase quantity ─────────────────────────────────────────────────────
 
   const increaseItem = async (item: any) => {
-    if (!cartUUID) return;
+    const uuid = cartUUIDRef.current;
+    if (!uuid) return;
     setLoading(true);
     try {
       const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
-      await addItem(cartUUID, item.product_uuid, unitUuid, 1, item.batch_uuid ?? null);
+      await addItem(uuid, item.product_uuid, unitUuid, 1, item.batch_uuid ?? null);
       await refreshCart();
     } catch (error: any) {
       console.error("❌ Error increasing item:", error);
@@ -279,16 +301,17 @@ export function useCart() {
   // ─── Decrease quantity ─────────────────────────────────────────────────────
 
   const decreaseItem = async (item: any) => {
-    if (!cartUUID) return;
+    const uuid = cartUUIDRef.current;
+    if (!uuid) return;
     setLoading(true);
     try {
       const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
       const newQty = item.quantity - 1;
 
       if (newQty <= 0) {
-        await removeItem(cartUUID, item.product_uuid, unitUuid, item.batch_uuid ?? null);
+        await removeItem(uuid, item.product_uuid, unitUuid, item.batch_uuid ?? null);
       } else {
-        await updateItem(cartUUID, item.product_uuid, unitUuid, {
+        await updateItem(uuid, item.product_uuid, unitUuid, {
           quantity: newQty,
           match_batch_uuid: item.batch_uuid ?? null,
         });
@@ -305,11 +328,12 @@ export function useCart() {
   // ─── Remove a row outright (Delete key) ────────────────────────────────────
 
   const removeCartItem = async (item: any) => {
-    if (!cartUUID) return;
+    const uuid = cartUUIDRef.current;
+    if (!uuid) return;
     setLoading(true);
     try {
       const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
-      await removeItem(cartUUID, item.product_uuid, unitUuid, item.batch_uuid ?? null);
+      await removeItem(uuid, item.product_uuid, unitUuid, item.batch_uuid ?? null);
       await refreshCart();
     } catch (error: any) {
       console.error("❌ Error removing item:", error);
@@ -322,13 +346,14 @@ export function useCart() {
   // ─── Set absolute quantity (spreadsheet cell edit) ─────────────────────────
 
   const updateItemQuantity = async (item: any, quantity: number) => {
-    if (!cartUUID) return;
+    const uuid = cartUUIDRef.current;
+    if (!uuid) return;
     const qty = Math.floor(Number(quantity));
     if (!qty || qty < 1) return;
     setLoading(true);
     try {
       const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
-      await updateItem(cartUUID, item.product_uuid, unitUuid, {
+      await updateItem(uuid, item.product_uuid, unitUuid, {
         quantity: qty,
         match_batch_uuid: item.batch_uuid ?? null,
       });
@@ -348,11 +373,12 @@ export function useCart() {
     fields: { quantity?: number; price?: number; discount?: number; tax_percent?: number; free_quantity?: number; batch_uuid?: string | null; new_unit_uuid?: string },
     matchBatchUuid?: string | null
   ) => {
-    if (!cartUUID) return;
+    const uuid = cartUUIDRef.current;
+    if (!uuid) return;
     setLoading(true);
     try {
       const unitUuid = item.unit_uuid || (await resolveUnitUuid(item, unitCacheRef.current));
-      await updateItem(cartUUID, item.product_uuid, unitUuid, {
+      await updateItem(uuid, item.product_uuid, unitUuid, {
         ...fields,
         match_batch_uuid: matchBatchUuid !== undefined ? matchBatchUuid : (item.batch_uuid ?? null),
       });
@@ -411,7 +437,8 @@ export function useCart() {
     customerMobile?: string,
     customerName?: string
   ): Promise<CheckoutResult | null> => {
-    if (!cartUUID) {
+    const uuid = cartUUIDRef.current;
+    if (!uuid) {
       alert("Cart not initialized");
       return null;
     }
@@ -479,7 +506,7 @@ export function useCart() {
 
     setLoading(true);
     try {
-      const res = await checkoutCart(cartUUID, normalizedPayments, customerUUID, null, remarks, customerMobile, customerName);
+      const res = await checkoutCart(uuid, normalizedPayments, customerUUID, null, remarks, customerMobile, customerName);
       console.log("✅ Checkout response:", res);
 
       if (!res.success) {
@@ -535,7 +562,8 @@ export function useCart() {
     const currentPrescriptionProduct = prescriptionProduct;
     setPrescriptionProduct(null);
 
-    if (!cartUUID) {
+    const uuid = cartUUIDRef.current;
+    if (!uuid) {
       alert("Cart not initialized");
       if (prescriptionResolver) {
         prescriptionResolver(null);
@@ -550,7 +578,7 @@ export function useCart() {
 
       setLoading(true);
       try {
-        const res = await checkoutCart(cartUUID, paymentMethods, customerUUID, prescriptionWithProduct, remarks, customerMobile, customerName);
+        const res = await checkoutCart(uuid, paymentMethods, customerUUID, prescriptionWithProduct, remarks, customerMobile, customerName);
         console.log("✅ Checkout with prescription response:", res);
 
         let result: CheckoutResult | null = null;

@@ -194,6 +194,44 @@ body.dropdown-open {
     animation: fadeIn 0.2s ease-out;
 }
 
+/* ── Batch-name cell: truncated by default, ping-pong scrolls on
+      hover / keyboard focus / active-row highlight ─────────────── */
+.batch-marquee {
+  container-type: inline-size;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.batch-marquee > span {
+  display: inline-block;
+  min-width: 100%;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+/* -100% (full text width) + 100cqw (visible cell width) == exactly the
+   hidden overflow. Short names (text fits) compute to 0 and stay put. */
+.batch-cell:hover .batch-marquee,
+.batch-cell:focus-within .batch-marquee,
+tr.batch-live .batch-marquee {
+  text-overflow: clip;
+}
+.batch-cell:hover .batch-marquee > span,
+.batch-cell:focus-within .batch-marquee > span,
+tr.batch-live .batch-marquee > span {
+  animation: batch-pingpong 4.5s ease-in-out infinite alternate;
+}
+@keyframes batch-pingpong {
+  0%, 18% { transform: translateX(0); }
+  82%, 100% { transform: translateX(calc(-100% + 100cqw)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .batch-cell:hover .batch-marquee > span,
+  .batch-cell:focus-within .batch-marquee > span,
+  tr.batch-live .batch-marquee > span { animation: none; }
+}
+
 /* Animated scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

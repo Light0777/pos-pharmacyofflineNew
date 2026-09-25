@@ -5,7 +5,7 @@ import {
   WhatsappIcon,
   Delete01Icon,
 } from "@hugeicons/core-free-icons";
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { getSettings } from "../../../renderer/services/settingsApi";
@@ -15,6 +15,8 @@ interface InvoiceReceiptProps {
   onClose: () => void;
   autoPrint?: boolean;
   onDelete?: () => void;
+  isDraft?: boolean;
+  onSave?: () => void;
 }
 
 function numberToWords(num: number): string {
@@ -49,7 +51,7 @@ const BILL_FORMATS: Record<string, { paperWidth?: number }> = {
   '58mm': { paperWidth: 32 },
 };
 
-export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }: InvoiceReceiptProps) {
+export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete, isDraft, onSave }: InvoiceReceiptProps) {
   const { t } = useTranslation();
   const [formattedInvoice, setFormattedInvoice] = useState<any>(null);
   const [billFormat, setBillFormat] = useState<string>('a4');
@@ -89,24 +91,48 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
   }, [invoice]);
 
   useEffect(() => {
-    if (autoPrint && settingsLoaded && formattedInvoice) {
+    if (autoPrint && !isDraft && settingsLoaded && formattedInvoice) {
       const timer = setTimeout(() => {
         handlePrint();
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [autoPrint, settingsLoaded, formattedInvoice]);
+  }, [autoPrint, isDraft, settingsLoaded, formattedInvoice]);
 
   useEffect(() => {
     const handleEnterKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      // Drafts never auto-print on Enter (Save owns Enter there).
+      if (e.key === 'Enter' && !isDraft) {
         e.preventDefault();
         handlePrint();
       }
     };
     window.addEventListener('keydown', handleEnterKey);
     return () => window.removeEventListener('keydown', handleEnterKey);
-  }, [billFormat, formattedInvoice]);
+  }, [billFormat, formattedInvoice, isDraft]);
+
+  // Ctrl+S saves the draft bill (and never the browser-save dialog).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        if (isDraft && onSave) onSave();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isDraft, onSave]);
+
+  // Confirm the save exactly once, when a draft becomes a saved bill.
+  const wasDraftRef = useRef(false);
+  useEffect(() => {
+    if (wasDraftRef.current && !isDraft && formattedInvoice) {
+      window.dispatchEvent(
+        new CustomEvent('pos-toast', { detail: 'Saved successfully' })
+      );
+    }
+    wasDraftRef.current = !!isDraft;
+  }, [isDraft, formattedInvoice]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return new Date().toLocaleString('en-IN');
@@ -838,6 +864,17 @@ export default function InvoiceReceipt({ invoice, onClose, autoPrint, onDelete }
       </div>
 
       <div className="print:hidden fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 z-50">
+        {onSave && (
+          isDraft ? (
+            <button autoFocus onClick={onSave} className="px-5 py-2.5 bg-green-600 text-white rounded-xl flex items-center gap-2 shadow-lg hover:bg-green-700 transition-colors text-sm font-bold">
+              Save
+            </button>
+          ) : (
+            <span className="px-5 py-2.5 bg-green-100 text-green-700 rounded-xl flex items-center gap-2 shadow-lg text-sm font-bold border border-green-300">
+              ✓ Saved
+            </span>
+          )
+        )}
         <button onClick={handlePrint} className="px-5 py-2.5 bg-white text-gray-800 rounded-xl flex items-center gap-2 shadow-lg hover:bg-gray-100 transition-colors text-sm font-medium border border-gray-200">
           <HugeiconsIcon icon={PrinterIcon} className="text-base" /> Print
         </button>

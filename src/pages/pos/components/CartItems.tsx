@@ -607,6 +607,16 @@ export default function CartItems({
                   const inText = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA';
                   const cellNavKey = ev.key === 'ArrowUp' || ev.key === 'ArrowDown' || ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && (ev.ctrlKey || ev.metaKey));
                   if (inText && !cellNavKey) return;
+                  // Ctrl/Cmd+Enter is Submit from anywhere — never cell nav.
+                  // Without this, the preventDefault below marks the event
+                  // handled, the global shortcut ignores it, and the first
+                  // presses just hop columns until focus lands in an input.
+                  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    window.dispatchEvent(new CustomEvent('pos-checkout-request'));
+                    return;
+                  }
                   // An open option list owns its keys (arrows/Enter/Escape).
                   if ((ev.target as HTMLElement).closest('[data-uom-list],[data-batch-list]')) return;
                   // Arrows on an open batch picker jump into its options.
@@ -639,7 +649,7 @@ export default function CartItems({
                     }
                   }
                 }}
-                className={`text-gray-800 focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-green-500 ${isActive ? 'bg-blue-50 shadow-[inset_2px_0_0_0_#16a34a]' : 'hover:bg-gray-50'}`}
+                className={`text-gray-800 focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-green-500 ${isActive ? 'batch-live bg-blue-50 shadow-[inset_2px_0_0_0_#16a34a]' : 'hover:bg-gray-50'}`}
               >
                 <td className={`${td} text-gray-500`}>{index + 1}</td>
                 <td
@@ -755,7 +765,7 @@ export default function CartItems({
                     className="w-11 px-1 py-0.5 text-center text-xs text-gray-700 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </td>
-                <td className={`${td} text-gray-600${pc(item.id, 'batch')}`}>
+                <td className={`${td} batch-cell text-gray-600${pc(item.id, 'batch')}`}>
                   {info.batches && info.batches.length > 1 && onChangeBatch ? (
                     <div className="relative">
                       <button
@@ -787,7 +797,7 @@ export default function CartItems({
                         className="max-w-full w-full overflow-hidden flex items-center gap-1 bg-white border border-gray-300 rounded-none px-1.5 py-0.5 text-xs text-gray-800 hover:border-gray-400 focus:outline-none focus:border-green-500"
                         title="Switch batch"
                       >
-                        <span className="truncate">{selBatchNo || 'Select'}</span>
+                        <span className="batch-marquee min-w-0 flex-1" title={selBatchNo || 'Select'}><span>{selBatchNo || 'Select'}</span></span>
                         <span className="text-gray-500 text-[9px]">▾</span>
                       </button>
                       {batchOpenFor === item.id && (
@@ -846,7 +856,7 @@ export default function CartItems({
                         </>
                       )}
                     </div>
-                  ) : (selBatchNo || '—')}
+                  ) : (<span className="batch-marquee" title={selBatchNo || ''}><span>{selBatchNo || '—'}</span></span>)}
                 </td>
                 <td className={`${td} text-gray-500`}>{fmtExp(selExpiry)}</td>
                 <td className={`${td} text-center text-gray-500`}>
@@ -920,6 +930,16 @@ export default function CartItems({
                   const inText = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA';
                   const cellNavKey = ev.key === 'ArrowUp' || ev.key === 'ArrowDown' || ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && (ev.ctrlKey || ev.metaKey));
                   if (inText && !cellNavKey) return;
+                  // Ctrl/Cmd+Enter is Submit from anywhere — never cell nav.
+                  // Without this, the preventDefault below marks the event
+                  // handled, the global shortcut ignores it, and the first
+                  // presses just hop columns until focus lands in an input.
+                  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    window.dispatchEvent(new CustomEvent('pos-checkout-request'));
+                    return;
+                  }
                   if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp' || ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') {
                     if (gridArrowNav(ev, row)) return;
                   }
