@@ -7,7 +7,8 @@
 //   F5            Refresh the product list (with toast confirmation)
 //   F4            Open customer selection
 //   F6            Focus discount input
-//   F7 / F8 / F9  Select Cash / UPI / Pay Later
+//   F7 / F8 / F9  Select Cash / UPI / Pay Later (mirrored by
+//                 Ctrl+C / Ctrl+U / Ctrl+P from anywhere but inputs)
 //   F10           Focus Cash Given input
 //   + / -         Increase / decrease the selected bill row
 //   Delete        Remove the selected bill row (no new confirmation;
@@ -60,6 +61,24 @@ export function usePosShortcuts(handlers: PosShortcutHandlers) {
       if (h.modalsOpen) return;
 
       const editing = isEditableTarget(e.target);
+
+      // Ctrl/Cmd+letter payment shortcuts: Cash (C), UPI (U), Pay Later (P).
+      // Audible from anywhere on the POS screen — including inside the grid,
+      // where plain letters must keep typing into the bill. Skipped in
+      // inputs (typing + clipboard survive) and when text is selected
+      // (so Ctrl+C still copies there).
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !editing) {
+        const k = e.key.toLowerCase();
+        const method = k === "c" ? "cash" : k === "u" ? "upi" : k === "p" ? "pay_later" : null;
+        if (method) {
+          if (k === "c" && window.getSelection()?.toString()) return;
+          e.preventDefault();
+          window.dispatchEvent(
+            new CustomEvent("pos-select-payment", { detail: method })
+          );
+          return;
+        }
+      }
 
       switch (e.key) {
         case "F2":

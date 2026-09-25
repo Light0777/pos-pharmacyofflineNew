@@ -65,14 +65,16 @@ export default function CustomerSelect({
     setHighlightIdx(0);
   }, [isOpen]);
 
-  // Filter customers — only match against phone number digits
+  // Filter customers — only match against phone number digits.
+  // Capped at the first 5 matches so a huge customer list can never
+  // flood the dropdown (speed + focus); keep typing to narrow.
   const filteredCustomers = searchQuery.trim()
     ? customers.filter((c) => {
         const digits = String(c.mobile ?? '').replace(/\D/g, '');
         const query = searchQuery.replace(/\D/g, '');
         return query.length > 0 && digits.includes(query);
-      })
-    : customers.slice(0, 10);
+      }).slice(0, 5)
+    : customers.slice(0, 5);
 
   // Keyboard selection: arrows move, Enter picks, Esc closes.
   // Index 0 is Walk-in whenever it is visible, customers follow it.

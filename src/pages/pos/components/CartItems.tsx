@@ -261,7 +261,7 @@ export default function CartItems({
           if (ev.key === 'ArrowDown' && pResults.length > 0 && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); setPIdx((i) => Math.min(i + 1, pResults.length - 1)); }
           else if (ev.key === 'ArrowUp' && pResults.length > 0 && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); setPIdx((i) => Math.max(i - 1, 0)); }
           else if (ev.key === 'Enter' && editRow === e && editField === field && pResults.length > 0 && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); requestAddProduct(pResults[Math.min(pIdx, pResults.length - 1)]); }
-          else if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); ev.stopPropagation(); window.dispatchEvent(new CustomEvent('pos-checkout-request')); }
+          else if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && ev.shiftKey) { ev.preventDefault(); ev.stopPropagation(); window.dispatchEvent(new CustomEvent('pos-checkout-request')); }
           else if (ev.key === 'Escape') { ev.stopPropagation(); setPq(''); setEditRow(null); (ev.target as HTMLInputElement).blur(); }
         }}
         className="w-full bg-transparent text-gray-900 placeholder-gray-400 px-1 py-0.5 rounded-none text-xs focus:outline-none focus:bg-gray-50 focus:ring-1 focus:ring-green-500"
@@ -384,9 +384,10 @@ export default function CartItems({
     setPSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await searchProducts(q);
+        const res = await searchProducts(q, 5);
         if (!cancelled) {
-          setPResults(Array.isArray(res) ? res.slice(0, 8) : []);
+          // Dropdown shows the first 5 matches only (speed + focus).
+          setPResults(Array.isArray(res) ? res.slice(0, 5) : []);
           setPIdx(0);
         }
       } catch {
@@ -518,6 +519,28 @@ export default function CartItems({
     onUpdateField(item, { [field]: n });
   };
 
+  // Up/Down inside a number cell steps its draft value (never jumps rows).
+  // Returns true when handled so callers can fall through otherwise.
+  const stepNumberDraft = (
+    e: { key: string; preventDefault: () => void; stopPropagation: () => void; target: unknown },
+    apply: (next: number) => void,
+    opts: { min?: number; max?: number; integer?: boolean; step?: number } = {}
+  ): boolean => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return false;
+    e.preventDefault();
+    e.stopPropagation();
+    const cur = parseFloat((e.target as HTMLInputElement).value);
+    const base = Number.isFinite(cur) ? cur : 0;
+    const step = opts.step ?? 1;
+    let next = base + (e.key === 'ArrowUp' ? step : -step);
+    if (opts.integer) next = Math.floor(next);
+    if (opts.min !== undefined) next = Math.max(opts.min, next);
+    if (opts.max !== undefined) next = Math.min(opts.max, next);
+    next = Math.round(next * 100) / 100;
+    apply(next);
+    return true;
+  };
+
   const fmtExp = (d?: string) => {
     if (!d) return '—';
     const dt = new Date(d);
@@ -607,11 +630,11 @@ export default function CartItems({
                   const inText = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA';
                   const cellNavKey = ev.key === 'ArrowUp' || ev.key === 'ArrowDown' || ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && (ev.ctrlKey || ev.metaKey));
                   if (inText && !cellNavKey) return;
-                  // Ctrl/Cmd+Enter is Submit from anywhere — never cell nav.
+                  // Ctrl+Shift+Enter is Submit from anywhere — never cell nav.
                   // Without this, the preventDefault below marks the event
                   // handled, the global shortcut ignores it, and the first
                   // presses just hop columns until focus lands in an input.
-                  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
+                  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && ev.shiftKey) {
                     ev.preventDefault();
                     ev.stopPropagation();
                     window.dispatchEvent(new CustomEvent('pos-checkout-request'));
@@ -630,23 +653,32 @@ export default function CartItems({
                     if (gridArrowNav(ev, row)) return;
                   }
                   else if (ev.key === 'Enter' && !inText) {
-                    // Cell-to-cell flow: name → uom → qty → free → batch → next line.
-                    // Expiry/Price/Rate/GST/Disc/Value are display-only and skipped.
+                    // Cell-to-cell flow: name → uom → qty → free → batch → rate → gst → next line.
+                    // Display-only cells (code text, expiry, purchase price,
+                    // amounts) hold no focusable control and are skipped.
                     ev.preventDefault();
                     const cells = Array.from(row.querySelectorAll('[data-cell]')) as HTMLElement[];
                     const cur = (ev.target as HTMLElement).closest('[data-cell]');
                     const idx = cur ? cells.indexOf(cur as HTMLElement) : -1;
+                    const isFocusableCell = (el: HTMLElement) => {
+                      if (el.hasAttribute('disabled')) return false;
+                      const tag = el.tagName;
+                      if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'SELECT') return true;
+                      return el.hasAttribute('tabindex');
+                    };
                     console.log('[GRID] nav from', (cur as HTMLElement | null)?.getAttribute?.('data-cell'), 'idx', idx, 'of', cells.length);
-                    if (idx >= 0 && idx < cells.length - 1) {
-                      // Focus only: a second Enter opens pickers, arrows move
-                      // inside open lists. Never auto-clicks (that trapped
-                      // the flow in open/close loops).
-                      cells[idx + 1].focus();
-                    } else {
-                      const nextRow = row.nextElementSibling as HTMLElement | null;
-                      const nextTarget = nextRow?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null;
-                      if (nextTarget) nextTarget.focus();
+                    for (let i = idx + 1; i < cells.length; i++) {
+                      if (isFocusableCell(cells[i])) {
+                        // Focus only: a second Enter opens pickers, arrows move
+                        // inside open lists. Never auto-clicks (that trapped
+                        // the flow in open/close loops).
+                        cells[i].focus();
+                        return;
+                      }
                     }
+                    const nextRow = row.nextElementSibling as HTMLElement | null;
+                    const nextTarget = nextRow?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null;
+                    if (nextTarget) nextTarget.focus();
                   }
                 }}
                 className={`text-gray-800 focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-green-500 ${isActive ? 'batch-live bg-blue-50 shadow-[inset_2px_0_0_0_#16a34a]' : 'hover:bg-gray-50'}`}
@@ -724,6 +756,7 @@ export default function CartItems({
                       }}
                       onBlur={() => commitQty(item)}
                       onKeyDown={(e) => {
+                        if (stepNumberDraft(e, (n) => setQtyDraft((prev) => ({ ...prev, [item.id]: String(n) })), { min: 1, integer: true })) return;
                         if (e.key === 'Enter') {
                           commitQty(item);
                           const row = (e.target as HTMLElement).closest('tr');
@@ -753,11 +786,16 @@ export default function CartItems({
                     }}
                     onBlur={() => commitCell(item, 'free_quantity')}
                     onKeyDown={(e) => {
+                      if (stepNumberDraft(e, (n) => setCellDraft((prev) => ({ ...prev, [`${item.id}:free_quantity`]: String(n) })), { min: 0, integer: true })) return;
                       if (e.key === 'Enter') {
                         commitCell(item, 'free_quantity');
                         const row = (e.target as HTMLElement).closest('tr');
                         const batchBtn = row?.querySelector('[data-cell="batch"]') as HTMLElement | null;
+                        // Single-batch rows show plain text (nothing to pick),
+                        // so carry on to Rate instead of ending the chain.
+                        const rateInput = row?.querySelector('[data-cell="rate"]') as HTMLElement | null;
                         if (batchBtn) batchBtn.focus();
+                        else if (rateInput) rateInput.focus();
                         else focusNextLine(row);
                       }
                     }}
@@ -837,10 +875,12 @@ export default function CartItems({
                                     const tr = (e.target as HTMLElement).closest('tr');
                                     setBatchOpenFor(null);
                                     if (!selected) onChangeBatch(item, b.batch_uuid);
-                                    // Continue the flow on the next line's Code cell.
+                                    // Continue the flow on this row's Rate cell
+                                    // (expiry/purchase cells are display-only).
                                     requestAnimationFrame(() => {
+                                      const rate = tr?.querySelector('[data-cell="rate"]') as HTMLElement | null;
                                       const nr = tr?.nextElementSibling as HTMLElement | null;
-                                      const el = nr?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null;
+                                      const el = rate ?? (nr?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null);
                                       console.log('[GRID] batch-pick advance:', el ? `FOUND ${el.tagName}` : 'MISSING', '| nextRow:', !!nr);
                                       el?.focus();
                                     });
@@ -864,6 +904,7 @@ export default function CartItems({
                 </td>
                 <td className={`${td} text-center text-gray-900`}>
                   <input
+                    data-cell="rate"
                     value={cellDraft[`${item.id}:price`] ?? item.price.toFixed(2)}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -873,7 +914,12 @@ export default function CartItems({
                     }}
                     onBlur={() => commitCell(item, 'price')}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') { commitCell(item, 'price'); (e.target as HTMLInputElement).blur(); }
+                      if (stepNumberDraft(e, (n) => setCellDraft((prev) => ({ ...prev, [`${item.id}:price`]: String(n) })), { min: 0 })) return;
+                      if (e.key === 'Enter') {
+                        commitCell(item, 'price');
+                        const row = (e.target as HTMLElement).closest('tr');
+                        (row?.querySelector('[data-cell="gst"]') as HTMLElement | null)?.focus();
+                      }
                     }}
                     onClick={(e) => e.stopPropagation()}
                     className="w-16 px-1 py-0.5 text-center text-xs text-gray-900 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
@@ -882,6 +928,7 @@ export default function CartItems({
                 <td className={`${td} text-center text-gray-500`}>
                   <span className="inline-flex items-center">
                     <input
+                      data-cell="gst"
                       value={cellDraft[`${item.id}:tax_percent`] ?? String(item.tax_percent)}
                       onChange={(e) => {
                         const v = e.target.value;
@@ -891,7 +938,11 @@ export default function CartItems({
                       }}
                       onBlur={() => commitCell(item, 'tax_percent')}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') { commitCell(item, 'tax_percent'); (e.target as HTMLInputElement).blur(); }
+                        if (stepNumberDraft(e, (n) => setCellDraft((prev) => ({ ...prev, [`${item.id}:tax_percent`]: String(n) })), { min: 0, max: 100 })) return;
+                        if (e.key === 'Enter') {
+                          commitCell(item, 'tax_percent');
+                          focusNextLine((e.target as HTMLElement).closest('tr'));
+                        }
                       }}
                       onClick={(e) => e.stopPropagation()}
                       className="w-10 px-1 py-0.5 text-center text-xs text-gray-700 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
@@ -930,11 +981,11 @@ export default function CartItems({
                   const inText = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA';
                   const cellNavKey = ev.key === 'ArrowUp' || ev.key === 'ArrowDown' || ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && (ev.ctrlKey || ev.metaKey));
                   if (inText && !cellNavKey) return;
-                  // Ctrl/Cmd+Enter is Submit from anywhere — never cell nav.
+                  // Ctrl+Shift+Enter is Submit from anywhere — never cell nav.
                   // Without this, the preventDefault below marks the event
                   // handled, the global shortcut ignores it, and the first
                   // presses just hop columns until focus lands in an input.
-                  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
+                  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && ev.shiftKey) {
                     ev.preventDefault();
                     ev.stopPropagation();
                     window.dispatchEvent(new CustomEvent('pos-checkout-request'));

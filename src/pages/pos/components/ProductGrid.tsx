@@ -571,7 +571,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
     const timer = setTimeout(async () => {
       setSearchLoading(true);
       try {
-        const results = await searchProducts(searchTerm.trim());
+        const results = await searchProducts(searchTerm.trim(), 5);
         if (!cancelled) setSearchResults(results);
       } catch (err) {
         if (!cancelled) {
@@ -622,9 +622,9 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
     el?.scrollIntoView({ block: 'nearest' });
   }, [activeIdx]);
 
-  // Prefetch batch info for server-search dropdown rows
+  // Prefetch batch info for server-search dropdown rows (top 5 only)
   useEffect(() => {
-    const list = (searchResults ?? []).slice(0, 50);
+    const list = (searchResults ?? []).slice(0, 5);
     list.forEach(p => loadBatchInfoForProduct(p.product_uuid));
   }, [searchResults, cacheVersion]);
 
@@ -712,14 +712,15 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
               onFocus={() => setDropOpen(true)}
               onBlur={() => setTimeout(() => setDropOpen(false), 120)}
               onKeyDown={(e) => {
-                const list = sortedProducts.slice(0, 50);
+                // Dropdown shows the first 5 matches only (speed + focus).
+                const list = sortedProducts.slice(0, 5);
                 if (e.key === 'ArrowDown' && list.length > 0) { e.preventDefault(); setDropOpen(true); setActiveIdx(i => Math.min(i + 1, list.length - 1)); }
                 else if (e.key === 'ArrowUp' && list.length > 0) { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
                 else if (e.key === 'Enter') {
                   // Results open: add the highlighted product.
-                  // Ctrl+Enter here always means submit instead.
+                  // Ctrl+Shift+Enter here always means submit instead.
                   e.preventDefault();
-                  if ((e.ctrlKey || e.metaKey)) {
+                  if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
                     window.dispatchEvent(new CustomEvent('pos-checkout-request'));
                   } else if (dropOpen && list.length > 0) {
                     selectProduct(list[Math.min(activeIdx, list.length - 1)]);
@@ -759,7 +760,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                 <p className="mt-0.5">{t('pos.tryDifferentSearch')}</p>
               </div>
             ) : (
-              sortedProducts.slice(0, 50).map((p, i) => {
+              sortedProducts.slice(0, 5).map((p, i) => {
                 const productBatches = batchInfo[p.product_uuid] || [];
                 const sellableStock = productBatches.length > 0
                   ? productBatches.reduce((sum, b) => sum + (b.quantity || 0), 0)

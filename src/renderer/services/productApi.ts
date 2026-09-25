@@ -41,8 +41,9 @@ export async function deleteProduct(uuid: string) {
   return response.data || response;
 }
 
-export async function searchProducts(q: string) {
-  const response = await apiGet(`/products/search?q=${encodeURIComponent(q)}`);
+export async function searchProducts(q: string, limit?: number) {
+  const qs = `/products/search?q=${encodeURIComponent(q)}${limit ? `&limit=${limit}` : ''}`;
+  const response = await apiGet(qs);
   if (response && response.success && Array.isArray(response.data)) {
     return response.data;
   }

@@ -97,9 +97,9 @@ export default function PaymentSection({
   };
 
   const methods = [
-    { id: "cash", label: t('pos.cash'), activeBorder: "border-green-500", activeBg: "bg-green-500/10", activeText: "text-green-500" },
-    { id: "upi", label: t('pos.upi'), activeBorder: "border-purple-500", activeBg: "bg-purple-500/10", activeText: "text-purple-500" },
-    { id: "pay_later", label: t('pos.payLater'), activeBorder: "border-orange-500", activeBg: "bg-orange-500/10", activeText: "text-orange-500" },
+    { id: "cash", label: t('pos.cash'), key: "Ctrl+C", activeBorder: "border-green-500", activeBg: "bg-green-500/10", activeText: "text-green-500" },
+    { id: "upi", label: t('pos.upi'), key: "Ctrl+U", activeBorder: "border-purple-500", activeBg: "bg-purple-500/10", activeText: "text-purple-500" },
+    { id: "pay_later", label: t('pos.payLater'), key: "Ctrl+P", activeBorder: "border-orange-500", activeBg: "bg-orange-500/10", activeText: "text-orange-500" },
   ];
 
   return (
@@ -108,10 +108,11 @@ export default function PaymentSection({
 
       {/* Method Selector - three full-width stacked controls */}
       <div className="flex flex-col gap-1">
-        {methods.map(({ id, label, activeBorder, activeBg, activeText }) => (
+        {methods.map(({ id, label, key, activeBorder, activeBg, activeText }) => (
           <button
             key={id}
             type="button"
+            title={`Shortcut: ${key}`}
             onClick={() => handleMethodSelect(id)}
             className={`border rounded-none py-1 transition-all text-center ${selectedMethod === id
               ? `${activeBorder} ${activeBg}`
@@ -120,6 +121,7 @@ export default function PaymentSection({
           >
             <span className={`text-xs font-medium ${selectedMethod === id ? activeText : "text-gray-700"}`}>
               {label}
+              <span className="ml-1.5 text-[10px] font-bold text-gray-400 border border-gray-300 rounded-none px-1">{key}</span>
             </span>
           </button>
         ))}
@@ -141,8 +143,8 @@ export default function PaymentSection({
               placeholder={grandTotal.toString()}
               onChange={(e) => handleAmountChange(Number(e.target.value))}
               onKeyDown={(e) => {
-                // Ctrl+Enter in Cash Given submits via the existing checkout.
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                // Ctrl+Shift+Enter in Cash Given submits via the existing checkout.
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
                   e.preventDefault();
                   window.dispatchEvent(new CustomEvent('pos-checkout-request'));
                 }

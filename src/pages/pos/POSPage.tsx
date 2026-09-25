@@ -331,7 +331,7 @@ function POSpage() {
   // Always-fresh entries: effects below must call through these refs,
   // never render closures (closures go stale when cart/modal state changes
   // without re-subscribing their effects — e.g. customer picked after add).
-  // Submit (button or Ctrl+Enter) always opens the unsaved draft review;
+  // Submit (button or Ctrl+Shift+Enter) always opens the unsaved draft review;
   // only the modal's Save button performs the real checkout.
   const handleCheckoutRef = useRef(handleCheckout);
   handleCheckoutRef.current = handleCheckout;
@@ -419,7 +419,7 @@ function POSpage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [addItem]);
 
-  // Keyboard shortcut: Ctrl+Enter to checkout (plain Enter drives grid cells)
+  // Keyboard shortcut: Ctrl+Shift+Enter to review (plain Enter drives grid cells)
   useEffect(() => {
     const handleCheckoutShortcut = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
@@ -428,7 +428,7 @@ function POSpage() {
       }
 
       // Submit is an explicit chord: honored even from inside inputs.
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
         e.preventDefault();
         handleReviewRef.current();
       }
@@ -865,7 +865,7 @@ function POSpage() {
             onClick={handleReview}
             disabled={cartLoading || !cartData?.cart?.items?.length || isCartInitializing}
           >
-            {cartLoading ? "Processing..." : "Submit [Ctrl+Enter]"}
+            {cartLoading ? "Processing..." : "Submit [Ctrl+Shift+Enter]"}
           </button>
           {(cartData?.cart?.items?.length || 0) > 0 && (
             <button

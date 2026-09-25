@@ -115,7 +115,11 @@ export class ProductController {
         res.status(400).json({ success: false, error: 'Search query required' });
         return;
       }
-      const products = ProductModel.search(q);
+      // Dropdown callers ask for a handful of rows; clamp so a one-letter
+      // query can never dump the whole catalog into the response.
+      const rawLimit = parseInt(String(req.query.limit ?? '20'), 10);
+      const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 50) : 20;
+      const products = ProductModel.search(q, limit);
       res.json({ success: true, count: products.length, data: products });
     } catch (error) {
       console.error(error);
