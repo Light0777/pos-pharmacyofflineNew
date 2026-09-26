@@ -568,6 +568,8 @@ export function runMigrations(): void {
     { table: 'products', column: 'description', def: 'TEXT' },
     { table: 'products', column: 'discount', def: 'REAL DEFAULT 0' },
     { table: 'purchase_items', column: 'discount', def: 'REAL DEFAULT 0' },
+    { table: 'purchase_items', column: 'unit_uuid', def: 'TEXT' },
+    { table: 'purchase_items', column: 'normalized_quantity', def: 'REAL DEFAULT 0' },
     { table: 'h1_register', column: 'schedule_type', def: "TEXT NOT NULL DEFAULT 'H1'" },
     { table: 'purchases', column: 'invoice_number', def: 'TEXT' },
     { table: 'purchases', column: 'invoice_date', def: 'TEXT' },
