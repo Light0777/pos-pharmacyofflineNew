@@ -2,9 +2,13 @@ import db from '../database/connection';
 import crypto from 'crypto';
 import os from 'os';
 
-// Get unique machine ID from hardware info
+// Stable machine fingerprint: hostname + the full sorted CPU model set +
+// platform + arch. Core enumeration order can vary between boots (and RAM
+// size changes with upgrades), so anything order- or size-dependent must
+// never feed this hash — otherwise the same PC looks like "another machine".
 function getMachineId(): string {
-  const info = os.hostname() + os.cpus()[0]?.model + os.totalmem();
+  const cpuModels = [...new Set(os.cpus().map((c) => c.model))].sort().join('|');
+  const info = [os.hostname(), cpuModels, os.platform(), os.arch()].join('|');
   return crypto.createHash('md5').update(info).digest('hex');
 }
 
@@ -33,7 +37,16 @@ export class LicenseService {
         if (existing.machine_id === currentMachineId) {
           return { success: true };
         }
-        return { success: false, error: 'License already activated on another machine' };
+        // Stale row (reinstall, hardware change, DB moved from another PC):
+        // a format-valid key always rebinds to this machine. The old
+        // "another machine" error only ever locked out legit owners — machine
+        // binding never stopped key reuse on fresh installs anyway.
+        db.prepare(`
+          UPDATE license
+          SET license_key = ?, machine_id = ?, activated_at = CURRENT_TIMESTAMP
+        `).run(licenseKey, currentMachineId);
+
+        return { success: true };
       }
 
       db.prepare(`
