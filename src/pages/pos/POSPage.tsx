@@ -9,6 +9,7 @@ import DiscountSection from "./components/DiscountSection";
 import PaymentSection from "./components/PaymentSection";
 import CustomerModal from "./modals/CustomerModal";
 import SalesModal from "./modals/SalesModal";
+import InventoryModal from "./modals/InventoryModal";
 import { useCart } from "./hooks/useCart";
 import { usePosShortcuts } from "./hooks/usePosShortcuts";
 import { useProducts } from "./hooks/useProducts";
@@ -28,6 +29,7 @@ function POSpage() {
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
   const [showSalesModal, setShowSalesModal] = useState(false);
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any>(null);
   // false = unsaved draft preview; nothing is written until Save is pressed.
   const [invoiceSaved, setInvoiceSaved] = useState(false);
@@ -423,7 +425,7 @@ function POSpage() {
   useEffect(() => {
     const handleCheckoutShortcut = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
-      if (showCustomerModal || showSalesModal || showInvoiceModal || showPastInvoiceModal || showCustomModal || showPrescriptionModal || showNewBillConfirm) {
+      if (showCustomerModal || showSalesModal || showInventoryModal || showInvoiceModal || showPastInvoiceModal || showCustomModal || showPrescriptionModal || showNewBillConfirm) {
         return;
       }
 
@@ -555,6 +557,7 @@ function POSpage() {
     modalsOpen:
       showCustomerModal ||
       showSalesModal ||
+      showInventoryModal ||
       showInvoiceModal ||
       showPastInvoiceModal ||
       showCustomModal ||
@@ -597,6 +600,7 @@ function POSpage() {
       if (
         showCustomerModal ||
         showSalesModal ||
+        showInventoryModal ||
         showInvoiceModal ||
         showPastInvoiceModal ||
         showCustomModal ||
@@ -614,12 +618,21 @@ function POSpage() {
   }, [
     showCustomerModal,
     showSalesModal,
+    showInventoryModal,
     showInvoiceModal,
     showPastInvoiceModal,
     showCustomModal,
     showPrescriptionModal,
     showNewBillConfirm,
   ]);
+
+  // Inventory lookup: Ctrl+I (or the Stock button) opens it on top of POS.
+  useEffect(() => {
+    const onOpenInventory = () => setShowInventoryModal(true);
+    window.addEventListener("pos-open-inventory", onOpenInventory);
+    return () =>
+      window.removeEventListener("pos-open-inventory", onOpenInventory);
+  }, []);
 
   if (isCartInitializing) {
     return (
@@ -750,11 +763,14 @@ function POSpage() {
         />
           </div>
           <button
-            onClick={() => setShowCustomModal(true)}
-            className="shrink-0 self-stretch px-3 text-xs font-semibold text-gray-700 border border-gray-300 hover:border-gray-400 rounded-none transition-colors flex items-center"
-            title="Add a custom (ad-hoc) item row"
+            onClick={() => setShowInventoryModal(true)}
+            className="shrink-0 self-stretch px-3 text-xs font-semibold text-gray-700 border border-gray-300 hover:border-gray-400 rounded-none transition-colors flex items-center gap-1.5"
+            title="Look up stock (Ctrl+I)"
           >
-            + Add Item
+            Stock
+            <kbd className="px-1 py-px text-[9px] font-semibold bg-gray-100 text-gray-500 border border-gray-200 rounded-none whitespace-nowrap">
+              Ctrl+I
+            </kbd>
           </button>
         </div>
       </section>
@@ -837,9 +853,14 @@ function POSpage() {
             <PaymentSection
               payments={payments}
               onPaymentChange={(index, field, value) => {
-                const updated = [...payments];
-                updated[index] = { ...updated[index], [field]: value };
-                setPayments(updated);
+                // Functional update: pay_later fires method+amount back to
+                // back, and a stale closure would let the second write wipe
+                // the first (method silently reverting to cash).
+                setPayments((prev) => {
+                  const updated = [...prev];
+                  updated[index] = { ...updated[index], [field]: value };
+                  return updated;
+                });
 
                 if (field === "method") {
                   currentMethodRef.current = value;
@@ -1067,6 +1088,10 @@ function POSpage() {
             setShowPastInvoiceModal(true);
           }}
         />
+      )}
+
+      {showInventoryModal && (
+        <InventoryModal onClose={() => setShowInventoryModal(false)} />
       )}
 
       {showInvoiceModal && invoiceData && (

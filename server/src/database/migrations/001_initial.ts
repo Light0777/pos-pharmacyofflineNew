@@ -574,6 +574,7 @@ export function runMigrations(): void {
     { table: 'purchases', column: 'invoice_number', def: 'TEXT' },
     { table: 'purchases', column: 'invoice_date', def: 'TEXT' },
     { table: 'cart_items', column: 'batch_uuid', def: 'TEXT' },
+    { table: 'cart_items', column: 'unit_uuid', def: 'TEXT' },
     { table: 'products', column: 'boxes', def: 'INTEGER DEFAULT 0' },
     { table: 'products', column: 'strips_per_box', def: 'INTEGER DEFAULT 0' },
     { table: 'products', column: 'tablets_per_strip', def: 'INTEGER DEFAULT 0' },

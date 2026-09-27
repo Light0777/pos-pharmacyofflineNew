@@ -10,6 +10,7 @@
 //   F7 / F8 / F9  Select Cash / UPI / Pay Later (mirrored by
 //                 Ctrl+C / Ctrl+U / Ctrl+P from anywhere but inputs)
 //   F10           Focus Cash Given input
+//   Ctrl/Cmd+I    Open inventory lookup
 //   + / -         Increase / decrease the selected bill row
 //   Delete        Remove the selected bill row (no new confirmation;
 //                 the app has no delete-confirmation pattern to reuse)
@@ -78,6 +79,13 @@ export function usePosShortcuts(handlers: PosShortcutHandlers) {
           );
           return;
         }
+      }
+
+      // Ctrl/Cmd+I opens the inventory lookup from anywhere on POS.
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "i") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("pos-open-inventory"));
+        return;
       }
 
       switch (e.key) {
