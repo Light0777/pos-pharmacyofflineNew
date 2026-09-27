@@ -653,15 +653,18 @@ export default function CartItems({
                     if (gridArrowNav(ev, row)) return;
                   }
                   else if (ev.key === 'Enter' && !inText) {
-                    // Cell-to-cell flow: name → uom → qty → free → batch → rate → gst → next line.
-                    // Display-only cells (code text, expiry, purchase price,
-                    // amounts) hold no focusable control and are skipped.
+                    // Cell-to-cell flow: name → uom → qty → free → batch → next line.
+                    // Rate/GST carry data-enter-skip: mouse/arrow-step editable,
+                    // but never part of the Enter chain. Display-only cells
+                    // (code text, expiry, purchase price, amounts) hold no
+                    // focusable control and are skipped automatically.
                     ev.preventDefault();
                     const cells = Array.from(row.querySelectorAll('[data-cell]')) as HTMLElement[];
                     const cur = (ev.target as HTMLElement).closest('[data-cell]');
                     const idx = cur ? cells.indexOf(cur as HTMLElement) : -1;
                     const isFocusableCell = (el: HTMLElement) => {
                       if (el.hasAttribute('disabled')) return false;
+                      if (el.hasAttribute('data-enter-skip')) return false;
                       const tag = el.tagName;
                       if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'SELECT') return true;
                       return el.hasAttribute('tabindex');
@@ -791,11 +794,9 @@ export default function CartItems({
                         commitCell(item, 'free_quantity');
                         const row = (e.target as HTMLElement).closest('tr');
                         const batchBtn = row?.querySelector('[data-cell="batch"]') as HTMLElement | null;
-                        // Single-batch rows show plain text (nothing to pick),
-                        // so carry on to Rate instead of ending the chain.
-                        const rateInput = row?.querySelector('[data-cell="rate"]') as HTMLElement | null;
+                        // Single-batch rows show plain text (nothing to pick):
+                        // the chain ends here and continues on the next line.
                         if (batchBtn) batchBtn.focus();
-                        else if (rateInput) rateInput.focus();
                         else focusNextLine(row);
                       }
                     }}
@@ -875,12 +876,11 @@ export default function CartItems({
                                     const tr = (e.target as HTMLElement).closest('tr');
                                     setBatchOpenFor(null);
                                     if (!selected) onChangeBatch(item, b.batch_uuid);
-                                    // Continue the flow on this row's Rate cell
-                                    // (expiry/purchase cells are display-only).
+                                    // Continue the flow on the next line's Code cell
+                                    // (rate/gst are off the Enter chain).
                                     requestAnimationFrame(() => {
-                                      const rate = tr?.querySelector('[data-cell="rate"]') as HTMLElement | null;
                                       const nr = tr?.nextElementSibling as HTMLElement | null;
-                                      const el = rate ?? (nr?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null);
+                                      const el = nr?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null;
                                       console.log('[GRID] batch-pick advance:', el ? `FOUND ${el.tagName}` : 'MISSING', '| nextRow:', !!nr);
                                       el?.focus();
                                     });
@@ -903,52 +903,10 @@ export default function CartItems({
                   {item.product?.purchase_price ? `₹${Number(item.product.purchase_price).toFixed(2)}` : '—'}
                 </td>
                 <td className={`${td} text-center text-gray-900`}>
-                  <input
-                    data-cell="rate"
-                    value={cellDraft[`${item.id}:price`] ?? item.price.toFixed(2)}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === '' || /^\d*\.?\d*$/.test(v)) {
-                        setCellDraft((prev) => ({ ...prev, [`${item.id}:price`]: v }));
-                      }
-                    }}
-                    onBlur={() => commitCell(item, 'price')}
-                    onKeyDown={(e) => {
-                      if (stepNumberDraft(e, (n) => setCellDraft((prev) => ({ ...prev, [`${item.id}:price`]: String(n) })), { min: 0 })) return;
-                      if (e.key === 'Enter') {
-                        commitCell(item, 'price');
-                        const row = (e.target as HTMLElement).closest('tr');
-                        (row?.querySelector('[data-cell="gst"]') as HTMLElement | null)?.focus();
-                      }
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-16 px-1 py-0.5 text-center text-xs text-gray-900 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  />
+                  {item.price.toFixed(2)}
                 </td>
                 <td className={`${td} text-center text-gray-500`}>
-                  <span className="inline-flex items-center">
-                    <input
-                      data-cell="gst"
-                      value={cellDraft[`${item.id}:tax_percent`] ?? String(item.tax_percent)}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === '' || /^\d*\.?\d*$/.test(v)) {
-                          setCellDraft((prev) => ({ ...prev, [`${item.id}:tax_percent`]: v }));
-                        }
-                      }}
-                      onBlur={() => commitCell(item, 'tax_percent')}
-                      onKeyDown={(e) => {
-                        if (stepNumberDraft(e, (n) => setCellDraft((prev) => ({ ...prev, [`${item.id}:tax_percent`]: String(n) })), { min: 0, max: 100 })) return;
-                        if (e.key === 'Enter') {
-                          commitCell(item, 'tax_percent');
-                          focusNextLine((e.target as HTMLElement).closest('tr'));
-                        }
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-10 px-1 py-0.5 text-center text-xs text-gray-700 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    />
-                    <span>%</span>
-                  </span>
+                  {item.tax_percent}%
                 </td>
                 <td className={`${td} text-center text-gray-500`}>₹{taxAmount.toFixed(2)}</td>
                 <td className={`${td} text-center font-bold text-green-600`}>₹{value.toFixed(2)}</td>
