@@ -1,16 +1,18 @@
 // ─── Central keyboard shortcuts for the POS billing screen ───────────────────
 //
 // One place owns every workstation shortcut so behavior stays consistent:
-//   F2            New-bill request (POSPage confirms via in-app dialog;
-//                 native confirm is never used — it wedges Electron input)
-//   F3 / Ctrl+K   Focus product search (search input also selects its text)
-//   F5            Refresh the product list (with toast confirmation)
+//   F2            Scan mode (focus hidden barcode input in the search row)
+//   F3            Quick Keys panel (frequently sold products)
+//   F5            View Bill (open sales history)
 //   F4            Open customer selection
 //   F6            Focus discount input
 //   F7 / F8 / F9  Select Cash / UPI / Pay Later (mirrored by
 //                 Ctrl+C / Ctrl+U / Ctrl+P from anywhere but inputs)
+//   Ctrl+D        Select Card (same not-in-input rule as Ctrl+C/U/P)
 //   F10           Focus Cash Given input
 //   Ctrl/Cmd+I    Open inventory lookup
+//   Ctrl+Enter    Submit sale (handled by POSPage — opens draft review)
+//   Ctrl+Shift+Enter  Clear bill with confirm (handled by POSPage)
 //   + / -         Increase / decrease the selected bill row
 //   Delete        Remove the selected bill row (no new confirmation;
 //                 the app has no delete-confirmation pattern to reuse)
@@ -29,13 +31,12 @@ import { useEffect, useRef } from "react";
 export interface PosShortcutHandlers {
   hasLines: boolean;
   modalsOpen: boolean;
-  refreshProducts: () => void;
+  openSales: () => void;
   getSelectedItem: () => any | null;
   clearSelectedItem: () => void;
   increaseSelected: () => void;
   decreaseSelected: () => void;
   removeSelected: () => void;
-  newBill: () => void;
 }
 
 function isEditableTarget(t: EventTarget | null): boolean {
@@ -63,14 +64,19 @@ export function usePosShortcuts(handlers: PosShortcutHandlers) {
 
       const editing = isEditableTarget(e.target);
 
-      // Ctrl/Cmd+letter payment shortcuts: Cash (C), UPI (U), Pay Later (P).
-      // Audible from anywhere on the POS screen — including inside the grid,
-      // where plain letters must keep typing into the bill. Skipped in
-      // inputs (typing + clipboard survive) and when text is selected
+      // Ctrl/Cmd+letter payment shortcuts: Cash (C), UPI (U), Pay Later (P),
+      // Card (D). Audible from anywhere on the POS screen — including inside
+      // the grid, where plain letters must keep typing into the bill. Skipped
+      // in inputs (typing + clipboard survive) and when text is selected
       // (so Ctrl+C still copies there).
       if ((e.ctrlKey || e.metaKey) && !e.altKey && !editing) {
         const k = e.key.toLowerCase();
-        const method = k === "c" ? "cash" : k === "u" ? "upi" : k === "p" ? "pay_later" : null;
+        const method =
+          k === "c" ? "cash"
+          : k === "u" ? "upi"
+          : k === "p" ? "pay_later"
+          : k === "d" ? "card"
+          : null;
         if (method) {
           if (k === "c" && window.getSelection()?.toString()) return;
           e.preventDefault();
@@ -90,17 +96,19 @@ export function usePosShortcuts(handlers: PosShortcutHandlers) {
 
       switch (e.key) {
         case "F2":
+          // Scan mode: the search row focuses its hidden barcode input.
           e.preventDefault();
-          h.newBill();
+          window.dispatchEvent(new CustomEvent("pos-open-scan"));
           break;
         case "F3":
+          // Quick Keys panel: frequently sold products.
           e.preventDefault();
-          window.dispatchEvent(new CustomEvent("pos-focus-search"));
+          window.dispatchEvent(new CustomEvent("pos-open-quickkeys"));
           break;
         case "F5":
-          // Outside modals only (guarded above); refreshes the product list.
+          // View Bill: open sales history.
           e.preventDefault();
-          h.refreshProducts();
+          h.openSales();
           break;
         case "F4":
           e.preventDefault();

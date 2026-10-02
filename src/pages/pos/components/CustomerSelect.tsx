@@ -1,12 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import { User, ChevronDown, Search, X } from "lucide-react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  ChevronDownIcon,
-  UserIcon,
-  AddCircleIcon,
-  Search01Icon,
-  CancelCircleIcon,
-} from "@hugeicons/core-free-icons";
+import { AddCircleIcon } from "@hugeicons/core-free-icons";
 import { useTranslation } from 'react-i18next';
 
 interface CustomerSelectProps {
@@ -15,6 +10,12 @@ interface CustomerSelectProps {
   onSelectCustomer: (customer: any | null) => void;
   onAddNew: (phone?: string) => void;
   displayName?: string;
+  // dropdown: closed control + upward menu (bottom cards).
+  // inline: always-visible search input + downward menu (header card).
+  // Selection state is shared via props, so both stay in sync.
+  layout?: 'dropdown' | 'inline';
+  // Only one mounted instance should answer the global F4 shortcut.
+  listenF4?: boolean;
 }
 
 export default function CustomerSelect({
@@ -23,6 +24,8 @@ export default function CustomerSelect({
   onSelectCustomer,
   onAddNew,
   displayName,
+  layout = 'dropdown',
+  listenF4 = true,
 }: CustomerSelectProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -35,6 +38,7 @@ export default function CustomerSelect({
   // The existing auto-focus effect then puts the cursor in its search box.
   // Always refocuses, so repeated F4 presses visibly respond.
   useEffect(() => {
+    if (!listenF4) return;
     const onFocusCustomer = () => {
       console.log("🔵 Customer dropdown requested → opening");
       setIsOpen(true);
@@ -43,7 +47,7 @@ export default function CustomerSelect({
     window.addEventListener("pos-focus-customer", onFocusCustomer);
     return () =>
       window.removeEventListener("pos-focus-customer", onFocusCustomer);
-  }, []);
+  }, [listenF4]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -65,14 +69,17 @@ export default function CustomerSelect({
     setHighlightIdx(0);
   }, [isOpen]);
 
-  // Filter customers — only match against phone number digits.
+  // Filter customers by name or phone digits.
   // Capped at the first 5 matches so a huge customer list can never
   // flood the dropdown (speed + focus); keep typing to narrow.
-  const filteredCustomers = searchQuery.trim()
+  const q = searchQuery.trim().toLowerCase();
+  const qDigits = searchQuery.replace(/\D/g, '');
+  const filteredCustomers = q
     ? customers.filter((c) => {
-        const digits = String(c.mobile ?? '').replace(/\D/g, '');
-        const query = searchQuery.replace(/\D/g, '');
-        return query.length > 0 && digits.includes(query);
+        const nameHit = String(c.name ?? '').toLowerCase().includes(q);
+        const phoneHit = qDigits.length > 0 &&
+          String(c.mobile ?? '').replace(/\D/g, '').includes(qDigits);
+        return nameHit || phoneHit;
       }).slice(0, 5)
     : customers.slice(0, 5);
 
@@ -106,130 +113,132 @@ export default function CustomerSelect({
     }
   };
 
-  return (
-    <div className="relative" ref={dropdownRef}>
-      {/* Selected Value Display - compact single-line control */}
-      <div
-        className="w-full border border-gray-300 bg-white px-2 py-1 rounded-none text-gray-900 flex justify-between items-center gap-2 cursor-pointer hover:border-gray-400 transition-colors"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <div className="flex items-center gap-1.5 min-w-0">
-          <HugeiconsIcon icon={UserIcon} className="text-gray-400 text-base shrink-0"  />
-          <span className="text-xs truncate">
-            {selectedCustomer
-              ? `${selectedCustomer.name}${
-                  selectedCustomer.credit_balance > 0
-                    ? ` (${t('pos.dueLabel')}: ₹${selectedCustomer.credit_balance})`
-                    : ''
-                }`
-              : displayName?.trim()
-                ? displayName.trim()
-                : t('pos.walkInCustomer')}
-          </span>
+  const selectedLabel = selectedCustomer
+    ? `${selectedCustomer.name}${
+        selectedCustomer.credit_balance > 0
+          ? ` (${t('pos.dueLabel')}: ₹${selectedCustomer.credit_balance})`
+          : ''
+      }`
+    : displayName?.trim()
+      ? displayName.trim()
+      : t('pos.walkInCustomer');
+
+  const searchBox = (
+    <div className="flex items-center gap-2 bg-white border border-[#D5DBE5] rounded-lg h-10 px-3 focus-within:border-[#16A34A] focus-within:ring-2 focus-within:ring-[#16A34A]/30 transition">
+      <Search className="w-[18px] h-[18px] text-[#64748B] shrink-0" />
+      <input
+        ref={searchInputRef}
+        value={searchQuery}
+        onChange={(e) => { setSearchQuery(e.target.value); setHighlightIdx(0); }}
+        onKeyDown={onSearchKeyDown}
+        onFocus={() => setIsOpen(true)}
+        placeholder="Search customer by name, phone or barcode..."
+        autoComplete="off"
+        className="flex-1 min-w-0 bg-transparent text-[#1E293B] text-sm outline-none placeholder:text-[#64748B]"
+      />
+      {searchQuery.length > 0 && (
+        <button onClick={() => setSearchQuery('')} className="text-[#64748B] hover:text-[#1E293B] shrink-0">
+          <X className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  );
+
+  const menu = (
+    <div className={`absolute left-0 right-0 bg-white border border-[#E5E9F0] rounded-xl overflow-hidden z-50 shadow-lg ${layout === 'inline' ? 'top-full mt-1' : 'bottom-full mb-1'}`}>
+      {layout === 'dropdown' && (
+        <div className="p-2 border-b border-[#E5E9F0] bg-gray-50/60">
+          {searchBox}
         </div>
-        <HugeiconsIcon icon={ChevronDownIcon}
-          className={`text-gray-400 text-base shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-         />
-      </div>
+      )}
 
-      {/* Dropdown Menu */}
-      {isOpen && (
-        <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-gray-300 rounded-none overflow-hidden z-50 shadow">
-
-          {/* Search Input */}
-          <div className="p-1.5 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center gap-2 bg-gray-100 rounded-none px-2 py-1">
-              <HugeiconsIcon icon={Search01Icon} className="text-gray-400 text-lg shrink-0"  />
-              <input
-                ref={searchInputRef}
-                type="tel"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setHighlightIdx(0); }}
-                onKeyDown={onSearchKeyDown}
-                placeholder={t('pos.searchByPhone')}
-                className="flex-1 bg-transparent text-gray-900 text-xs outline-none placeholder-gray-500"
-              />
-              {searchQuery.length > 0 && (
-                <HugeiconsIcon
-                  icon={CancelCircleIcon}
-                  className="text-gray-400 text-lg cursor-pointer hover:text-gray-600 shrink-0"
-                  onClick={() => setSearchQuery('')}
-                 />
-              )}
-            </div>
-          </div>
-
-          {/* Walk-in Customer Option — hide when actively searching */}
-          {!searchQuery.trim() && (
-            <div
-              className={`px-2 py-1.5 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-200 flex justify-center items-center gap-2 ${highlightIdx === 0 ? 'bg-blue-50' : ''}`}
-              onMouseEnter={() => setHighlightIdx(0)}
-              onClick={() => {
-                onSelectCustomer(null);
-                setIsOpen(false);
-              }}
-            >
-              <HugeiconsIcon icon={UserIcon} className="text-gray-400 text-xl"  />
-              <div className="text-start">
-                <div className="text-gray-900 text-sm font-medium">{t('pos.walkInCustomer')}</div>
-                <div className="text-[11px] text-gray-400">{t('pos.noCreditAccountNeeded')}</div>
-              </div>
-            </div>
-          )}
-
-          {/* Customers List */}
-          <div className="max-h-40 overflow-y-auto scrollbar-hide">
-            {filteredCustomers.length > 0 ? (
-              filteredCustomers.map((c, idx) => (
-                <div
-                  key={c.customer_uuid}
-                  className={`px-2 py-1.5 hover:bg-gray-100 cursor-pointer transition-colors border-b border-gray-200 last:border-b-0 ${highlightIdx === (idx + (walkInVisible ? 1 : 0)) ? 'bg-blue-50' : ''}`}
-                  onMouseEnter={() => setHighlightIdx(idx + (walkInVisible ? 1 : 0))}
-                  onClick={() => {
-                    onSelectCustomer(c);
-                    setIsOpen(false);
-                  }}
-                >
-                  <div className="flex justify-between items-center gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-gray-900 text-sm font-medium truncate">{c.name}</div>
-                      {c.mobile && (
-                        <div className="text-[11px] text-gray-400 mt-0.5">{c.mobile}</div>
-                      )}
-                    </div>
-                    {c.credit_balance > 0 && (
-                      <div className="text-right shrink-0">
-                        <div className="text-xs text-orange-400">{t('pos.dueAmount')}</div>
-                        <div className="text-sm font-semibold text-orange-400">₹{c.credit_balance}</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="p-4 text-center text-gray-500 text-sm">
-                {t('pos.noCustomerFoundFor', { query: searchQuery })}
-              </div>
-            )}
-          </div>
-
-          {/* Add New Customer Button */}
-          <div className="border-t border-gray-200 px-2 py-1 bg-gray-50">
-            <button
-              className="w-full text-center text-blue-600 text-xs hover:text-blue-700 transition-colors flex items-center justify-center gap-2 py-0.5"
-              onClick={() => {
-                onAddNew(searchQuery);
-                setIsOpen(false);
-              }}
-            >
-              <HugeiconsIcon icon={AddCircleIcon} className="text-lg"  />
-              <span>{t('pos.addNewCustomer')}</span>
-            </button>
+      {/* Walk-in Customer Option — hide when actively searching */}
+      {!searchQuery.trim() && (
+        <div
+          className={`px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors border-b border-[#E5E9F0] flex items-center gap-2 ${highlightIdx === 0 ? 'bg-[#16A34A]/10' : ''}`}
+          onMouseEnter={() => setHighlightIdx(0)}
+          onClick={() => {
+            onSelectCustomer(null);
+            setIsOpen(false);
+          }}
+        >
+          <User className="w-5 h-5 text-[#64748B]" />
+          <div className="text-start">
+            <div className="text-[#1E293B] text-sm font-medium">{t('pos.walkInCustomer')}</div>
+            <div className="text-[11px] text-[#64748B]">{t('pos.noCreditAccountNeeded')}</div>
           </div>
         </div>
       )}
+
+      {/* Customers List */}
+      <div className="max-h-40 overflow-y-auto">
+        {filteredCustomers.length > 0 ? (
+          filteredCustomers.map((c, idx) => (
+            <div
+              key={c.customer_uuid}
+              className={`px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors border-b border-[#E5E9F0] last:border-b-0 ${highlightIdx === (idx + (walkInVisible ? 1 : 0)) ? 'bg-[#16A34A]/10' : ''}`}
+              onMouseEnter={() => setHighlightIdx(idx + (walkInVisible ? 1 : 0))}
+              onClick={() => {
+                onSelectCustomer(c);
+                setIsOpen(false);
+              }}
+            >
+              <div className="flex justify-between items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[#1E293B] text-sm font-medium truncate">{c.name}</div>
+                  {c.mobile && (
+                    <div className="text-[11px] text-[#64748B] mt-0.5">{c.mobile}</div>
+                  )}
+                </div>
+                {c.credit_balance > 0 && (
+                  <div className="text-right shrink-0">
+                    <div className="text-xs text-orange-400">{t('pos.dueAmount')}</div>
+                    <div className="text-sm font-semibold text-orange-400">₹{c.credit_balance}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="p-4 text-center text-[#64748B] text-sm">
+            {t('pos.noCustomerFoundFor', { query: searchQuery })}
+          </div>
+        )}
+      </div>
+
+      {/* Add New Customer Button */}
+      <div className="border-t border-[#E5E9F0] px-2 py-1.5 bg-gray-50/60">
+        <button
+          className="w-full text-center text-[#16A34A] text-xs font-semibold hover:text-[#15803D] transition-colors flex items-center justify-center gap-2 py-0.5"
+          onClick={() => {
+            onAddNew(searchQuery);
+            setIsOpen(false);
+          }}
+        >
+          <HugeiconsIcon icon={AddCircleIcon} className="text-lg" />
+          <span>{t('pos.addNewCustomer')}</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      {layout === 'inline' ? (
+        searchBox
+      ) : (
+        <div
+          className="w-full h-10 bg-white border border-[#D5DBE5] rounded-lg px-3 text-[#1E293B] flex justify-between items-center gap-2 cursor-pointer hover:border-[#16A34A] transition-colors"
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <User className="w-[18px] h-[18px] text-[#64748B] shrink-0" />
+            <span className="text-sm truncate">{selectedLabel}</span>
+          </div>
+          <ChevronDown className={`w-4 h-4 text-[#64748B] shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        </div>
+      )}
+      {isOpen && menu}
     </div>
   );
 }

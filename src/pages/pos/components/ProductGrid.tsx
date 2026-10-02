@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Product } from "../../../renderer/types/product";
-import { getProductBatches, getProductUnits, getAvailableBatches } from "../../../renderer/services/productApi";
+import { getProductBatches, getProductUnits, getAvailableBatches, getProductByBarcode } from "../../../renderer/services/productApi";
+import { getTopProducts } from "../../../renderer/services/reportApi";
+import { Search, X, Barcode, Keyboard, Package } from "lucide-react";
+import { ShortcutBadge } from "./posUi";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   AlertCircleIcon,
@@ -368,6 +371,20 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
   const dropListRef = useRef<HTMLDivElement>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Scan mode (F2): hidden input captures a barcode-scanner burst
+  // (code + Enter). The global scanner listener ignores INPUT targets,
+  // so scanner keystrokes can never double-add through both paths.
+  const [scanMode, setScanMode] = useState(false);
+  const scanRef = useRef<HTMLInputElement>(null);
+  const [scanBusy, setScanBusy] = useState(false);
+
+  // Quick Keys (F3): frequently sold products from the existing
+  // top-products report; falls back to the loaded catalog when empty.
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [quickItems, setQuickItems] = useState<any[]>([]);
+  const [quickLoading, setQuickLoading] = useState(false);
+  const quickPanelRef = useRef<HTMLDivElement>(null);
   // Invalidate batch cache and trigger refresh
   const invalidateBatchCache = useCallback(() => {
     setBatchInfo({});
@@ -547,6 +564,56 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
   const selectProductRef = useRef(selectProduct);
   selectProductRef.current = selectProduct;
 
+  // Scan submit: barcode + Enter on the hidden input. Stays in scan mode
+  // for rapid multi-scan; Esc (or clicking away) exits.
+  const submitScan = async (code: string) => {
+    const c = code.trim();
+    if (!c || scanBusy) return;
+    setScanBusy(true);
+    try {
+      const product = await getProductByBarcode(c);
+      if (product?.product_uuid) {
+        await selectProductRef.current(product as Product, false);
+      } else {
+        showToast(`No product found for barcode: ${c}`);
+      }
+    } catch {
+      showToast('Barcode lookup failed. Please search manually.');
+    } finally {
+      setScanBusy(false);
+      if (scanRef.current) {
+        scanRef.current.value = '';
+        scanRef.current.focus();
+      }
+    }
+  };
+
+  // Quick Keys: load frequently sold products when the panel opens.
+  // Falls back to the loaded catalog when there are no sales yet.
+  useEffect(() => {
+    if (!quickOpen) return;
+    let cancelled = false;
+    setQuickLoading(true);
+    (async () => {
+      try {
+        const top = await getTopProducts(8);
+        const list = Array.isArray(top) && top.length > 0
+          ? top
+          : (products || []).slice(0, 8);
+        if (!cancelled) setQuickItems(list);
+      } catch {
+        if (!cancelled) setQuickItems((products || []).slice(0, 8));
+      } finally {
+        if (!cancelled) setQuickLoading(false);
+      }
+    })();
+    const t = setTimeout(() => quickPanelRef.current?.focus(), 60);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [quickOpen, products]);
+
   // Load batch info for visible products
   useEffect(() => {
     if (products.length > 0) {
@@ -645,24 +712,37 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
       searchRef.current?.select();
       setDropOpen(true);
     };
+    const handleOpenScan = () => {
+      setQuickOpen(false);
+      setScanMode(true);
+      setTimeout(() => scanRef.current?.focus(), 60);
+    };
+    const handleOpenQuickKeys = () => {
+      setScanMode(false);
+      setQuickOpen(true);
+    };
     const handleAddProduct = (e: Event) => {
       const d = (e as CustomEvent).detail;
       const product = d?.product ?? d;
       const fromGrid = !!d?.fromGrid;
       if (product?.product_uuid) selectProductRef.current(product, fromGrid);
     };
-    // Global toast requests (e.g. F5 refresh confirmation) show as success.
+    // Global toast requests show as success.
     const handleToast = (e: Event) => {
       const message = (e as CustomEvent).detail;
       if (typeof message === "string" && message) showToast(message, 'success');
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('pos-focus-search', handleFocusSearch);
+    window.addEventListener('pos-open-scan', handleOpenScan);
+    window.addEventListener('pos-open-quickkeys', handleOpenQuickKeys);
     window.addEventListener('pos-add-product', handleAddProduct);
     window.addEventListener('pos-toast', handleToast);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('pos-focus-search', handleFocusSearch);
+      window.removeEventListener('pos-open-scan', handleOpenScan);
+      window.removeEventListener('pos-open-quickkeys', handleOpenQuickKeys);
       window.removeEventListener('pos-add-product', handleAddProduct);
       window.removeEventListener('pos-toast', handleToast);
     };
@@ -698,10 +778,10 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
 
       {/* Search / product entry - results open as a dropdown; selecting adds a row to the invoice table */}
       <div className="relative">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 min-w-0">
-            <div className="absolute left-2 inset-y-0 flex items-center text-gray-500 pointer-events-none">
-              <HugeiconsIcon icon={Search01Icon} className="text-sm"  />
+        <div className="flex items-center gap-3 h-11">
+          <div className="relative flex-1 min-w-0 h-full">
+            <div className="absolute left-3 inset-y-0 flex items-center text-[#64748B] pointer-events-none">
+              <Search className="w-[18px] h-[18px]" />
             </div>
             <input
               ref={searchRef}
@@ -718,9 +798,9 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                 else if (e.key === 'ArrowUp' && list.length > 0) { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
                 else if (e.key === 'Enter') {
                   // Results open: add the highlighted product.
-                  // Ctrl+Shift+Enter here always means submit instead.
+                  // Ctrl+Enter here always means submit instead.
                   e.preventDefault();
-                  if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+                  if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
                     window.dispatchEvent(new CustomEvent('pos-checkout-request'));
                   } else if (dropOpen && list.length > 0) {
                     selectProduct(list[Math.min(activeIdx, list.length - 1)]);
@@ -728,15 +808,15 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                 }
                 else if (e.key === 'Escape') { setSearchTerm(''); setDropOpen(false); }
               }}
-              className="w-full pl-7 pr-16 py-2 text-xs border border-gray-300 rounded-none bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-transparent font-inter"
+              className="w-full h-full pl-10 pr-10 text-sm border border-[#D5DBE5] rounded-lg bg-white text-[#1E293B] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30 focus:border-[#16A34A] font-inter"
               autoComplete="off"
             />
             {searchTerm ? (
               <button
                 onClick={() => { setSearchTerm(''); setDropOpen(false); searchRef.current?.focus(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-xs"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#1E293B]"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             ) : (
               <kbd className="absolute right-1.5 top-1/2 -translate-y-1/2 px-1 py-px text-[9px] font-semibold bg-gray-100 text-gray-500 border border-gray-200 rounded-none pointer-events-none whitespace-nowrap">
@@ -745,12 +825,39 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
             )}
           </div>
           {searchLoading ? (
-            <div className="animate-spin rounded-none h-4 w-4 border-b-2 border-green-500 shrink-0" />
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#16A34A] shrink-0" />
           ) : searchTerm ? (
-            <div className="text-[11px] text-gray-500 whitespace-nowrap shrink-0">
+            <div className="text-[11px] text-[#64748B] whitespace-nowrap shrink-0">
               {t('pos.foundProducts', { count: filteredProducts.length })}
             </div>
           ) : null}
+          <button
+            onClick={() => { setQuickOpen(false); setDropOpen(false); setScanMode(true); setTimeout(() => scanRef.current?.focus(), 60); }}
+            className="shrink-0 h-full px-3 bg-white border border-[#D5DBE5] rounded-lg text-sm font-semibold text-[#1E293B] hover:border-[#16A34A] transition-colors flex items-center gap-2"
+            title="Scan a barcode (F2)"
+          >
+            <Barcode className="w-[18px] h-[18px] text-[#64748B]" />
+            <span>Scan</span>
+            <ShortcutBadge label="F2" />
+          </button>
+          <button
+            onClick={() => { setScanMode(false); setQuickOpen((o) => !o); }}
+            className="shrink-0 h-full px-3 bg-white border border-[#D5DBE5] rounded-lg text-sm font-semibold text-[#1E293B] hover:border-[#16A34A] transition-colors flex items-center gap-2"
+            title="Frequently sold products (F3)"
+          >
+            <Keyboard className="w-[18px] h-[18px] text-[#64748B]" />
+            <span>Quick Keys</span>
+            <ShortcutBadge label="F3" />
+          </button>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("pos-open-inventory"))}
+            className="shrink-0 h-full px-3 bg-white border border-[#D5DBE5] rounded-lg text-sm font-semibold text-[#1E293B] hover:border-[#16A34A] transition-colors flex items-center gap-2"
+            title="Look up stock (Ctrl+I)"
+          >
+            <Package className="w-[18px] h-[18px] text-[#64748B]" />
+            <span>Stock</span>
+            <ShortcutBadge label="Ctrl+I" />
+          </button>
         </div>
         {dropOpen && searchTerm.trim().length >= 1 && (
           <div ref={dropListRef} className="absolute left-0 right-0 top-full mt-1 z-50 max-h-72 overflow-y-auto bg-white border border-gray-300 rounded-md shadow">
@@ -794,6 +901,80 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
               })
             )}
           </div>
+        )}
+        {scanMode && (
+          <div className="mt-1 flex items-center gap-2 px-3 py-1.5 bg-[#16A34A]/10 border border-[#16A34A]/30 rounded-lg text-xs font-medium text-[#15803D]">
+            <Barcode className="w-4 h-4" />
+            <span>Scan mode — scan a barcode now · Enter adds it · Esc exits</span>
+          </div>
+        )}
+        {/* Hidden barcode-capture input: focusable via .focus(), invisible to layout. */}
+        <input
+          ref={scanRef}
+          autoComplete="off"
+          tabIndex={-1}
+          aria-hidden="true"
+          className="absolute w-px h-px opacity-0 pointer-events-none"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              submitScan((e.target as HTMLInputElement).value);
+            } else if (e.key === 'Escape') {
+              (e.target as HTMLInputElement).value = '';
+              setScanMode(false);
+              searchRef.current?.focus();
+            }
+          }}
+          onBlur={() => {
+            if (scanRef.current) scanRef.current.value = '';
+            setScanMode(false);
+          }}
+        />
+        {quickOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setQuickOpen(false)} />
+            <div
+              ref={quickPanelRef}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.stopPropagation();
+                  setQuickOpen(false);
+                } else if (/^[1-8]$/.test(e.key) && quickItems.length > 0) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const p = quickItems[Math.min(Number(e.key) - 1, quickItems.length - 1)];
+                  if (p) selectProductRef.current(p as Product, false);
+                }
+              }}
+              className="absolute left-0 top-full mt-1 z-50 w-80 max-h-80 overflow-y-auto bg-white border border-[#E5E9F0] rounded-xl shadow-lg p-1.5"
+            >
+              <div className="px-2 py-1.5 text-[11px] font-bold text-[#64748B] uppercase tracking-wide">
+                Quick Keys — press 1–8 or click to add
+              </div>
+              {quickLoading ? (
+                <div className="px-2 py-4 text-center text-sm text-[#64748B]">Loading…</div>
+              ) : quickItems.length === 0 ? (
+                <div className="px-2 py-4 text-center text-sm text-[#64748B]">{t('pos.noProductsFound')}</div>
+              ) : (
+                quickItems.slice(0, 8).map((p: any, i: number) => (
+                  <button
+                    key={p.product_uuid}
+                    onClick={() => selectProductRef.current(p as Product, false)}
+                    className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-gray-50 text-left transition-colors"
+                  >
+                    <span className="w-6 h-6 shrink-0 flex items-center justify-center text-[11px] font-mono font-bold text-[#64748B] border border-gray-300 rounded">
+                      {i + 1}
+                    </span>
+                    <span className="flex-1 min-w-0 truncate text-sm font-medium text-[#1E293B]">
+                      {p.name}
+                    </span>
+                    <span className="shrink-0 text-sm font-semibold text-[#1E293B]">₹{p.price}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </>
         )}
       </div>
       {/* Unit Selection Modal */}

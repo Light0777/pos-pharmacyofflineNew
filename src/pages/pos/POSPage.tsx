@@ -18,6 +18,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Store01Icon,
 } from "@hugeicons/core-free-icons";
+import { Trash2, ShoppingCart, ReceiptText, Banknote, ChevronDown, User, Plus, Calendar } from "lucide-react";
+import { Card, ShortcutBadge } from "./components/posUi";
 import InvoiceReceipt from "./components/InvoiceReceipt";
 import { getSettings } from "../../renderer/services/settingsApi";
 import { getInvoice, getNextInvoice } from "../../renderer/services/saleApi";
@@ -110,18 +112,6 @@ function POSpage() {
     setBillPhone(selectedCustomer?.mobile ? String(selectedCustomer.mobile).replace(/\D/g, '') : "");
     setBillName(selectedCustomer?.name || "");
   }, [selectedCustomer?.customer_uuid]);
-
-  const handleBillPhoneChange = (digits: string) => {
-    setBillPhone(digits);
-    if (digits.length === 10) {
-      const match = (customers || []).find(
-        (c: any) => String(c.mobile || '').replace(/\D/g, '') === digits
-      );
-      if (match && match.customer_uuid !== selectedCustomer?.customer_uuid) {
-        setSelectedCustomer(match);
-      }
-    }
-  };
   const [nextBillNo, setNextBillNo] = useState<string | null>(null);
   const fetchNextBill = async () => {
     try {
@@ -333,7 +323,7 @@ function POSpage() {
   // Always-fresh entries: effects below must call through these refs,
   // never render closures (closures go stale when cart/modal state changes
   // without re-subscribing their effects — e.g. customer picked after add).
-  // Submit (button or Ctrl+Shift+Enter) always opens the unsaved draft review;
+  // Submit (button or Ctrl+Enter) always opens the unsaved draft review;
   // only the modal's Save button performs the real checkout.
   const handleCheckoutRef = useRef(handleCheckout);
   handleCheckoutRef.current = handleCheckout;
@@ -421,7 +411,9 @@ function POSpage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [addItem]);
 
-  // Keyboard shortcut: Ctrl+Shift+Enter to review (plain Enter drives grid cells)
+  // Keyboard shortcuts: Ctrl+Enter submits (draft review), Ctrl+Shift+Enter
+  // clears via the confirm flow (plain Enter drives grid cells).
+  // Both are honored even from inside inputs.
   useEffect(() => {
     const handleCheckoutShortcut = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
@@ -429,10 +421,14 @@ function POSpage() {
         return;
       }
 
-      // Submit is an explicit chord: honored even from inside inputs.
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
         e.preventDefault();
         handleReviewRef.current();
+      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+        e.preventDefault();
+        // Same confirm-then-clear flow as the Clear button.
+        // Never use native window.confirm here — it wedges Electron input.
+        window.dispatchEvent(new CustomEvent("pos-new-bill-request"));
       }
     };
 
@@ -512,8 +508,8 @@ function POSpage() {
     return () => clearTimeout(restoreTimer);
   }, []);
 
-  // (Removed: old standalone F5 handler — F5 now lives in usePosShortcuts
-  // with a visible toast so the refresh is always confirmable.)
+  // (Removed: old standalone F5 handler — F5 now opens View Bill,
+  // and product refresh happens automatically after save/close.)
 
   // New-bill flow: in-app confirm (never native confirm), then clear.
   useEffect(() => {
@@ -543,15 +539,14 @@ function POSpage() {
       window.removeEventListener("pos-new-bill-request", onNewBill);
   }, [cartData, clearCart]);
 
-  // ─── Central workstation shortcuts (F2/F3/F4/F5/F6–F10, +/-, Delete) ──────────
+  // ─── Central workstation shortcuts ─────────────────────────────────────────
+  // F2 scan, F3 quick keys, F5 view bill, F4/F6–F10, Ctrl+I, Ctrl+C/U/P/D.
   // Enter, arrows, Ctrl+K, barcode keep their existing dedicated
   // handlers; this hook only adds the workstation layer on top.
   usePosShortcuts({
-    refreshProducts: () => {
-      refetch();
-      window.dispatchEvent(
-        new CustomEvent("pos-toast", { detail: "Product list refreshed" })
-      );
+    openSales: () => {
+      loadSales();
+      setShowSalesModal(true);
     },
     hasLines: (cartData?.cart?.items?.length || 0) > 0,
     modalsOpen:
@@ -581,11 +576,6 @@ function POSpage() {
         removeCartItem(it);
         selectedRowRef.current = null;
       }
-    },
-    newBill: () => {
-      // The actual clear lives in POSPage behind an in-app confirm dialog.
-      // Never use native window.confirm here — it wedges Electron input.
-      window.dispatchEvent(new CustomEvent("pos-new-bill-request"));
     },
   });
 
@@ -678,8 +668,8 @@ function POSpage() {
   // handleCheckout already validates cart, customer, and payment state.
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-white text-gray-900 font-inter overflow-hidden">
-      {/* 1 ─ TOP HEADER AREA (existing TopBar, untouched) */}
+    <div className="h-screen w-screen flex flex-col gap-3 bg-[#F6F8FB] text-[#1E293B] font-inter overflow-hidden p-4 text-sm">
+      {/* TOP NAV (global app chrome: tabs, EOD, sales, alerts, user) */}
       <header className="shrink-0">
         <TopBar
           onShowSales={() => {
@@ -689,68 +679,79 @@ function POSpage() {
         />
       </header>
 
-      {/* 2 ─ BILL PARTIES (boxed seller / buyer cards + invoice meta) */}
-      <section className="shrink-0 px-2 py-1 border-b border-gray-200 bg-gray-50 text-sm leading-snug">
-        <div className="border border-gray-300 bg-white grid grid-cols-1 sm:grid-cols-2 text-sm font-bold text-gray-900 text-left">
-          <div className="px-2 py-1 min-w-0">
-            <div className="truncate text-lg">FROM</div>
-            <div className="truncate">
-              name: {shopSettings?.shop_name || 'My Store'}
-            </div>
-            <div className="truncate">
-              address: {shopSettings?.address || ''}
-            </div>
-            <div className="truncate">
-              GSTIN: {shopSettings?.gstin || ''}
-            </div>
+      {/* [1] HEADER CARD: invoice meta + payment + customer */}
+      <Card className="shrink-0 p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="w-[260px] shrink-0">
+            <label className="block text-[13px] font-medium text-[#64748B] mb-1">Invoice No:</label>
+            <input
+              value={nextBillNo || ''}
+              readOnly
+              tabIndex={-1}
+              className="w-full h-10 px-3 text-sm font-semibold text-[#1E293B] bg-[#EEF1F5] border border-[#D5DBE5] rounded-lg outline-none cursor-default"
+            />
           </div>
-          <div className="px-2 py-1 min-w-0 border-t sm:border-t-0 sm:border-l border-gray-300">
-            <div className="truncate text-lg">TO</div>
-            <div className="truncate">
-              name:{' '}
+          <div className="w-[185px] shrink-0">
+            <label className="block text-[13px] font-medium text-[#64748B] mb-1">Date:</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[#64748B] pointer-events-none" />
               <input
-                value={billName}
-                autoComplete="off"
-                placeholder="Walk-in"
-                onChange={(e) => setBillName(e.target.value.slice(0, 100))}
-                className="w-32 bg-gray-50 border border-gray-300 rounded-none px-1 py-px outline-none placeholder-gray-400 focus:border-green-500 focus:bg-white transition-colors"
-              />
-            </div>
-            {selectedCustomer?.address ? (
-              <div className="truncate">
-                address: {selectedCustomer.address}
-              </div>
-            ) : null}
-            <div className="truncate">
-              phone:{' '}
-              <input
-                value={billPhone}
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="Enter number"
-                onChange={(e) => handleBillPhoneChange(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                className="w-28 bg-gray-50 border border-gray-300 rounded-none px-1 py-px outline-none placeholder-gray-400 focus:border-green-500 focus:bg-white transition-colors"
+                value={new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                readOnly
+                tabIndex={-1}
+                title="Bill date defaults to today"
+                className="w-full h-10 pl-10 pr-3 text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg outline-none cursor-default"
               />
             </div>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 px-1 pt-1 text-gray-600 text-left">
-          <span>
-            Invoice No: <span className="font-semibold text-gray-900">{nextBillNo || ''}</span>
-          </span>
-          <span>
-            Date: <span className="font-semibold text-gray-900">{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-          </span>
-          <span>
-            Payment: <span className="font-semibold text-gray-900">{({ cash: 'Cash', upi: 'UPI', pay_later: 'Pay Later', card: 'Card' } as Record<string, string>)[payments?.[0]?.method] || payments?.[0]?.method || 'Cash'}</span>
-          </span>
-        </div>
-      </section>
-
-      {/* 3 ─ PRODUCT SEARCH / ENTRY (selecting adds a new row to the invoice table below) */}
-      <section className="shrink-0 px-2 py-1 border-b border-gray-200 bg-white text-gray-900">
-        <div className="flex items-center gap-2">
+          <div className="w-[220px] shrink-0">
+            <label className="block text-[13px] font-medium text-[#64748B] mb-1">Payment:</label>
+            <div className="relative">
+              <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[#64748B] pointer-events-none" />
+              <select
+                value={payments?.[0]?.method || 'cash'}
+                onChange={(e) => window.dispatchEvent(new CustomEvent("pos-select-payment", { detail: e.target.value }))}
+                className="w-full h-10 pl-10 pr-8 text-sm font-medium text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg outline-none appearance-none cursor-pointer focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
+              >
+                <option value="cash">Cash</option>
+                <option value="upi">UPI</option>
+                <option value="pay_later">Pay Later</option>
+                <option value="card">Card</option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B] pointer-events-none" />
+            </div>
+          </div>
+          <div className="self-stretch w-px bg-[#E5E9F0] shrink-0" />
           <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-[#1E293B] mb-1 truncate">
+              {selectedCustomer?.name || 'Walk-in Customer'}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <CustomerSelect
+                  layout="inline"
+                  listenF4={false}
+                  customers={customers}
+                  selectedCustomer={selectedCustomer}
+                  onSelectCustomer={setSelectedCustomer}
+                  displayName={billName}
+                  onAddNew={(phone) => { setNewCustomerPhone(phone || ""); setShowCustomerModal(true); }}
+                />
+              </div>
+              <button
+                onClick={() => { setNewCustomerPhone(""); setShowCustomerModal(true); }}
+                title="Quick-add customer (name + phone)"
+                className="w-10 h-10 shrink-0 bg-white border border-[#D5DBE5] rounded-lg text-[#1E293B] hover:border-[#16A34A] hover:text-[#16A34A] transition-colors flex items-center justify-center"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* [2] PRODUCT SEARCH ROW (search + Scan + Quick Keys + Stock live in ProductGrid) */}
+      <section className="shrink-0">
         <ProductGrid
           products={products}
           loading={productsLoading}
@@ -761,32 +762,19 @@ function POSpage() {
             addItem(product, unitUuid, quantity, unitName, batchUuid);
           }}
         />
-          </div>
-          <button
-            onClick={() => setShowInventoryModal(true)}
-            className="shrink-0 self-stretch px-3 text-xs font-semibold text-gray-700 border border-gray-300 hover:border-gray-400 rounded-none transition-colors flex items-center gap-1.5"
-            title="Look up stock (Ctrl+I)"
-          >
-            Stock
-            <kbd className="px-1 py-px text-[9px] font-semibold bg-gray-100 text-gray-500 border border-gray-200 rounded-none whitespace-nowrap">
-              Ctrl+I
-            </kbd>
-          </button>
-        </div>
       </section>
 
-      {/* 4 ─ MAIN INVOICE TABLE (one row = one product, full width) */}
-      <main className="flex-1 min-h-0 flex flex-col p-2 overflow-hidden">
-        <div className="flex-1 min-h-0 flex flex-col bg-gray-50 border border-gray-200 rounded-none overflow-hidden">
-          <div className="px-3 py-1.5 font-bold text-gray-900 text-sm text-start border-b border-gray-200 flex justify-between items-center shrink-0">
-            <span>Invoice Items</span>
-            <span className="text-xs font-normal text-gray-500">
+      {/* [3] INVOICE ITEMS TABLE CARD (only the body scrolls) */}
+      <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <Card className="flex-1 min-h-0 flex flex-col p-0 overflow-hidden">
+          <div className="h-9 shrink-0 px-4 flex justify-end items-center border-b border-[#E5E9F0]">
+            <span className="text-xs font-medium text-[#64748B]">
               {cartData?.cart?.items?.length || 0} lines
             </span>
           </div>
           <div
             ref={cartItemsRef}
-            className="flex-1 overflow-auto scrollbar-hide min-h-0 relative"
+            className="flex-1 overflow-auto min-h-0 relative"
             id="cart-scroll-container"
           >
             {/* CartItems stays mounted across refreshes: unmounting it would
@@ -795,6 +783,10 @@ function POSpage() {
               items={cartData?.cart?.items || []}
               onIncrease={increaseItem}
               onDecrease={decreaseItem}
+              onRemove={(item) => {
+                removeCartItem(item);
+                if (selectedRowRef.current?.id === item.id) selectedRowRef.current = null;
+              }}
               onUpdateQty={updateItemQuantity}
               onUpdateField={updateCartItem}
               onChangeBatch={changeItemBatch}
@@ -805,122 +797,129 @@ function POSpage() {
             />
             {cartLoading && (
               <div className="absolute inset-0 z-20 flex items-start justify-center bg-white/60 pointer-events-none">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mt-10" />
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#16A34A] mt-10" />
               </div>
             )}
           </div>
-        </div>
+        </Card>
       </main>
 
-      {/* 5 ─ CHECKOUT BAR (single compact workspace: totals · customer · discount · payment · actions) */}
-      <section className="shrink-0 border-t border-gray-200 bg-gray-50 max-h-[42vh] overflow-y-auto lg:max-h-none lg:overflow-visible">
-        <div
-          ref={paymentSummaryRef}
-          className="grid grid-cols-1 lg:grid-cols-[35%_35%_30%] items-center gap-2 lg:gap-4 px-3 pt-1.5 overflow-x-clip"
-          id="payment-scroll-container"
-        >
-          {/* TOTALS */}
-          <div className="min-w-0">
-            <div className="text-[11px] font-semibold text-gray-500 text-center">Totals</div>
-            <CartSummary
-              total={cartData?.summary?.total || 0}
-              tax={cartData?.summary?.tax || 0}
-              grandTotal={grandTotal}
+      {/* [4] BOTTOM ROW: totals · customer · payment */}
+      <section
+        ref={paymentSummaryRef}
+        className="shrink-0 grid grid-cols-1 lg:grid-cols-3 gap-3 max-h-[42vh] overflow-y-auto lg:max-h-none lg:overflow-visible"
+        id="payment-scroll-container"
+      >
+        {/* Card A — Totals */}
+        <Card className="p-4 min-w-0 flex flex-col justify-center">
+          <CartSummary
+            total={cartData?.summary?.total || 0}
+            tax={cartData?.summary?.tax || 0}
+            grandTotal={grandTotal}
+          />
+        </Card>
+        {/* Card B — Customer + discount */}
+        <Card className="p-4 min-w-0">
+          <div className="flex flex-col gap-3 h-full">
+            <div className="text-sm font-bold text-[#1E293B]">Customer</div>
+            <CustomerSelect
+              customers={customers}
+              selectedCustomer={selectedCustomer}
+              onSelectCustomer={setSelectedCustomer}
+              displayName={billName}
+              onAddNew={(phone) => { setNewCustomerPhone(phone || ""); setShowCustomerModal(true); }}
+            />
+            <DiscountSection
+              discount={discount}
+              subtotal={cartData?.summary?.total || cartData?.cart?.summary?.total || 0}
+              onApplyDiscount={(amount) => {
+                setDiscount(amount);
+                applyDiscount(cartUUID, amount);
+              }}
             />
           </div>
-          {/* CUSTOMER + DISCOUNT (single middle column) */}
-          <div className="min-w-0 space-y-1.5">
-            <div>
-              <div className="text-[11px] font-semibold text-gray-500 text-center">Customer</div>
-              <CustomerSelect
-                customers={customers}
-                selectedCustomer={selectedCustomer}
-                onSelectCustomer={setSelectedCustomer}
-                displayName={billName}
-                onAddNew={(phone) => { setNewCustomerPhone(phone || ""); setShowCustomerModal(true); }}
-              />
-            </div>
-            <div>
-              <DiscountSection
-                discount={discount}
-                onDiscountChange={setDiscount}
-                onApplyDiscount={() => applyDiscount(cartUUID, discount)}
-              />
-            </div>
-          </div>
-          {/* PAYMENT */}
-          <div className="min-w-0 pr-0 lg:pr-8">
-            <PaymentSection
-              payments={payments}
-              onPaymentChange={(index, field, value) => {
-                // Functional update: pay_later fires method+amount back to
-                // back, and a stale closure would let the second write wipe
-                // the first (method silently reverting to cash).
-                setPayments((prev) => {
-                  const updated = [...prev];
-                  updated[index] = { ...updated[index], [field]: value };
-                  return updated;
-                });
+        </Card>
+        {/* Card C — Payment method */}
+        <Card className="p-4 min-w-0">
+          <PaymentSection
+            payments={payments}
+            onPaymentChange={(index, field, value) => {
+              // Functional update: pay_later fires method+amount back to
+              // back, and a stale closure would let the second write wipe
+              // the first (method silently reverting to cash).
+              setPayments((prev) => {
+                const updated = [...prev];
+                updated[index] = { ...updated[index], [field]: value };
+                return updated;
+              });
 
-                if (field === "method") {
-                  currentMethodRef.current = value;
-                }
-              }}
-              onAddRow={() =>
-                setPayments([...payments, { method: "upi", amount: 0 }])
+              if (field === "method") {
+                currentMethodRef.current = value;
               }
-              onRemoveRow={(index) => {
-                const updated = payments.filter((_, i) => i !== index);
-                setPayments(updated);
-              }}
-              totalPaid={totalPaid}
-              balance={balance}
-              grandTotal={grandTotal}
-            />
-          </div>
-        </div>
-        {/* ACTION ROW */}
-        <div className="flex flex-wrap items-center gap-1.5 px-3 py-1 mt-1 border-t border-gray-200">
-          <button
-            className="bg-green-600 text-white px-4 py-1 rounded-none font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-700 transition-colors text-xs"
-            onClick={handleReview}
-            disabled={cartLoading || !cartData?.cart?.items?.length || isCartInitializing}
-          >
-            {cartLoading ? "Processing..." : "Submit [Ctrl+Shift+Enter]"}
-          </button>
-          {(cartData?.cart?.items?.length || 0) > 0 && (
-            <button
-              onClick={clearCart}
-              className="px-3 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 border border-red-300 rounded-none transition-all"
-            >
-              Reset
-            </button>
-          )}
-          {selectedCustomer?.credit_balance > 0 && (
-            <button
-              className="px-3 py-1 text-xs bg-orange-500 text-white rounded-none hover:bg-orange-600 transition-colors"
-              onClick={() => {
-                setPayments([
-                  { method: "cash", amount: selectedCustomer.credit_balance },
-                ]);
-              }}
-            >
-              Clear Old Due ₹{selectedCustomer.credit_balance}
-            </button>
-          )}
-          <div className="ml-auto">
-            <button
-              className="px-3 py-1 text-xs text-gray-600 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded-none transition-colors"
-              onClick={() => {
-                loadSales();
-                setShowSalesModal(true);
-              }}
-            >
-              View
-            </button>
-          </div>
-        </div>
+            }}
+            onAddRow={() =>
+              setPayments([...payments, { method: "upi", amount: 0 }])
+            }
+            onRemoveRow={(index) => {
+              const updated = payments.filter((_, i) => i !== index);
+              setPayments(updated);
+            }}
+            totalPaid={totalPaid}
+            balance={balance}
+            grandTotal={grandTotal}
+          />
+        </Card>
       </section>
+      {/* [5] FOOTER ACTION ROW */}
+      <div className="shrink-0 flex items-center gap-3">
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("pos-new-bill-request"))}
+          title="Clear the bill (asks to confirm when items exist)"
+          className="w-[210px] h-[52px] shrink-0 bg-white border border-[#D5DBE5] rounded-lg text-sm font-semibold text-[#1E293B] hover:border-red-400 hover:text-red-600 transition-colors flex items-center justify-center gap-2"
+        >
+          <Trash2 className="w-[18px] h-[18px]" />
+          <span>Clear</span>
+          <ShortcutBadge label="Ctrl+Shift+Enter" />
+        </button>
+        <button
+          className="flex-1 h-[52px] bg-[#16A34A] hover:bg-[#15803D] text-white rounded-lg font-bold text-base transition-colors disabled:bg-[#86D6A4] disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          onClick={handleReview}
+          disabled={cartLoading || !cartData?.cart?.items?.length || isCartInitializing}
+        >
+          {cartLoading ? (
+            "Processing..."
+          ) : (
+            <>
+              <ShoppingCart className="w-5 h-5" />
+              <span>Submit Sale</span>
+              <ShortcutBadge label="Ctrl+Enter" />
+            </>
+          )}
+        </button>
+        {selectedCustomer?.credit_balance > 0 && (
+          <button
+            className="px-3 h-[52px] shrink-0 text-xs bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+            onClick={() => {
+              setPayments([
+                { method: "cash", amount: selectedCustomer.credit_balance },
+              ]);
+            }}
+          >
+            Clear Old Due ₹{selectedCustomer.credit_balance}
+          </button>
+        )}
+        <button
+          className="h-[52px] px-4 shrink-0 bg-white border border-[#D5DBE5] rounded-lg text-sm font-semibold text-[#1E293B] hover:border-[#16A34A] transition-colors flex items-center gap-2"
+          onClick={() => {
+            loadSales();
+            setShowSalesModal(true);
+          }}
+        >
+          <ReceiptText className="w-[18px] h-[18px] text-[#64748B]" />
+          <span>View Bill</span>
+          <ShortcutBadge label="F5" />
+        </button>
+      </div>
       {/* Modals */}
       {showNewBillConfirm && (
         <div

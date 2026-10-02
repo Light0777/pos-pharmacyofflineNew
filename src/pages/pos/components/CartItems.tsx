@@ -1,12 +1,8 @@
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  Add01Icon,
-  Remove01Icon,
-  Delete01Icon,
-} from "@hugeicons/core-free-icons";
+import { ChevronUp, ChevronDown, Search, Package, Calendar, Trash2 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState, useRef } from 'react';
 import { getProductUnits, getProductBatches, searchProducts } from "../../../renderer/services/productApi";
+import { INVOICE_GRID_COLUMNS } from "./posUi";
 
 interface CartItem {
   id: number;
@@ -105,10 +101,10 @@ function GridPicker({ value, options, onPick }: {
             setOpen(false);
           }
         }}
-        className="max-w-full w-full overflow-hidden flex items-center gap-1 bg-white border border-gray-300 rounded-none px-1.5 py-0.5 text-xs text-gray-800 hover:border-gray-400 focus:outline-none focus:border-green-500"
+        className="max-w-full w-full overflow-hidden flex items-center gap-1 bg-white border border-[#D5DBE5] rounded-lg px-2 py-1 text-sm text-[#1E293B] hover:border-[#16A34A] focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
       >
         <span className="truncate">{current?.label || '—'}</span>
-        <span className="text-gray-500 text-[9px]">▾</span>
+        <span className="text-[#64748B] text-[10px]">▾</span>
       </button>
       {open && (
         <>
@@ -130,14 +126,14 @@ function GridPicker({ value, options, onPick }: {
                 btnRef.current?.focus();
               }
             }}
-            className="absolute left-0 top-full mt-0.5 z-50 w-40 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-none shadow flex flex-col"
+            className="absolute left-0 top-full mt-0.5 z-50 w-40 max-h-48 overflow-y-auto bg-white border border-[#E5E9F0] rounded-xl shadow-lg flex flex-col"
           >
             {options.map((o) => (
               <button
                 key={o.value}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => {
-                  const tr = (e.target as HTMLElement).closest('tr');
+                  const tr = (e.target as HTMLElement).closest('[data-invoice-row]');
                   setOpen(false);
                   if (o.value !== value) onPick(o.value);
                   // Continue the flow on this row's Qty cell.
@@ -145,7 +141,7 @@ function GridPicker({ value, options, onPick }: {
                     (tr?.querySelector('[data-cell="qty"]') as HTMLElement | null)?.focus();
                   });
                 }}
-                className={`block w-full text-left px-2 py-1.5 text-xs border-b border-gray-200 last:border-b-0 focus:outline-none focus:bg-blue-100 focus:text-gray-900 ${o.value === value ? 'bg-blue-50 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
+                className={`block w-full text-left px-2.5 py-2 text-sm border-b border-[#E5E9F0] last:border-b-0 focus:outline-none focus:bg-[#16A34A]/10 focus:text-[#1E293B] ${o.value === value ? 'bg-[#16A34A]/10 text-[#1E293B] font-semibold' : 'text-[#64748B] hover:bg-gray-50'}`}
               >
                 {o.label}
               </button>
@@ -153,6 +149,72 @@ function GridPicker({ value, options, onPick }: {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ─── Local-only numeric stepper for EMPTY entry rows ─────────────────────────
+// Display-only aid until a product is chosen: holds local draft state,
+// never calls cart APIs. Kept out of the Tab order (tabIndex -1) so
+// keyboard flow stays combobox-to-combobox. Module-level on purpose:
+// defined inside the grid component it would remount (losing focus) on
+// every keystroke.
+function LocalStepper({ value, onChange, integer = false, align = 'center' }: {
+  value: string;
+  onChange: (v: string) => void;
+  integer?: boolean;
+  align?: 'center' | 'right';
+}) {
+  const step = (dir: 1 | -1) => {
+    const cur = integer ? parseInt(value, 10) : parseFloat(value);
+    const base = Number.isFinite(cur) ? cur : 0;
+    let next = base + dir;
+    if (integer) next = Math.floor(next);
+    next = Math.max(0, Math.round(next * 100) / 100);
+    onChange(String(next));
+  };
+  return (
+    <div className="flex items-stretch justify-center">
+      <input
+        tabIndex={-1}
+        value={value}
+        inputMode="decimal"
+        autoComplete="off"
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === '' || (integer ? /^\d+$/.test(v) : /^\d*\.?\d*$/.test(v))) onChange(v);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            e.stopPropagation();
+            step(e.key === 'ArrowUp' ? 1 : -1);
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full min-w-0 px-1 h-10 text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-l-lg rounded-r-none focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${align === 'right' ? 'text-right' : 'text-center'}`}
+      />
+      <span className="flex flex-col shrink-0 border border-l-0 border-[#D5DBE5] rounded-r-lg overflow-hidden bg-white">
+        <button
+          tabIndex={-1}
+          onClick={(e) => { e.stopPropagation(); step(1); }}
+          className="flex-1 px-1 text-[#64748B] hover:text-[#16A34A] hover:bg-gray-50 flex items-center"
+          title="Increase"
+        >
+          <ChevronUp className="w-3.5 h-3.5" />
+        </button>
+        <button
+          tabIndex={-1}
+          onClick={(e) => { e.stopPropagation(); step(-1); }}
+          className="flex-1 px-1 border-t border-[#E5E9F0] text-[#64748B] hover:text-[#16A34A] hover:bg-gray-50 flex items-center"
+          title="Decrease"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+        </button>
+      </span>
     </div>
   );
 }
@@ -186,17 +248,17 @@ export default function CartItems({
   const pc = (rowKey: string | number, cell: string) =>
     pinnedCell === `${rowKey}:${cell}` ? ' cell-pinned' : '';
 
-  // Focus the next line's first editable cell (Code input, else Name).
+  // Focus the next line's first editable cell (the product combobox).
   // Used whenever a row's last navigable cell is submitted.
   const focusNextLine = (row: HTMLElement | null) => {
     const nr = row?.nextElementSibling as HTMLElement | null;
-    (nr?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null)?.focus();
+    (nr?.querySelector('[data-cell="name"]') as HTMLElement | null)?.focus();
   };
 
   // Arrow-key cell navigation across the spreadsheet (Up/Down/Left/Right).
   // Text inputs keep native caret for Left/Right; open picker lists and the
   // product dropdown own their arrows via stopPropagation before this runs.
-  const gridArrowNav = (ev: React.KeyboardEvent, row: HTMLTableRowElement): boolean => {
+  const gridArrowNav = (ev: React.KeyboardEvent, row: HTMLElement): boolean => {
     const key = ev.key;
     if (key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'ArrowLeft' && key !== 'ArrowRight') return false;
     const t = ev.target as HTMLElement;
@@ -225,7 +287,7 @@ export default function CartItems({
     const cur = t.closest?.('[data-cell]');
     const cellName = cur?.getAttribute('data-cell');
     const sib = (key === 'ArrowDown' ? row.nextElementSibling : row.previousElementSibling) as HTMLElement | null;
-    if (sib && sib.tagName === 'TR') {
+    if (sib && sib.hasAttribute('data-invoice-row')) {
       let target: HTMLElement | null = null;
       if (cellName) {
         const cell = sib.querySelector(`[data-cell="${cellName}"]`);
@@ -242,11 +304,11 @@ export default function CartItems({
   const [editRow, setEditRow] = useState<number | null>(null);
   const [editField, setEditField] = useState<'code' | 'name'>('code');
 
-  // Inline product-search cell shared by the Code and Name entry cells,
-  // so billing can start from either field. Typing searches the existing
-  // catalog, Enter picks the highlight into a new invoice row.
+  // Single product combobox: matches by drug code OR name, shows both in
+  // the dropdown. Code is search-only (no separate column anymore).
   const renderEntryInput = (e: number, field: 'code' | 'name', placeholder: string) => (
     <div className="relative w-full max-w-full overflow-visible">
+      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B] pointer-events-none" />
       <input
         ref={(el) => { inputRefs.current[`pq-${e}-${field}`] = el; }}
         data-cell={field}
@@ -261,27 +323,28 @@ export default function CartItems({
           if (ev.key === 'ArrowDown' && pResults.length > 0 && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); setPIdx((i) => Math.min(i + 1, pResults.length - 1)); }
           else if (ev.key === 'ArrowUp' && pResults.length > 0 && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); setPIdx((i) => Math.max(i - 1, 0)); }
           else if (ev.key === 'Enter' && editRow === e && editField === field && pResults.length > 0 && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); requestAddProduct(pResults[Math.min(pIdx, pResults.length - 1)]); }
-          else if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && ev.shiftKey) { ev.preventDefault(); ev.stopPropagation(); window.dispatchEvent(new CustomEvent('pos-checkout-request')); }
+          else if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && !ev.shiftKey) { ev.preventDefault(); ev.stopPropagation(); window.dispatchEvent(new CustomEvent('pos-checkout-request')); }
           else if (ev.key === 'Escape') { ev.stopPropagation(); setPq(''); setEditRow(null); (ev.target as HTMLInputElement).blur(); }
         }}
-        className="w-full bg-transparent text-gray-900 placeholder-gray-400 px-1 py-0.5 rounded-none text-xs focus:outline-none focus:bg-gray-50 focus:ring-1 focus:ring-green-500"
+        className="w-full bg-white border border-[#D5DBE5] rounded-lg text-[#1E293B] placeholder:text-[#64748B] pl-8 pr-7 py-1.5 text-sm focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
       />
+      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B] pointer-events-none" />
       {editRow === e && editField === field && pq.trim().length >= 1 && (
-        <div className="absolute left-0 top-full mt-0.5 z-50 w-72 max-h-56 overflow-y-auto bg-white border border-gray-300 rounded-none shadow">
+        <div className="absolute left-0 top-full mt-0.5 z-50 w-72 max-h-56 overflow-y-auto bg-white border border-[#E5E9F0] rounded-xl shadow-lg">
           {pSearching ? (
-            <div className="px-2 py-2 text-gray-500 text-xs">Searching…</div>
+            <div className="px-3 py-2 text-[#64748B] text-sm">Searching…</div>
           ) : pResults.length === 0 ? (
-            <div className="px-2 py-2 text-gray-500 text-xs">{t('pos.noProductsFound')}</div>
+            <div className="px-3 py-2 text-[#64748B] text-sm">{t('pos.noProductsFound')}</div>
           ) : (
             pResults.map((p: any, i: number) => (
               <div
                 key={p.product_uuid}
                 onMouseDown={(me) => { me.preventDefault(); requestAddProduct(p); }}
                 onMouseEnter={() => setPIdx(i)}
-                className={`px-2 py-1.5 cursor-pointer border-b border-gray-200 ${i === pIdx ? 'bg-blue-50' : ''}`}
+                className={`px-3 py-2 cursor-pointer border-b border-[#E5E9F0] last:border-b-0 ${i === pIdx ? 'bg-[#16A34A]/10' : ''}`}
               >
-                <div className="font-semibold text-gray-900 text-xs truncate">{p.name}</div>
-                <div className="text-gray-500 text-[10px] truncate">
+                <div className="font-semibold text-[#1E293B] text-sm truncate">{p.name}</div>
+                <div className="text-[#64748B] text-xs truncate">
                   {[p.sku, p.barcode, p.manufacturer].filter(Boolean).join(' • ')}{p.price != null ? ` • ₹${p.price}` : ''}
                 </div>
               </div>
@@ -419,7 +482,7 @@ export default function CartItems({
     const onFocusGrid = () => {
       setActiveRow('empty-0');
       const el = document.querySelector(
-        'tbody [data-cell="code"]'
+        '.invoice-grid [data-cell="name"]'
       ) as HTMLElement | null;
       el?.focus();
     };
@@ -429,7 +492,7 @@ export default function CartItems({
   useEffect(() => {
     const t = setTimeout(() => {
       setActiveRow('empty-0');
-      (document.querySelector('tbody [data-cell="code"]') as HTMLElement | null)?.focus();
+      (document.querySelector('.invoice-grid [data-cell="name"]') as HTMLElement | null)?.focus();
     }, 300);
     return () => clearTimeout(t);
   }, []);
@@ -444,7 +507,7 @@ export default function CartItems({
     const nameEl = document.querySelector(
       `[data-cell="name"][data-row="${lf.rowId}"]`
     );
-    const row = nameEl?.closest('tr');
+    const row = nameEl?.closest('[data-invoice-row]');
     const target =
       (row?.querySelector(`[data-cell="${lf.cell}"]`) as HTMLElement | null) ??
       (nameEl as HTMLElement | null);
@@ -471,7 +534,7 @@ export default function CartItems({
         if (cellInput) input = cellInput;
       }
       if (!input) {
-        input = document.querySelector('tbody [data-cell="code"]') as HTMLInputElement | null;
+        input = document.querySelector('.invoice-grid [data-cell="name"]') as HTMLInputElement | null;
       }
       if (!input) return;
       input.focus();
@@ -548,10 +611,30 @@ export default function CartItems({
     return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
   };
 
-  // Spreadsheet: filled rows first, then always-visible empty entry rows
-  const EMPTY_ROWS = 5;
-  const th = "font-semibold px-2 py-2 border border-gray-300 whitespace-nowrap";
-  const td = "px-2 py-1.5 whitespace-nowrap border border-gray-200";
+  // Spreadsheet: filled rows first, then empty entry rows that top up to
+  // 5 rows total — with always at least one trailing entry row, so adding
+  // a product never pops a 6th row into view prematurely. A fresh bill
+  // shows 5 empty rows; the 6th row only appears once all 5 are filled.
+  const emptyRowCount = Math.max(1, 5 - items.length);
+  const th = "px-2 font-bold text-[13px] text-[#334155] whitespace-nowrap flex items-center h-full";
+  // No vertical dividers — only horizontal row separators (on the rows).
+  // Cells center their content vertically via the row grid's items-center.
+  const td = "p-2 min-w-0";
+
+  // ── Local-only drafts for empty entry rows (never touch cart APIs) ────────
+  const [emptyDrafts, setEmptyDrafts] = useState<Record<string, string>>({});
+  const ed = (e: number, field: string, fallback: string) =>
+    emptyDrafts[`${e}:${field}`] ?? fallback;
+  const setEd = (e: number, field: string, v: string) =>
+    setEmptyDrafts((prev) => ({ ...prev, [`${e}:${field}`]: v }));
+  const clearEmptyRow = (e: number) =>
+    setEmptyDrafts((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((k) => {
+        if (k.startsWith(`${e}:`)) delete next[k];
+      });
+      return next;
+    });
 
   return (
     <div
@@ -560,29 +643,27 @@ export default function CartItems({
         // Clicking bare grid background (not a row, cell, or control)
         // parks focus in the first entry cell instead of losing it.
         if (e.target === e.currentTarget) {
-          (e.currentTarget.querySelector('[data-cell="code"]') as HTMLElement | null)?.focus();
+          (e.currentTarget.querySelector('[data-cell="name"]') as HTMLElement | null)?.focus();
         }
       }}
     >
-      <table className="invoice-grid w-full border-collapse table-fixed text-xs leading-snug min-w-[1240px]">
-        <thead className="sticky top-0 z-10">
-          <tr className="bg-gray-100 text-gray-700">
-            <th className={`text-left ${th} w-10`}>S.No</th>
-            <th className={`text-left ${th} w-20 text-left`}>Drug Code</th>
-            <th className={`text-left ${th} w-64 max-w-64 text-left`}>Drug Name</th>
-            <th className={`text-left ${th} w-20`}>UOM</th>
-            <th className={`text-center ${th} w-28`}>Qty</th>
-            <th className={`text-center ${th} w-14`}>Free</th>
-            <th className={`text-left ${th} w-28`}>Batch</th>
-            <th className={`text-left ${th} w-20`}>Expiry</th>
-            <th className={`text-center ${th} w-20`}>Price</th>
-            <th className={`text-center ${th} w-20`}>Rate</th>
-            <th className={`text-center ${th} w-12`}>GST%</th>
-            <th className={`text-center ${th} w-16`}>GST Amt</th>
-            <th className={`text-center ${th} w-20`}>Value</th>
-          </tr>
-        </thead>
-        <tbody
+      <div className="invoice-grid w-full text-sm leading-snug">
+        <div className="sticky top-0 z-10 grid items-center bg-[#EEF3F9] min-h-[44px] divide-x divide-[#D5DBE5] border-b border-[#D5DBE5]" style={{ gridTemplateColumns: INVOICE_GRID_COLUMNS }} role="row">
+          <div className={`${th} justify-center`}>#</div>
+          <div className={`${th} justify-start`}>Product Name</div>
+          <div className={`${th} justify-start`}>UOM</div>
+          <div className={`${th} justify-start`}>Qty</div>
+          <div className={`${th} justify-start`}>Free</div>
+          <div className={`${th} justify-start`}>Batch</div>
+          <div className={`${th} justify-start`}>Expiry</div>
+          <div className={`${th} justify-end`}>Price (₹)</div>
+          <div className={`${th} justify-end`}>Rate (₹)</div>
+          <div className={`${th} justify-start`}>GST%</div>
+          <div className={`${th} justify-end`}>GST Amt (₹)</div>
+          <div className={`${th} justify-end`}>Value (₹)</div>
+          <div className={`${th} justify-center`}>Action</div>
+        </div>
+        <div
           onFocusCapture={(e) => {
             // Remember where the cashier is: after any cart refresh that
             // drops focus, we put it back on the same row + cell.
@@ -619,22 +700,22 @@ export default function CartItems({
             const isActive = activeRow === item.id;
 
             return (
-              <tr
+              <div data-invoice-row
                 key={`${item.product_uuid}_${item.unit_uuid || index}`}
                 data-rowid={item.id}
                 tabIndex={0}
                 onClick={() => { setActiveRow(item.id); onSelectRow?.(item); }}
                 onKeyDown={(ev) => {
-                  const row = ev.currentTarget as HTMLTableRowElement;
+                  const row = ev.currentTarget as HTMLElement;
                   const t = ev.target as HTMLElement;
                   const inText = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA';
                   const cellNavKey = ev.key === 'ArrowUp' || ev.key === 'ArrowDown' || ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && (ev.ctrlKey || ev.metaKey));
                   if (inText && !cellNavKey) return;
-                  // Ctrl+Shift+Enter is Submit from anywhere — never cell nav.
+                  // Ctrl+Enter is Submit from anywhere — never cell nav.
                   // Without this, the preventDefault below marks the event
                   // handled, the global shortcut ignores it, and the first
                   // presses just hop columns until focus lands in an input.
-                  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && ev.shiftKey) {
+                  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && !ev.shiftKey) {
                     ev.preventDefault();
                     ev.stopPropagation();
                     window.dispatchEvent(new CustomEvent('pos-checkout-request'));
@@ -680,27 +761,20 @@ export default function CartItems({
                       }
                     }
                     const nextRow = row.nextElementSibling as HTMLElement | null;
-                    const nextTarget = nextRow?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null;
+                    const nextTarget = nextRow?.querySelector('[data-cell="name"]') as HTMLElement | null;
                     if (nextTarget) nextTarget.focus();
                   }
                 }}
-                className={`text-gray-800 focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-green-500 ${isActive ? 'batch-live bg-blue-50 shadow-[inset_2px_0_0_0_#16a34a]' : 'hover:bg-gray-50'}`}
+                className={`min-h-[56px] grid items-center divide-x divide-[#D5DBE5] text-[#1E293B] border-b border-[#D5DBE5] focus:outline-none ${isActive ? 'bg-[#EAF2FD] batch-live' : 'hover:bg-gray-50/60'}`}
+                style={{ gridTemplateColumns: INVOICE_GRID_COLUMNS }}
               >
-                <td className={`${td} text-gray-500`}>{index + 1}</td>
-                <td
-                  className={`${td} max-w-[80px] overflow-hidden text-ellipsis text-gray-500 text-left`}
-                  title={item.product?.sku || item.product?.barcode || ''}
-                >
-                  <span className="block truncate">
-                    {item.product?.sku || item.product?.barcode || '—'}
-                  </span>
-                </td>
-                <td
-                  className={`${td} max-w-[256px] overflow-hidden text-ellipsis text-left${pc(item.id, 'name')}`}
+                <div data-invoice-cell className={`${td} text-center font-semibold ${isActive ? 'text-[#16A34A]' : 'text-[#64748B]'}`}>{index + 1}</div>
+                <div data-invoice-cell
+                  className={`${td} overflow-hidden text-ellipsis text-left${pc(item.id, 'name')}`}
                   title={(item.product?.name || '').replace('[Custom] ', '')}
                 >
                   <span
-                    className="font-semibold text-gray-900 focus:outline-none focus:bg-blue-100"
+                    className="font-semibold text-[#1E293B] focus:outline-none"
                     tabIndex={0}
                     data-cell="name"
                     data-row={item.id}
@@ -708,29 +782,18 @@ export default function CartItems({
                     {(item.product?.name || t('pos.unknownProduct')).replace('[Custom] ', '')}
                   </span>
                   {item.product?.manufacturer && (
-                    <span className="ml-1.5 text-gray-500">{item.product.manufacturer}</span>
+                    <span className="ml-1.5 text-[#64748B] text-xs">{item.product.manufacturer}</span>
                   )}
                   {item.product?.prescription_required ? (
-                    <span className="ml-1.5 text-[9px] bg-red-500 text-white px-1 rounded-none font-medium">Rx</span>
+                    <span className="ml-1.5 text-[9px] bg-red-500 text-white px-1 rounded font-medium">Rx</span>
                   ) : null}
                   {item.product?.schedule_type && item.product.schedule_type !== 'NONE' && (
-                    <span className="ml-1 text-[9px] bg-yellow-600 text-white px-1 rounded-none font-medium">
+                    <span className="ml-1 text-[9px] bg-yellow-600 text-white px-1 rounded font-medium">
                       {item.product.schedule_type}
                     </span>
                   )}
-                  {onRemove && (
-                    <button
-                      onClick={() => {
-                        onRemove(item);
-                      }}
-                      className="ml-1.5 text-red-500 hover:text-red-700 align-middle"
-                      title="Remove"
-                    >
-                      <HugeiconsIcon icon={Delete01Icon} className="text-xs" />
-                    </button>
-                  )}
-                </td>
-                <td className={`${td} text-gray-600${pc(item.id, 'uom')}`}>
+                </div>
+                <div data-invoice-cell className={`${td} text-gray-600${pc(item.id, 'uom')}`}>
                   {info.units && info.units.length > 1 && onChangeUnit ? (
                     <GridPicker
                       value={item.unit_uuid || ''}
@@ -738,15 +801,9 @@ export default function CartItems({
                       onPick={(v) => onChangeUnit(item, v)}
                     />
                   ) : (info.unit || '—')}
-                </td>
-                <td className={`${td}${pc(item.id, 'qty')}`}>
-                  <div className="flex items-center justify-center gap-0.5">
-                    <button
-                      onClick={() => onDecrease(item)}
-                      className="w-5 h-5 flex items-center justify-center text-gray-600 bg-gray-200 hover:bg-gray-300 rounded-none transition-colors"
-                    >
-                      <HugeiconsIcon icon={Remove01Icon} className="text-[10px]" />
-                    </button>
+                </div>
+                <div data-invoice-cell className={`${td} text-center${pc(item.id, 'qty')}`}>
+                  <div className="flex items-stretch justify-center">
                     <input
                       ref={(el) => { inputRefs.current[`qty-${item.id}`] = el; }}
                       data-cell="qty"
@@ -762,49 +819,89 @@ export default function CartItems({
                         if (stepNumberDraft(e, (n) => setQtyDraft((prev) => ({ ...prev, [item.id]: String(n) })), { min: 1, integer: true })) return;
                         if (e.key === 'Enter') {
                           commitQty(item);
-                          const row = (e.target as HTMLElement).closest('tr');
+                          const row = (e.target as HTMLElement).closest('[data-invoice-row]');
                           (row?.querySelector('[data-cell="free"]') as HTMLElement | null)?.focus();
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-12 px-1 py-1 text-center text-xs font-semibold text-gray-900 bg-white border border-gray-300 rounded-none focus:outline-none focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-full min-w-0 px-1 py-1 text-center text-sm font-semibold text-[#1E293B] bg-white border border-[#D5DBE5] rounded-l-lg rounded-r-none focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
-                    <button
-                      onClick={() => onIncrease(item)}
-                      className="w-5 h-5 flex items-center justify-center text-gray-600 bg-gray-200 hover:bg-gray-300 rounded-none transition-colors"
-                    >
-                      <HugeiconsIcon icon={Add01Icon} className="text-[10px]" />
-                    </button>
+                    <span className="flex flex-col shrink-0 border border-l-0 border-[#D5DBE5] rounded-r-lg overflow-hidden bg-white">
+                      <button
+                        tabIndex={-1}
+                        onClick={() => onIncrease(item)}
+                        className="flex-1 px-1 text-[#64748B] hover:text-[#16A34A] hover:bg-gray-50 flex items-center"
+                        title="Increase"
+                      >
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        tabIndex={-1}
+                        onClick={() => onDecrease(item)}
+                        className="flex-1 px-1 border-t border-[#E5E9F0] text-[#64748B] hover:text-[#16A34A] hover:bg-gray-50 flex items-center"
+                        title="Decrease"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
                   </div>
-                </td>
-                <td className={`${td}${pc(item.id, 'free')}`}>
-                  <input
-                    data-cell="free"
-                    value={cellDraft[`${item.id}:free_quantity`] ?? String(item.free_quantity ?? 0)}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === '' || /^\d+$/.test(v)) {
-                        setCellDraft((prev) => ({ ...prev, [`${item.id}:free_quantity`]: v }));
-                      }
-                    }}
-                    onBlur={() => commitCell(item, 'free_quantity')}
-                    onKeyDown={(e) => {
-                      if (stepNumberDraft(e, (n) => setCellDraft((prev) => ({ ...prev, [`${item.id}:free_quantity`]: String(n) })), { min: 0, integer: true })) return;
-                      if (e.key === 'Enter') {
-                        commitCell(item, 'free_quantity');
-                        const row = (e.target as HTMLElement).closest('tr');
-                        const batchBtn = row?.querySelector('[data-cell="batch"]') as HTMLElement | null;
-                        // Single-batch rows show plain text (nothing to pick):
-                        // the chain ends here and continues on the next line.
-                        if (batchBtn) batchBtn.focus();
-                        else focusNextLine(row);
-                      }
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-11 px-1 py-0.5 text-center text-xs text-gray-700 bg-white border border-gray-300 rounded-none focus:outline-none focus:bg-gray-50 focus:border-green-500 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  />
-                </td>
-                <td className={`${td} batch-cell text-gray-600${pc(item.id, 'batch')}`}>
+                </div>
+                <div data-invoice-cell className={`${td} text-center${pc(item.id, 'free')}`}>
+                  <div className="flex items-stretch justify-center">
+                    <input
+                      data-cell="free"
+                      value={cellDraft[`${item.id}:free_quantity`] ?? String(item.free_quantity ?? 0)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === '' || /^\d+$/.test(v)) {
+                          setCellDraft((prev) => ({ ...prev, [`${item.id}:free_quantity`]: v }));
+                        }
+                      }}
+                      onBlur={() => commitCell(item, 'free_quantity')}
+                      onKeyDown={(e) => {
+                        if (stepNumberDraft(e, (n) => setCellDraft((prev) => ({ ...prev, [`${item.id}:free_quantity`]: String(n) })), { min: 0, integer: true })) return;
+                        if (e.key === 'Enter') {
+                          commitCell(item, 'free_quantity');
+                          const row = (e.target as HTMLElement).closest('[data-invoice-row]');
+                          const batchBtn = row?.querySelector('[data-cell="batch"]') as HTMLElement | null;
+                          // Single-batch rows show plain text (nothing to pick):
+                          // the chain ends here and continues on the next line.
+                          if (batchBtn) batchBtn.focus();
+                          else focusNextLine(row);
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full min-w-0 px-1 py-1 text-center text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-l-lg rounded-r-none focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <span className="flex flex-col shrink-0 border border-l-0 border-[#D5DBE5] rounded-r-lg overflow-hidden bg-white">
+                      <button
+                        tabIndex={-1}
+                        onClick={() => {
+                          const cur = parseInt(cellDraft[`${item.id}:free_quantity`] ?? String(item.free_quantity ?? 0), 10);
+                          const next = Number.isFinite(cur) ? cur + 1 : 1;
+                          setCellDraft((prev) => ({ ...prev, [`${item.id}:free_quantity`]: String(next) }));
+                        }}
+                        className="flex-1 px-1 text-[#64748B] hover:text-[#16A34A] hover:bg-gray-50 flex items-center"
+                        title="Increase"
+                      >
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        tabIndex={-1}
+                        onClick={() => {
+                          const cur = parseInt(cellDraft[`${item.id}:free_quantity`] ?? String(item.free_quantity ?? 0), 10);
+                          const next = Math.max(0, (Number.isFinite(cur) ? cur : 1) - 1);
+                          setCellDraft((prev) => ({ ...prev, [`${item.id}:free_quantity`]: String(next) }));
+                        }}
+                        className="flex-1 px-1 border-t border-[#E5E9F0] text-[#64748B] hover:text-[#16A34A] hover:bg-gray-50 flex items-center"
+                        title="Decrease"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  </div>
+                </div>
+                <div data-invoice-cell className={`${td} batch-cell text-[#1E293B]${pc(item.id, 'batch')}`}>
                   {info.batches && info.batches.length > 1 && onChangeBatch ? (
                     <div className="relative">
                       <button
@@ -818,14 +915,14 @@ export default function CartItems({
                             e.preventDefault();
                             e.stopPropagation();
                             if (!isOpen) setBatchOpenFor(item.id);
-                            const cell = (e.target as HTMLElement).closest('td');
+                            const cell = (e.target as HTMLElement).closest('[data-invoice-cell]');
                             requestAnimationFrame(() => {
                               (cell?.querySelector('[data-batch-list] button') as HTMLElement | null)?.focus();
                             });
                           } else if (isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
                             e.preventDefault();
                             e.stopPropagation();
-                            const cell = (e.target as HTMLElement).closest('td');
+                            const cell = (e.target as HTMLElement).closest('[data-invoice-cell]');
                             const btns = Array.from(cell?.querySelectorAll('[data-batch-list] button') ?? []) as HTMLElement[];
                             if (btns.length) btns[e.key === 'ArrowDown' ? 0 : btns.length - 1].focus();
                           } else if (e.key === 'Escape' && isOpen) {
@@ -833,9 +930,10 @@ export default function CartItems({
                             setBatchOpenFor(null);
                           }
                         }}
-                        className="max-w-full w-full overflow-hidden flex items-center gap-1 bg-white border border-gray-300 rounded-none px-1.5 py-0.5 text-xs text-gray-800 hover:border-gray-400 focus:outline-none focus:border-green-500"
+                        className="max-w-full w-full overflow-hidden flex items-center gap-1.5 bg-white border border-[#D5DBE5] rounded-lg px-2 py-1 text-sm text-[#1E293B] hover:border-[#16A34A] focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
                         title="Switch batch"
                       >
+                        <Package className="w-4 h-4 text-[#64748B] shrink-0" />
                         <span className="batch-marquee min-w-0 flex-1" title={selBatchNo || 'Select'}><span>{selBatchNo || 'Select'}</span></span>
                         <span className="text-gray-500 text-[9px]">▾</span>
                       </button>
@@ -860,11 +958,11 @@ export default function CartItems({
                               } else if (e.key === 'Escape') {
                                 e.stopPropagation();
                                 setBatchOpenFor(null);
-                                const cell = (e.currentTarget as HTMLElement).closest('td');
+                                const cell = (e.currentTarget as HTMLElement).closest('[data-invoice-cell]');
                                 (cell?.querySelector('[data-cell="batch"]') as HTMLElement | null)?.focus();
                               }
                             }}
-                            className="absolute left-0 top-full mt-0.5 z-50 w-56 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-none shadow"
+                            className="absolute left-0 top-full mt-0.5 z-50 w-56 max-h-48 overflow-y-auto bg-white border border-[#E5E9F0] rounded-xl shadow-lg"
                           >
                             {info.batches.map((b) => {
                               const selected = b.batch_uuid === (item as any).batch_uuid;
@@ -873,22 +971,21 @@ export default function CartItems({
                                   key={b.batch_uuid}
                                   onMouseDown={(e) => e.preventDefault()}
                                   onClick={(e) => {
-                                    const tr = (e.target as HTMLElement).closest('tr');
+                                    const tr = (e.target as HTMLElement).closest('[data-invoice-row]');
                                     setBatchOpenFor(null);
                                     if (!selected) onChangeBatch(item, b.batch_uuid);
-                                    // Continue the flow on the next line's Code cell
-                                    // (rate/gst are off the Enter chain).
+                                    // Continue the flow on the next line's product cell.
                                     requestAnimationFrame(() => {
                                       const nr = tr?.nextElementSibling as HTMLElement | null;
-                                      const el = nr?.querySelector('[data-cell="code"], [data-cell="name"]') as HTMLElement | null;
+                                      const el = nr?.querySelector('[data-cell="name"]') as HTMLElement | null;
                                       console.log('[GRID] batch-pick advance:', el ? `FOUND ${el.tagName}` : 'MISSING', '| nextRow:', !!nr);
                                       el?.focus();
                                     });
                                   }}
-                                  className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 text-left text-xs border-b border-gray-200 last:border-b-0 focus:outline-none focus:bg-blue-100 focus:text-gray-900 ${selected ? 'bg-blue-50 text-gray-900' : 'text-gray-600 hover:bg-blue-50'}`}
+                                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-left text-sm border-b border-[#E5E9F0] last:border-b-0 focus:outline-none focus:bg-[#16A34A]/10 focus:text-[#1E293B] ${selected ? 'bg-[#16A34A]/10 text-[#1E293B]' : 'text-[#64748B] hover:bg-gray-50'}`}
                                 >
                                   <span className="font-semibold truncate">{b.batch_number}</span>
-                                  <span className="text-gray-500 whitespace-nowrap">{fmtExp(b.expiry_date)} • {b.quantity}</span>
+                                  <span className="text-[#64748B] whitespace-nowrap">{fmtExp(b.expiry_date)} • {b.quantity}</span>
                                 </button>
                               );
                             })}
@@ -896,54 +993,113 @@ export default function CartItems({
                         </>
                       )}
                     </div>
-                  ) : (<span className="batch-marquee" title={selBatchNo || ''}><span>{selBatchNo || '—'}</span></span>)}
-                </td>
-                <td className={`${td} text-gray-500`}>{fmtExp(selExpiry)}</td>
-                <td className={`${td} text-center text-gray-500`}>
+                  ) : (
+                    <div className="flex items-center gap-1.5 bg-white border border-[#D5DBE5] rounded-lg px-2 h-10 text-[#64748B]" title={selBatchNo || ''}>
+                      <Package className="w-4 h-4 shrink-0" />
+                      <span className="batch-marquee min-w-0 flex-1"><span>{selBatchNo || '—'}</span></span>
+                    </div>
+                  )}
+                </div>
+                <div data-invoice-cell className={`${td} text-[#64748B]`}>
+                  <div className="flex items-center gap-1.5 bg-white border border-[#D5DBE5] rounded-lg px-2 h-10">
+                    <Calendar className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{fmtExp(selExpiry)}</span>
+                  </div>
+                </div>
+                <div data-invoice-cell className={`${td} text-right text-[#64748B]`}>
                   {item.product?.purchase_price ? `₹${Number(item.product.purchase_price).toFixed(2)}` : '—'}
-                </td>
-                <td className={`${td} text-center text-gray-900`}>
-                  {item.price.toFixed(2)}
-                </td>
-                <td className={`${td} text-center text-gray-500`}>
-                  {item.tax_percent}%
-                </td>
-                <td className={`${td} text-center text-gray-500`}>₹{taxAmount.toFixed(2)}</td>
-                <td className={`${td} text-center font-bold text-green-600`}>₹{value.toFixed(2)}</td>
-              </tr>
+                </div>
+                <div data-invoice-cell className={`${td}`}>
+                  <input
+                    value={cellDraft[`${item.id}:price`] ?? item.price.toFixed(2)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '' || /^\d*\.?\d*$/.test(v)) {
+                        setCellDraft((prev) => ({ ...prev, [`${item.id}:price`]: v }));
+                      }
+                    }}
+                    onBlur={() => commitCell(item, 'price')}
+                    onKeyDown={(e) => {
+                      if (stepNumberDraft(e, (n) => setCellDraft((prev) => ({ ...prev, [`${item.id}:price`]: String(n) })), { min: 0 })) return;
+                      if (e.key === 'Enter') {
+                        commitCell(item, 'price');
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full min-w-0 px-1 py-1 text-right text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
+                </div>
+                <div data-invoice-cell className={`${td}`}>
+                  <select
+                    value={[0, 5, 12, 18, 28].includes(Number(item.tax_percent)) ? String(Number(item.tax_percent)) : `custom:${item.tax_percent}`}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      const n = v.startsWith('custom:') ? Number(v.slice(7)) : Number(v);
+                      if (Number.isFinite(n) && n >= 0 && n <= 100 && onUpdateField) {
+                        onUpdateField(item, { tax_percent: n });
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full min-w-0 px-1 py-1 text-center text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
+                  >
+                    {[0, 5, 12, 18, 28].map((g) => (
+                      <option key={g} value={String(g)}>{g}%</option>
+                    ))}
+                    {![0, 5, 12, 18, 28].includes(Number(item.tax_percent)) && (
+                      <option value={`custom:${item.tax_percent}`}>{item.tax_percent}%</option>
+                    )}
+                  </select>
+                </div>
+                <div data-invoice-cell className={`${td} text-right text-[#64748B]`}>₹{taxAmount.toFixed(2)}</div>
+                <div data-invoice-cell className={`${td} text-right font-semibold text-[#64748B]`}>₹{value.toFixed(2)}</div>
+                <div data-invoice-cell className={`${td} text-center`}>
+                  {onRemove ? (
+                    <button
+                      tabIndex={-1}
+                      onClick={(e) => { e.stopPropagation(); onRemove(item); }}
+                      title="Delete row"
+                      className="w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#FEE2E2] hover:bg-[#FECACA] transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 text-[#DC2626]" />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             );
           })}
-          {Array.from({ length: EMPTY_ROWS }).map((_, e) => {
+          {Array.from({ length: emptyRowCount }).map((_, e) => {
             const sno = items.length + e + 1;
             const isFirst = e === 0;
             const isActive = activeRow === `empty-${e}`;
-            const focusRowInput = (rowIdx: number = e, field: 'code' | 'name' = 'code') => {
+            const focusRowInput = (rowIdx: number = e, field: 'code' | 'name' = 'name') => {
               setActiveRow(`empty-${rowIdx}`);
               setEditRow(rowIdx);
               setEditField(field);
               requestAnimationFrame(() => inputRefs.current[`pq-${rowIdx}-${field}`]?.focus());
             };
             return (
-              <tr
+              <div data-invoice-row
                 key={`empty-${e}`}
                 data-rowid={`empty-${e}`}
                 tabIndex={0}
                 title="Type a drug code or name in this row to begin billing"
                 onClick={(ev) => {
-                  if ((ev.target as HTMLElement).tagName === 'INPUT') return;
+                  const tag = (ev.target as HTMLElement).tagName;
+                  if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'SELECT') return;
                   focusRowInput();
                 }}
                 onKeyDown={(ev) => {
-                  const row = ev.currentTarget as HTMLTableRowElement;
+                  const row = ev.currentTarget as HTMLElement;
                   const t = ev.target as HTMLElement;
                   const inText = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA';
                   const cellNavKey = ev.key === 'ArrowUp' || ev.key === 'ArrowDown' || ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && (ev.ctrlKey || ev.metaKey));
                   if (inText && !cellNavKey) return;
-                  // Ctrl+Shift+Enter is Submit from anywhere — never cell nav.
+                  // Ctrl+Enter is Submit from anywhere — never cell nav.
                   // Without this, the preventDefault below marks the event
                   // handled, the global shortcut ignores it, and the first
                   // presses just hop columns until focus lands in an input.
-                  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && ev.shiftKey) {
+                  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && !ev.shiftKey) {
                     ev.preventDefault();
                     ev.stopPropagation();
                     window.dispatchEvent(new CustomEvent('pos-checkout-request'));
@@ -954,30 +1110,88 @@ export default function CartItems({
                   }
                   else if (ev.key === 'Enter' && !inText) { ev.preventDefault(); focusRowInput(); }
                 }}
-                className={`cursor-pointer focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-green-500 ${isActive ? 'bg-blue-50 shadow-[inset_2px_0_0_0_#16a34a]' : isFirst ? 'bg-gray-50' : ''}`}
+                className={`min-h-[56px] grid items-center divide-x divide-[#D5DBE5] cursor-pointer border-b border-[#D5DBE5] last:border-b-0 focus:outline-none ${isActive ? 'bg-[#EAF2FD]' : isFirst ? 'bg-gray-50/60' : ''}`}
+                style={{ gridTemplateColumns: INVOICE_GRID_COLUMNS }}
               >
-                <td className={`${td} ${isFirst ? 'text-green-600 font-semibold' : 'text-gray-500'}`}>{sno}</td>
-                <td className={`${td}${pc(`empty-${e}`, 'code')}`} onClick={(ev) => ev.stopPropagation()}>
-                  {renderEntryInput(e, 'code', isFirst ? 'Code…' : '')}
-                </td>
-                <td className={`${td}${pc(`empty-${e}`, 'name')}`} onClick={(ev) => ev.stopPropagation()}>
-                  {renderEntryInput(e, 'name', isFirst ? 'Product name…' : '')}
-                </td>
-                <td className={td}>&nbsp;</td>
-                <td className={td}>&nbsp;</td>
-                <td className={td}>&nbsp;</td>
-                <td className={td}>&nbsp;</td>
-                <td className={td}>&nbsp;</td>
-                <td className={td}>&nbsp;</td>
-                <td className={td}>&nbsp;</td>
-                <td className={td}>&nbsp;</td>
-                <td className={td}>&nbsp;</td>
-                <td className={td}>&nbsp;</td>
-              </tr>
+                <div data-invoice-cell className={`${td} text-center font-semibold ${isActive ? 'text-[#16A34A]' : isFirst ? 'text-[#16A34A]' : 'text-[#64748B]'}`}>{sno}</div>
+                <div data-invoice-cell className={`${td}${pc(`empty-${e}`, 'name')}`} onClick={(ev) => ev.stopPropagation()}>
+                  {renderEntryInput(e, 'name', 'Search product...')}
+                </div>
+                <div data-invoice-cell className={td}>
+                  <input
+                    tabIndex={-1}
+                    disabled
+                    placeholder="Unit"
+                    title="Unit is set when a product is chosen"
+                    className="w-full min-w-0 h-10 px-2 text-sm text-[#64748B] placeholder:text-[#64748B] bg-[#F1F5F9] border border-[#D5DBE5] rounded-lg outline-none cursor-not-allowed"
+                  />
+                </div>
+                <div data-invoice-cell className={td}>
+                  <LocalStepper value={ed(e, 'qty', '0')} onChange={(v) => setEd(e, 'qty', v)} integer />
+                </div>
+                <div data-invoice-cell className={td}>
+                  <LocalStepper value={ed(e, 'free', '0')} onChange={(v) => setEd(e, 'free', v)} integer />
+                </div>
+                <div data-invoice-cell className={td}>
+                  <div className="relative">
+                    <Package className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B] pointer-events-none" />
+                    <input
+                      tabIndex={-1}
+                      disabled
+                      value={ed(e, 'batch', '')}
+                      placeholder="Batch"
+                      className="w-full min-w-0 h-10 pl-9 pr-2 text-sm text-[#64748B] placeholder:text-[#64748B] bg-[#F1F5F9] border border-[#D5DBE5] rounded-lg outline-none cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+                <div data-invoice-cell className={td}>
+                  <div className="relative">
+                    <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B] pointer-events-none" />
+                    <input
+                      tabIndex={-1}
+                      disabled
+                      value={ed(e, 'expiry', '')}
+                      placeholder="Expiry"
+                      className="w-full min-w-0 h-10 pl-9 pr-2 text-sm text-[#64748B] placeholder:text-[#64748B] bg-[#F1F5F9] border border-[#D5DBE5] rounded-lg outline-none cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+                <div data-invoice-cell className={td}>
+                  <LocalStepper value={ed(e, 'price', '0.00')} onChange={(v) => setEd(e, 'price', v)} align="right" />
+                </div>
+                <div data-invoice-cell className={td}>
+                  <LocalStepper value={ed(e, 'rate', '0.00')} onChange={(v) => setEd(e, 'rate', v)} align="right" />
+                </div>
+                <div data-invoice-cell className={td}>
+                  <select
+                    tabIndex={-1}
+                    value={ed(e, 'gst', '0')}
+                    onChange={(ev) => setEd(e, 'gst', ev.target.value)}
+                    onClick={(ev) => ev.stopPropagation()}
+                    className="w-full min-w-0 h-10 px-1 text-center text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
+                  >
+                    {[0, 5, 12, 18, 28].map((g) => (
+                      <option key={g} value={String(g)}>{g}%</option>
+                    ))}
+                  </select>
+                </div>
+                <div data-invoice-cell className={`${td} text-right text-[#64748B]`}>0.00</div>
+                <div data-invoice-cell className={`${td} text-right text-[#64748B]`}>0.00</div>
+                <div data-invoice-cell className={`${td} text-center`}>
+                  <button
+                    tabIndex={-1}
+                    onClick={(ev) => { ev.stopPropagation(); clearEmptyRow(e); }}
+                    title="Clear row"
+                    className="w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#FEE2E2] hover:bg-[#FECACA] transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 text-[#DC2626]" />
+                  </button>
+                </div>
+              </div>
             );
           })}
-        </tbody>
-      </table>
+        </div>
+      </div>
     </div>
   );
 }

@@ -50,6 +50,14 @@ export async function searchProducts(q: string, limit?: number) {
   return [];
 }
 
+// Single barcode lookup (scan mode). Same endpoint the global scanner
+// listener uses; auth headers come from apiGet automatically.
+export async function getProductByBarcode(code: string) {
+  const response: any = await apiGet(`/products/barcode/${encodeURIComponent(code.trim())}`);
+  if (response && response.success && response.data) return response.data;
+  return null;
+}
+
 export async function getLowStockProducts(threshold = 10) {
   const response = await apiGet(`/products/low-stock?threshold=${threshold}`);
   if (response && response.success && Array.isArray(response.data)) {

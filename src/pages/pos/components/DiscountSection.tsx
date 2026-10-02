@@ -1,19 +1,34 @@
-import { useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useEffect, useRef, useState } from 'react';
 
 interface DiscountSectionProps {
   discount: number;
-  onDiscountChange: (value: number) => void;
-  onApplyDiscount: () => void;
+  subtotal: number;
+  onApplyDiscount: (amount: number) => void;
+}
+
+// Discount accepts a flat ₹ amount ("50") or a percent ("10%").
+// Either way a flat rupee amount flows into the existing applyDiscount API —
+// GST/totals math downstream is untouched.
+export function parseDiscountInput(raw: string, subtotal: number): number | null {
+  const v = raw.trim();
+  if (!v) return null;
+  if (v.endsWith('%')) {
+    const pct = parseFloat(v.slice(0, -1));
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) return null;
+    return Math.round(((subtotal * pct) / 100) * 100) / 100;
+  }
+  const flat = parseFloat(v);
+  if (!Number.isFinite(flat) || flat < 0) return null;
+  return Math.round(flat * 100) / 100;
 }
 
 export default function DiscountSection({
   discount,
-  onDiscountChange,
+  subtotal,
   onApplyDiscount,
 }: DiscountSectionProps) {
-  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [text, setText] = useState(discount ? String(discount) : '');
 
   // External workstation shortcut: F6 focuses this input.
   useEffect(() => {
@@ -26,35 +41,40 @@ export default function DiscountSection({
       window.removeEventListener("pos-focus-discount", onFocusDiscount);
   }, []);
 
+  // Stay in step when the bill discount is reset elsewhere (new bill, close).
+  useEffect(() => {
+    setText(discount ? String(discount) : '');
+  }, [discount]);
+
+  const apply = () => {
+    const amount = parseDiscountInput(text, subtotal);
+    if (amount === null) return;
+    onApplyDiscount(amount);
+  };
+
   return (
-    <div>
-      <div className="text-[11px] font-semibold text-gray-500 text-center">{t('pos.applyDiscount')}</div>
-      <div className="flex gap-1.5">
-        <div className="relative flex-1 min-w-0">
-          <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">₹</span>
-          <input
-            ref={inputRef}
-            type="number"
-            className="w-full border border-gray-300 bg-white py-1 pl-6 pr-2 rounded-none text-gray-900 text-xs focus:border-blue-500 focus:outline-none"
-            placeholder="0"
-            value={discount}
-            onChange={(e) => onDiscountChange(Number(e.target.value))}
-            onKeyDown={(e) => {
-              // Enter applies the discount via the existing handler.
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                onApplyDiscount();
-              }
-            }}
-          />
-        </div>
-        <button
-          className="bg-green-600 font-bold text-white text-xs px-3 rounded-none hover:bg-green-700 transition shrink-0"
-          onClick={onApplyDiscount}
-        >
-          {t('pos.apply')}
-        </button>
-      </div>
+    <div className="flex gap-2">
+      <input
+        ref={inputRef}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          // Enter applies the discount via the existing handler.
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            apply();
+          }
+        }}
+        placeholder="Apply Discount (₹ or %)"
+        autoComplete="off"
+        className="flex-1 min-w-0 bg-white border border-[#D5DBE5] rounded-lg h-10 px-3 text-sm text-[#1E293B] placeholder:text-[#64748B] outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
+      />
+      <button
+        className="w-[100px] h-10 shrink-0 bg-[#16A34A] hover:bg-[#15803D] transition-colors rounded-lg text-white text-sm font-bold"
+        onClick={apply}
+      >
+        Apply
+      </button>
     </div>
   );
 }

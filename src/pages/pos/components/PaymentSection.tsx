@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Banknote, Smartphone, CalendarDays, CreditCard } from "lucide-react";
+import { PaymentButton } from "./posUi";
 
 interface PaymentSectionProps {
   payments: Array<{ method: string; amount: number }>;
@@ -31,11 +33,11 @@ export default function PaymentSection({
   liveRef.current = { grandTotal, onPaymentChange };
 
   // External workstation shortcuts (central usePosShortcuts dispatcher):
-  // F7/F8/F9 select the payment method, F10 focuses the cash input.
+  // F7/F8/F9 + Ctrl+C/U/P/D select the payment method, F10 focuses cash input.
   useEffect(() => {
     const onSelectPayment = (e: Event) => {
       const method = (e as CustomEvent).detail;
-      if (method === "cash" || method === "upi" || method === "pay_later") {
+      if (method === "cash" || method === "upi" || method === "pay_later" || method === "card") {
         handleMethodSelect(method);
       }
     };
@@ -97,54 +99,51 @@ export default function PaymentSection({
   };
 
   const methods = [
-    { id: "cash", label: t('pos.cash'), key: "Ctrl+C", activeBorder: "border-green-500", activeBg: "bg-green-500/10", activeText: "text-green-500" },
-    { id: "upi", label: t('pos.upi'), key: "Ctrl+U", activeBorder: "border-purple-500", activeBg: "bg-purple-500/10", activeText: "text-purple-500" },
-    { id: "pay_later", label: t('pos.payLater'), key: "Ctrl+P", activeBorder: "border-orange-500", activeBg: "bg-orange-500/10", activeText: "text-orange-500" },
+    { id: "cash", label: t('pos.cash'), key: "Ctrl+C", icon: <Banknote /> },
+    { id: "upi", label: t('pos.upi'), key: "Ctrl+U", icon: <Smartphone /> },
+    { id: "pay_later", label: t('pos.payLater'), key: "Ctrl+P", icon: <CalendarDays /> },
+    { id: "card", label: "Card", key: "Ctrl+D", icon: <CreditCard /> },
   ];
 
-  return (
-    <div className="space-y-1.5">
-      <div className="text-[11px] font-semibold text-gray-500 text-center">{t('pos.paymentMethod')}</div>
+  // Amount entry shows for every tendered method; Pay Later keeps its
+  // credit info box instead (nothing is received on credit).
+  const showAmountRow = selectedMethod !== "pay_later";
 
-      {/* Method Selector - three full-width stacked controls */}
-      <div className="flex flex-col gap-1">
-        {methods.map(({ id, label, key, activeBorder, activeBg, activeText }) => (
-          <button
+  return (
+    <div>
+      <div className="text-sm font-bold text-[#1E293B] mb-3">{t('pos.paymentMethod')}</div>
+
+      {/* Method Selector - 2x2 grid */}
+      <div className="grid grid-cols-2 gap-2">
+        {methods.map(({ id, label, key, icon }) => (
+          <PaymentButton
             key={id}
-            type="button"
-            title={`Shortcut: ${key}`}
+            icon={icon}
+            label={label}
+            shortcut={key}
+            active={selectedMethod === id}
             onClick={() => handleMethodSelect(id)}
-            className={`border rounded-none py-1 transition-all text-center ${selectedMethod === id
-              ? `${activeBorder} ${activeBg}`
-              : "border-gray-300 bg-white hover:border-gray-400"
-              }`}
-          >
-            <span className={`text-xs font-medium ${selectedMethod === id ? activeText : "text-gray-700"}`}>
-              {label}
-              <span className="ml-1.5 text-[10px] font-bold text-gray-400 border border-gray-300 rounded-none px-1">{key}</span>
-            </span>
-          </button>
+          />
         ))}
       </div>
 
-      {/* Amount Input - Show only for cash and upi */}
-      {selectedMethod !== "pay_later" && (
-        <div>
-          <label className="text-xs text-gray-500 mb-0.5 block">
-            {selectedMethod === "cash" ? t('pos.cashGiven') : t('pos.amountPaid')}
-          </label>
-          <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-none px-2 py-1 focus-within:border-green-500 transition-colors">
-            <span className="text-gray-500 font-bold text-sm">₹</span>
+      {/* Amount Received - Show for cash, upi and card */}
+      {showAmountRow && (
+        <div className="mt-2">
+          <div className="flex items-center gap-2">
+            <label className="text-[13px] text-[#64748B] whitespace-nowrap">
+              Amount Received (₹)
+            </label>
             <input
               ref={cashInputRef}
               type="number"
-              className="flex-1 bg-transparent text-gray-900 text-sm font-bold outline-none min-w-0"  // min-w-0 prevents overflow
+              className="flex-1 min-w-0 bg-white border border-[#D5DBE5] rounded-lg h-10 px-3 text-sm font-bold text-[#1E293B] text-right outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               value={amountGiven || ""}
-              placeholder={grandTotal.toString()}
+              placeholder={grandTotal.toFixed(2)}
               onChange={(e) => handleAmountChange(Number(e.target.value))}
               onKeyDown={(e) => {
-                // Ctrl+Shift+Enter in Cash Given submits via the existing checkout.
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+                // Ctrl+Enter in Amount Received submits via the existing checkout.
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
                   e.preventDefault();
                   window.dispatchEvent(new CustomEvent('pos-checkout-request'));
                 }
@@ -152,18 +151,28 @@ export default function PaymentSection({
             />
             <button
               type="button"
-              className="text-xs text-green-500 border border-green-500/50 px-2 py-1 rounded-none hover:bg-green-500/10 transition-colors flex-shrink-0 whitespace-normal text-center leading-tight"
+              className="shrink-0 text-xs font-semibold text-[#16A34A] border border-[#16A34A] px-2 h-10 rounded-lg hover:bg-[#16A34A]/10 transition-colors"
               onClick={() => handleAmountChange(grandTotal)}
             >
               {t('pos.exact')}
             </button>
           </div>
+          {change >= 0 && amountGiven > 0 ? (
+            <div className="text-xs text-[#16A34A] font-medium mt-1 text-right">
+              Change: ₹ {change.toFixed(2)}
+            </div>
+          ) : null}
+          {change < 0 ? (
+            <div className="text-xs text-red-500 font-medium mt-1 text-right">
+              {t('pos.amountDue')}: ₹{Math.abs(change).toFixed(2)}
+            </div>
+          ) : null}
         </div>
       )}
 
       {/* Credit Info - Show when Pay Later is selected */}
       {selectedMethod === "pay_later" && (
-        <div className="bg-orange-500/10 border border-orange-500/30 rounded-none px-2 py-1.5">
+        <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg px-2 py-1.5 mt-2">
           <div className="flex items-center gap-2">
             <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -173,21 +182,6 @@ export default function PaymentSection({
           <p className="text-gray-500 text-xs mt-1">
             {t('pos.payLaterDescription')}
           </p>
-        </div>
-      )}
-
-      {/* Change / Due - Show only for cash and upi */}
-      {selectedMethod !== "pay_later" && amountGiven > 0 && (
-        <div className={`rounded-none px-2 py-1 flex justify-between items-center ${change >= 0
-          ? "bg-green-500/10 border border-green-500/30"
-          : "bg-red-500/10 border border-red-500/30"
-          }`}>
-          <span className={`text-xs font-medium ${change >= 0 ? "text-green-600" : "text-red-500"}`}>
-            {change >= 0 ? t('pos.changeToReturn') : t('pos.amountDue')}
-          </span>
-          <span className={`text-sm font-bold ${change >= 0 ? "text-green-600" : "text-red-500"}`}>
-            ₹{Math.abs(change).toLocaleString()}
-          </span>
         </div>
       )}
     </div>

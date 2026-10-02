@@ -266,31 +266,34 @@ tr.batch-live .batch-marquee > span {
   height: 6px;
 }
 
-/* POS invoice grid: the TABLE CELL owns the active outline.
+/* POS invoice grid: the CELL owns the active outline (shared <table> or
+   CSS-grid markup — both carry data-invoice-cell).
    Inner inputs/buttons blend into the cell - they never draw their own
    ring, so there is exactly ONE green rectangle per active cell. */
-.invoice-grid td:focus-within {
+.invoice-grid [data-invoice-cell]:focus-within {
   outline: 2px solid #16a34a !important;
   outline-offset: -2px;
 }
-.invoice-grid td:focus-within input,
-.invoice-grid td:focus-within button {
+.invoice-grid [data-invoice-cell]:focus-within input,
+.invoice-grid [data-invoice-cell]:focus-within button,
+.invoice-grid [data-invoice-cell]:focus-within select {
   border-color: transparent !important;
   box-shadow: none !important;
 }
-.invoice-grid td input:focus,
-.invoice-grid td button:focus,
-.invoice-grid td [tabindex]:focus {
+.invoice-grid [data-invoice-cell] input:focus,
+.invoice-grid [data-invoice-cell] button:focus,
+.invoice-grid [data-invoice-cell] select:focus,
+.invoice-grid [data-invoice-cell] [tabindex]:focus {
   outline: none !important;
   box-shadow: none !important;
 }
-tbody tr[tabindex]:focus {
+.invoice-grid [data-invoice-row]:focus {
   outline: 2px solid #16a34a !important;
   outline-offset: -2px;
 }
 /* Pinned cell: keeps the green outline on the last-touched cell even
    after focus leaves the spreadsheet (totals, search, parties, etc.). */
-.invoice-grid td.cell-pinned {
+.invoice-grid [data-invoice-cell].cell-pinned {
   outline: 2px solid #16a34a !important;
   outline-offset: -2px;
 }
