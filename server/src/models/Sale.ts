@@ -1371,10 +1371,13 @@ export class SaleModel {
     const setting = db.prepare('SELECT * FROM settings LIMIT 1').get() as any;
     const prefix = setting?.invoice_prefix || 'INV';
 
-    // Get last invoice number
+    // Get last invoice number — by INSERTION order (rowid), never by
+    // wall-clock timestamp: created_at has 1-second resolution and the
+    // system clock can skew backward, both of which used to freeze (or
+    // duplicate) the previewed number on rapid or backdated saves.
     const lastSale = db.prepare(`
-      SELECT invoice_number FROM sales 
-      ORDER BY created_at DESC LIMIT 1
+      SELECT invoice_number FROM sales
+      ORDER BY rowid DESC LIMIT 1
     `).get() as any;
 
     let nextNumber = 1;
