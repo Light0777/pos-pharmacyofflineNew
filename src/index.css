@@ -294,3 +294,11 @@ tr.batch-live .batch-marquee > span {
   box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
   outline: none;
 }
+/* Open picker keeps the same ring while its dropdown is open. This must be
+   plain CSS, not a conditional Tailwind border utility: same-specificity
+   utilities resolve by stylesheet order (gray sorts later), so the class
+   order in JSX could never win. Unlayered CSS beats layered utilities. */
+.pos-cell-open {
+  border-color: #16A34A;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+}

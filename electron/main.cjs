@@ -132,6 +132,43 @@ function createWindow() {
   });
 
   mainWindow.setMenu(null);
+
+  // Reload keys: F1 reloads the window; Ctrl/Cmd+R is swallowed so an
+  // accidental chord can never wipe an in-progress bill. Handled here in
+  // the shell (not the page) so it works even when the renderer is busy.
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+    const key = String(input.key || '').toLowerCase();
+    const noMods = !input.control && !input.meta && !input.alt && !input.shift;
+    if (key === 'f1' && noMods) {
+      event.preventDefault();
+      mainWindow.reload();
+      return;
+    }
+    // Ctrl/Cmd+K focuses product search. Handled here (not the page)
+    // because Chromium consumes the chord before it reaches the renderer.
+    // Reuses the existing pos-focus-search channel, so no preload changes.
+    if ((input.control || input.meta) && !input.alt && !input.shift && key === 'k') {
+      event.preventDefault();
+      mainWindow.webContents.executeJavaScript(
+        'window.dispatchEvent(new CustomEvent("pos-focus-search"))'
+      ).catch(() => {});
+      return;
+    }
+    // Ctrl/Cmd+E jumps back to the product-name entry cell (first empty
+    // row). Same Chromium-consumes-it reasoning as Ctrl+K above.
+    if ((input.control || input.meta) && !input.alt && !input.shift && key === 'e') {
+      event.preventDefault();
+      mainWindow.webContents.executeJavaScript(
+        'window.dispatchEvent(new CustomEvent("pos-focus-entry"))'
+      ).catch(() => {});
+      return;
+    }
+    if ((input.control || input.meta) && !input.alt && !input.shift && key === 'r') {
+      event.preventDefault();
+    }
+  });
+
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });

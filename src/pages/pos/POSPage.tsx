@@ -18,8 +18,9 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Store01Icon,
 } from "@hugeicons/core-free-icons";
-import { Trash2, ShoppingCart, ReceiptText, Banknote, ChevronDown, User, Plus, Calendar } from "lucide-react";
+import { Trash2, ShoppingCart, ReceiptText, User, Plus, Calendar } from "lucide-react";
 import { Card, ShortcutBadge } from "./components/posUi";
+import HeaderPaymentSelect from "./components/HeaderPaymentSelect";
 import InvoiceReceipt from "./components/InvoiceReceipt";
 import { getSettings } from "../../renderer/services/settingsApi";
 import { getInvoice, getNextInvoice } from "../../renderer/services/saleApi";
@@ -706,20 +707,7 @@ function POSpage() {
           </div>
           <div className="w-[220px] shrink-0">
             <label className="block text-[13px] font-medium text-[#64748B] mb-1">Payment:</label>
-            <div className="relative">
-              <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-[#64748B] pointer-events-none" />
-              <select
-                value={payments?.[0]?.method || 'cash'}
-                onChange={(e) => window.dispatchEvent(new CustomEvent("pos-select-payment", { detail: e.target.value }))}
-                className="w-full h-10 pl-10 pr-8 text-sm font-medium text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg outline-none appearance-none cursor-pointer pos-field"
-              >
-                <option value="cash">Cash</option>
-                <option value="upi">UPI</option>
-                <option value="pay_later">Pay Later</option>
-                <option value="card">Card</option>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B] pointer-events-none" />
-            </div>
+            <HeaderPaymentSelect method={payments?.[0]?.method || 'cash'} />
           </div>
           <div className="self-stretch w-px bg-[#E5E9F0] shrink-0" />
           <div className="flex-1 min-w-0">
@@ -918,8 +906,6 @@ function POSpage() {
           <span>View Bill</span>
           <ShortcutBadge label="F5" />
         </button>
-        {/* TEMP diagnostic build tag — proves which bundle is running. */}
-        <span className="text-[10px] text-gray-300 select-none">uom-focus-5</span>
       </div>
       </section>
       {/* Modals */}

@@ -656,14 +656,21 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
     };
   }, [searchTerm]);
 
-  // Use server results when available, otherwise filter paginated products
+  // Use server results when available, otherwise filter paginated products.
+  // Server hits already match name/SKU/barcode/composition/manufacturer, so
+  // they must be used as-is: re-filtering by name here emptied the dropdown
+  // for single letters whose top alphabetical matches only hit the extra
+  // fields (e.g. manufacturer), even though related medicines exist.
   const filteredProducts = useMemo(() => {
-    const source = searchResults ?? products;
+    if (searchResults) return searchResults;
+    // Local fallback over the loaded page mirrors the server rule:
+    // names/codes must START WITH the typed text.
+    const source = products;
     const searchLower = searchTerm.toLowerCase();
     return source.filter((product) => (
-      product.name.toLowerCase().includes(searchLower) ||
-      (product.sku && product.sku.toLowerCase().includes(searchLower)) ||
-      (product.barcode && product.barcode.toLowerCase().includes(searchLower))
+      product.name.toLowerCase().startsWith(searchLower) ||
+      (product.sku && product.sku.toLowerCase().startsWith(searchLower)) ||
+      (product.barcode && product.barcode.toLowerCase().startsWith(searchLower))
     ));
   }, [products, searchTerm, searchResults]);
 
@@ -683,10 +690,12 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
     setActiveIdx(0);
   }, [filteredProducts]);
 
-  // Keep the highlighted dropdown row visible while arrow-keying
+  // Keep the highlighted dropdown row visible while arrow-keying.
+  // behavior:'instant' is required: the global smooth-scroll CSS would lag
+  // behind rapid key repeats and the list would look frozen.
   useEffect(() => {
     const el = dropListRef.current?.querySelector('[data-dd-active="true"]');
-    el?.scrollIntoView({ block: 'nearest' });
+    el?.scrollIntoView({ block: 'nearest', behavior: 'instant' } as ScrollIntoViewOptions);
   }, [activeIdx]);
 
   // Prefetch batch info for server-search dropdown rows (top 5 only)
@@ -794,8 +803,8 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
               onKeyDown={(e) => {
                 // Dropdown shows the first 5 matches only (speed + focus).
                 const list = sortedProducts.slice(0, 5);
-                if (e.key === 'ArrowDown' && list.length > 0) { e.preventDefault(); setDropOpen(true); setActiveIdx(i => Math.min(i + 1, list.length - 1)); }
-                else if (e.key === 'ArrowUp' && list.length > 0) { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
+                if (e.key === 'ArrowDown' && list.length > 0) { e.preventDefault(); setDropOpen(true); setActiveIdx(i => (i + 1) % list.length); }
+                else if (e.key === 'ArrowUp' && list.length > 0) { e.preventDefault(); setActiveIdx(i => (i - 1 + list.length) % list.length); }
                 else if (e.key === 'Enter') {
                   // Results open: add the highlighted product.
                   // Ctrl+Enter here always means submit instead.

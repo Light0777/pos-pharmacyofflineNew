@@ -139,10 +139,10 @@ export default function InventoryModal({ onClose }: InventoryModalProps) {
   const onSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown" && visible.length > 0) {
       e.preventDefault();
-      setHighlight((i) => Math.min(i + 1, visible.length - 1));
+      setHighlight((i) => (i + 1) % visible.length);
     } else if (e.key === "ArrowUp" && visible.length > 0) {
       e.preventDefault();
-      setHighlight((i) => Math.max(i - 1, 0));
+      setHighlight((i) => (i - 1 + visible.length) % visible.length);
     } else if (e.key === "Enter" && visible.length > 0) {
       e.preventDefault();
       addToBill(visible[Math.min(highlight, visible.length - 1)]);

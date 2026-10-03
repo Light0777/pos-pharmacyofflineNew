@@ -69,6 +69,13 @@ export default function CustomerSelect({
     setHighlightIdx(0);
   }, [isOpen]);
 
+  // Keep the highlighted option visible while arrow-keying (instant —
+  // see ProductGrid: global smooth-scroll lags rapid key repeats).
+  useEffect(() => {
+    dropdownRef.current?.querySelector('[data-cust-active="true"]')
+      ?.scrollIntoView({ block: 'nearest', behavior: 'instant' } as ScrollIntoViewOptions);
+  }, [highlightIdx, searchQuery, isOpen]);
+
   // Filter customers by name or phone digits.
   // Capped at the first 5 matches so a huge customer list can never
   // flood the dropdown (speed + focus); keep typing to narrow.
@@ -101,10 +108,10 @@ export default function CustomerSelect({
   const onSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setHighlightIdx((i) => Math.min(i + 1, Math.max(optionCount - 1, 0)));
+      setHighlightIdx((i) => (optionCount <= 0 ? 0 : (i + 1) % optionCount));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setHighlightIdx((i) => Math.max(i - 1, 0));
+      setHighlightIdx((i) => (optionCount <= 0 ? 0 : (i - 1 + optionCount) % optionCount));
     } else if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       if (optionCount > 0) pickOption(Math.min(highlightIdx, optionCount - 1));
@@ -176,6 +183,7 @@ export default function CustomerSelect({
           filteredCustomers.map((c, idx) => (
             <div
               key={c.customer_uuid}
+              data-cust-active={highlightIdx === (idx + (walkInVisible ? 1 : 0)) || undefined}
               className={`px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors border-b border-[#E5E9F0] last:border-b-0 ${highlightIdx === (idx + (walkInVisible ? 1 : 0)) ? 'bg-[#16A34A]/10' : ''}`}
               onMouseEnter={() => setHighlightIdx(idx + (walkInVisible ? 1 : 0))}
               onClick={() => {

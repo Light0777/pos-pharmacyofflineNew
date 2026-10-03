@@ -306,6 +306,11 @@ export class ProductModel {
 
   static search(query: string, limit: number = 20): Product[] {
 
+    // Prefix match on name/SKU/barcode only: typing "S" lists medicines
+    // whose names start with S (never A-names), and an empty result means
+    // "no products found". Composition/manufacturer are intentionally NOT
+    // searched here — substring hits there are what used to flood short
+    // queries with unrelated rows.
     const stmt = db.prepare(`
       SELECT * FROM products
       WHERE
@@ -314,21 +319,16 @@ export class ProductModel {
           name LIKE ?
           OR sku LIKE ?
           OR barcode LIKE ?
-          OR composition LIKE ?
-          OR manufacturer LIKE ?
-          OR rack_location LIKE ?
         )
       ORDER BY name ASC
       LIMIT ?
     `);
 
+    const prefix = `${query}%`;
     const products = stmt.all(
-      `%${query}%`,
-      `%${query}%`,
-      `%${query}%`,
-      `%${query}%`,
-      `%${query}%`,
-      `%${query}%`,
+      prefix,
+      prefix,
+      prefix,
       limit
     ) as Product[];
 
