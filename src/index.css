@@ -266,34 +266,31 @@ tr.batch-live .batch-marquee > span {
   height: 6px;
 }
 
-/* POS invoice grid: the CELL owns the active outline (shared <table> or
-   CSS-grid markup — both carry data-invoice-cell).
-   Inner inputs/buttons blend into the cell - they never draw their own
-   ring, so there is exactly ONE green rectangle per active cell. */
-.invoice-grid [data-invoice-cell]:focus-within {
-  outline: 2px solid #16a34a !important;
-  outline-offset: -2px;
+/* ── Shared billing-field focus ring ─────────────────────────────────────────
+   One class for every input/select/combobox on the billing screen, so the
+   ring always follows the control's own 8px radius (never a square cell
+   outline). :focus-visible covers keyboard focus on plain inputs, selects
+   and buttons; :focus-within covers combobox wrapper divs. */
+.pos-field {
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
-.invoice-grid [data-invoice-cell]:focus-within input,
-.invoice-grid [data-invoice-cell]:focus-within button,
-.invoice-grid [data-invoice-cell]:focus-within select {
-  border-color: transparent !important;
-  box-shadow: none !important;
+.pos-field:focus-visible,
+.pos-field:focus-within {
+  border-color: #16A34A;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+  outline: none;
 }
-.invoice-grid [data-invoice-cell] input:focus,
-.invoice-grid [data-invoice-cell] button:focus,
-.invoice-grid [data-invoice-cell] select:focus,
-.invoice-grid [data-invoice-cell] [tabindex]:focus {
-  outline: none !important;
-  box-shadow: none !important;
+
+/* Spreadsheet cells: Excel-style — the active cell ALWAYS shows its ring,
+   mouse or keyboard. Grid position must never be ambiguous, and programmatic
+   focus after async work doesn't reliably trip :focus-visible heuristics. */
+.pos-cell {
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
-.invoice-grid [data-invoice-row]:focus {
-  outline: 2px solid #16a34a !important;
-  outline-offset: -2px;
-}
-/* Pinned cell: keeps the green outline on the last-touched cell even
-   after focus leaves the spreadsheet (totals, search, parties, etc.). */
-.invoice-grid [data-invoice-cell].cell-pinned {
-  outline: 2px solid #16a34a !important;
-  outline-offset: -2px;
+.pos-cell:focus,
+.pos-cell:focus-visible,
+.pos-cell:focus-within {
+  border-color: #16A34A;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+  outline: none;
 }

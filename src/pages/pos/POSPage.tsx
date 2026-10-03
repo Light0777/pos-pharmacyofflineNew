@@ -122,7 +122,7 @@ function POSpage() {
   };
   useEffect(() => { fetchNextBill(); }, []);
   useEffect(() => {
-    console.log('[POS] loaded: draft-flow + save-button + cart-ref + ctrl-enter build');
+    console.log('[POS] loaded: draft-flow + save-button + cart-ref + ctrl-enter + uom-focus build');
   }, []);
 
   const [shopSettings, setShopSettings] = useState<any>(null);
@@ -711,7 +711,7 @@ function POSpage() {
               <select
                 value={payments?.[0]?.method || 'cash'}
                 onChange={(e) => window.dispatchEvent(new CustomEvent("pos-select-payment", { detail: e.target.value }))}
-                className="w-full h-10 pl-10 pr-8 text-sm font-medium text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg outline-none appearance-none cursor-pointer focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
+                className="w-full h-10 pl-10 pr-8 text-sm font-medium text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg outline-none appearance-none cursor-pointer pos-field"
               >
                 <option value="cash">Cash</option>
                 <option value="upi">UPI</option>
@@ -839,8 +839,8 @@ function POSpage() {
             />
           </div>
         </Card>
-        {/* Card C — Payment method */}
-        <Card className="p-4 min-w-0">
+        {/* Card C — Payment method (bento: spans bottom row + footer row) */}
+        <Card className="p-4 min-w-0 flex flex-col lg:row-span-2">
           <PaymentSection
             payments={payments}
             onPaymentChange={(index, field, value) => {
@@ -869,9 +869,8 @@ function POSpage() {
             grandTotal={grandTotal}
           />
         </Card>
-      </section>
-      {/* [5] FOOTER ACTION ROW */}
-      <div className="shrink-0 flex items-center gap-3">
+      {/* [5] FOOTER ACTION ROW (bento: sits under Totals + Customer) */}
+      <div className="flex items-center gap-3 lg:col-span-2 min-w-0">
         <button
           onClick={() => window.dispatchEvent(new CustomEvent("pos-new-bill-request"))}
           title="Clear the bill (asks to confirm when items exist)"
@@ -882,20 +881,20 @@ function POSpage() {
           <ShortcutBadge label="Ctrl+Shift+Enter" />
         </button>
         <button
-          className="flex-1 h-[52px] bg-[#16A34A] hover:bg-[#15803D] text-white rounded-lg font-bold text-base transition-colors disabled:bg-[#86D6A4] disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          onClick={handleReview}
-          disabled={cartLoading || !cartData?.cart?.items?.length || isCartInitializing}
-        >
-          {cartLoading ? (
-            "Processing..."
-          ) : (
-            <>
-              <ShoppingCart className="w-5 h-5" />
-              <span>Submit Sale</span>
-              <ShortcutBadge label="Ctrl+Enter" />
-            </>
-          )}
-        </button>
+          className="flex-1 h-[52px] bg-[#16A34A] hover:bg-[#15803D] text-white rounded-lg font-bold text-base transition-colors disabled:bg-[#86D6A4] disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-0"
+            onClick={handleReview}
+            disabled={cartLoading || !cartData?.cart?.items?.length || isCartInitializing}
+          >
+            {cartLoading ? (
+              "Processing..."
+            ) : (
+              <>
+                <ShoppingCart className="w-5 h-5" />
+                <span>Submit Sale</span>
+                <ShortcutBadge label="Ctrl+Enter" />
+              </>
+            )}
+          </button>
         {selectedCustomer?.credit_balance > 0 && (
           <button
             className="px-3 h-[52px] shrink-0 text-xs bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
@@ -919,7 +918,10 @@ function POSpage() {
           <span>View Bill</span>
           <ShortcutBadge label="F5" />
         </button>
+        {/* TEMP diagnostic build tag — proves which bundle is running. */}
+        <span className="text-[10px] text-gray-300 select-none">uom-focus-5</span>
       </div>
+      </section>
       {/* Modals */}
       {showNewBillConfirm && (
         <div

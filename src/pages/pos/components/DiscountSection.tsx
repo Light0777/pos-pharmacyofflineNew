@@ -67,7 +67,7 @@ export default function DiscountSection({
         }}
         placeholder="Apply Discount (₹ or %)"
         autoComplete="off"
-        className="flex-1 min-w-0 bg-white border border-[#D5DBE5] rounded-lg h-10 px-3 text-sm text-[#1E293B] placeholder:text-[#64748B] outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
+        className="flex-1 min-w-0 bg-white border border-[#D5DBE5] rounded-lg h-10 px-3 text-sm text-[#1E293B] placeholder:text-[#64748B] outline-none pos-field"
       />
       <button
         className="w-[100px] h-10 shrink-0 bg-[#16A34A] hover:bg-[#15803D] transition-colors rounded-lg text-white text-sm font-bold"

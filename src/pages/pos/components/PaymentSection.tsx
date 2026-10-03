@@ -110,11 +110,11 @@ export default function PaymentSection({
   const showAmountRow = selectedMethod !== "pay_later";
 
   return (
-    <div>
+    <div className="h-full flex flex-col">
       <div className="text-sm font-bold text-[#1E293B] mb-3">{t('pos.paymentMethod')}</div>
 
-      {/* Method Selector - 2x2 grid */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Method Selector - 2x2 grid that stretches to fill the card height */}
+      <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-2">
         {methods.map(({ id, label, key, icon }) => (
           <PaymentButton
             key={id}
@@ -123,6 +123,7 @@ export default function PaymentSection({
             shortcut={key}
             active={selectedMethod === id}
             onClick={() => handleMethodSelect(id)}
+            className="!h-auto min-h-[44px]"
           />
         ))}
       </div>
@@ -137,7 +138,7 @@ export default function PaymentSection({
             <input
               ref={cashInputRef}
               type="number"
-              className="flex-1 min-w-0 bg-white border border-[#D5DBE5] rounded-lg h-10 px-3 text-sm font-bold text-[#1E293B] text-right outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="flex-1 min-w-0 bg-white border border-[#D5DBE5] rounded-lg h-10 px-3 text-sm font-bold text-[#1E293B] text-right outline-none pos-field [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               value={amountGiven || ""}
               placeholder={grandTotal.toFixed(2)}
               onChange={(e) => handleAmountChange(Number(e.target.value))}

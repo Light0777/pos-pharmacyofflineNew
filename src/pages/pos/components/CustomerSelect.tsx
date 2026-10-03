@@ -124,7 +124,7 @@ export default function CustomerSelect({
       : t('pos.walkInCustomer');
 
   const searchBox = (
-    <div className="flex items-center gap-2 bg-white border border-[#D5DBE5] rounded-lg h-10 px-3 focus-within:border-[#16A34A] focus-within:ring-2 focus-within:ring-[#16A34A]/30 transition">
+    <div className="flex items-center gap-2 bg-white border border-[#D5DBE5] rounded-lg h-10 px-3 pos-field transition">
       <Search className="w-[18px] h-[18px] text-[#64748B] shrink-0" />
       <input
         ref={searchInputRef}

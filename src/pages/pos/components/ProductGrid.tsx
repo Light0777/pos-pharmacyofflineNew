@@ -808,7 +808,7 @@ export default function ProductGrid({ products, loading, page, totalPages, onPag
                 }
                 else if (e.key === 'Escape') { setSearchTerm(''); setDropOpen(false); }
               }}
-              className="w-full h-full pl-10 pr-10 text-sm border border-[#D5DBE5] rounded-lg bg-white text-[#1E293B] placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30 focus:border-[#16A34A] font-inter"
+              className="w-full h-full pl-10 pr-10 text-sm border border-[#D5DBE5] rounded-lg bg-white text-[#1E293B] placeholder:text-[#64748B] focus:outline-none pos-field font-inter"
               autoComplete="off"
             />
             {searchTerm ? (

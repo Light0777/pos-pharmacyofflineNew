@@ -54,12 +54,26 @@ function GridPicker({ value, options, onPick }: {
   // immediately so arrows work without an extra step.
   useEffect(() => {
     if (!open) return;
-    const t = setTimeout(() => {
-      const first = listRef.current?.querySelector('button') as HTMLElement | null;
-      first?.focus();
-    }, 0);
-    return () => clearTimeout(t);
+    focusFirstOption();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open ]);
+
+  // Focus the first option, retrying briefly: the list may mount (or
+  // remount under us during a cart refresh) a beat after open fires, and
+  // a single rAF isn't enough then. Logs where focus actually landed.
+  const focusFirstOption = (tries = 0): void => {
+    const first = listRef.current?.querySelector('button') as HTMLElement | null;
+    if (first) {
+      first.focus();
+      console.log(
+        '[GRID] uom focus landed on:',
+        document.activeElement?.tagName,
+        (document.activeElement?.textContent || '').slice(0, 24)
+      );
+    } else if (tries < 6) {
+      setTimeout(() => focusFirstOption(tries + 1), 60);
+    }
+  };
 
   // Arrow keys move inside the open list; Enter activates natively.
   const moveInList = (dir: 1 | -1) => {
@@ -87,10 +101,7 @@ function GridPicker({ value, options, onPick }: {
             e.preventDefault();
             e.stopPropagation();
             if (!open) setOpen(true);
-            requestAnimationFrame(() => {
-              const btns = Array.from(listRef.current?.querySelectorAll('button') ?? []) as HTMLElement[];
-              btns[0]?.focus();
-            });
+            focusFirstOption();
           } else if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
             // While open, arrows jump into the option list instead of the grid.
             e.preventDefault();
@@ -101,7 +112,7 @@ function GridPicker({ value, options, onPick }: {
             setOpen(false);
           }
         }}
-        className="max-w-full w-full overflow-hidden flex items-center gap-1 bg-white border border-[#D5DBE5] rounded-lg px-2 py-1 text-sm text-[#1E293B] hover:border-[#16A34A] focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
+        className={`max-w-full w-full overflow-hidden flex items-center gap-1 bg-white border border-[#D5DBE5] rounded-lg px-2 py-1 text-sm text-[#1E293B] hover:border-[#16A34A] focus:outline-none pos-cell ${open ? 'border-[#16A34A] shadow-[0_0_0_3px_rgba(22,163,74,0.18)]' : ''}`}
       >
         <span className="truncate">{current?.label || '—'}</span>
         <span className="text-[#64748B] text-[10px]">▾</span>
@@ -141,7 +152,7 @@ function GridPicker({ value, options, onPick }: {
                     (tr?.querySelector('[data-cell="qty"]') as HTMLElement | null)?.focus();
                   });
                 }}
-                className={`block w-full text-left px-2.5 py-2 text-sm border-b border-[#E5E9F0] last:border-b-0 focus:outline-none focus:bg-[#16A34A]/10 focus:text-[#1E293B] ${o.value === value ? 'bg-[#16A34A]/10 text-[#1E293B] font-semibold' : 'text-[#64748B] hover:bg-gray-50'}`}
+                className={`block w-full text-left px-2.5 py-2 text-sm border-b border-[#E5E9F0] last:border-b-0 focus:outline-none focus:bg-[#16A34A]/20 focus:text-[#1E293B] focus:shadow-[inset_3px_0_0_0_#16A34A] ${o.value === value ? 'bg-[#16A34A]/15 text-[#1E293B] font-semibold' : 'text-[#64748B] hover:bg-gray-50'}`}
               >
                 {o.label}
               </button>
@@ -195,7 +206,7 @@ function LocalStepper({ value, onChange, integer = false, align = 'center' }: {
           }
         }}
         onClick={(e) => e.stopPropagation()}
-        className={`w-full min-w-0 px-1 h-10 text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-l-lg rounded-r-none focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${align === 'right' ? 'text-right' : 'text-center'}`}
+        className={`w-full min-w-0 px-1 h-10 text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-l-lg rounded-r-none focus:outline-none pos-cell [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${align === 'right' ? 'text-right' : 'text-center'}`}
       />
       <span className="flex flex-col shrink-0 border border-l-0 border-[#D5DBE5] rounded-r-lg overflow-hidden bg-white">
         <button
@@ -240,7 +251,7 @@ export default function CartItems({
   const [qtyDraft, setQtyDraft] = useState<Record<number, string>>({});
   const [cellDraft, setCellDraft] = useState<Record<string, string>>({});
   const prevCountRef = useRef(items.length);
-  const lastFocusRef = useRef<{ rowId: string; cell: string } | null>(null);
+  const lastFocusRef = useRef<{ rowId: string; cell: string; productUuid?: string } | null>(null);
   const [pinnedCell, setPinnedCell] = useState<string | null>(null);
 
   // CSS class pinning the last-touched cell so the green outline survives
@@ -307,7 +318,7 @@ export default function CartItems({
   // Single product combobox: matches by drug code OR name, shows both in
   // the dropdown. Code is search-only (no separate column anymore).
   const renderEntryInput = (e: number, field: 'code' | 'name', placeholder: string) => (
-    <div className="relative w-full max-w-full overflow-visible">
+    <div className="relative w-full max-w-full bg-white border border-[#D5DBE5] rounded-lg pos-cell">
       <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B] pointer-events-none" />
       <input
         ref={(el) => { inputRefs.current[`pq-${e}-${field}`] = el; }}
@@ -326,7 +337,7 @@ export default function CartItems({
           else if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && !ev.shiftKey) { ev.preventDefault(); ev.stopPropagation(); window.dispatchEvent(new CustomEvent('pos-checkout-request')); }
           else if (ev.key === 'Escape') { ev.stopPropagation(); setPq(''); setEditRow(null); (ev.target as HTMLInputElement).blur(); }
         }}
-        className="w-full bg-white border border-[#D5DBE5] rounded-lg text-[#1E293B] placeholder:text-[#64748B] pl-8 pr-7 py-1.5 text-sm focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
+        className="w-full bg-transparent border-0 text-[#1E293B] placeholder:text-[#64748B] pl-8 pr-7 py-1.5 text-sm focus:outline-none"
       />
       <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B] pointer-events-none" />
       {editRow === e && editField === field && pq.trim().length >= 1 && (
@@ -462,16 +473,67 @@ export default function CartItems({
     return () => { cancelled = true; clearTimeout(timer); };
   }, [pq, editRow]);
 
-  // After any add, focus the new row's name cell so the Enter chain
-  // (name → uom → qty → free → batch → next line) starts immediately.
+  // After any add, land on the new row's UOM control (falling back to Qty,
+  // then the name cell). Unit data loads a beat after the row mounts, so a
+  // missing UOM button means "not loaded yet", not "single unit": retry
+  // briefly instead of skipping the column — but never yank focus if the
+  // cashier already moved on (focus elsewhere, or typing a new search).
   useEffect(() => {
     if (items.length > prevCountRef.current) {
       const last = items[items.length - 1];
-      requestAnimationFrame(() => {
-        const el = document.querySelector(`[data-cell="name"][data-row="${last.id}"]`) as HTMLElement | null;
+      const source = document.activeElement as HTMLInputElement | null;
+      let tries = 0;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      let cancelled = false;
+      const settled = () => {
+        const ae = document.activeElement as HTMLInputElement | null;
+        if (!ae || ae === document.body) return true;
+        if (ae !== source) return false;
+        return !ae.value;
+      };
+      const openUomPicker = (el: HTMLElement) => {
+        // Reuse the picker's own Enter-to-open path (bubbles to the React
+        // handler) so no second Enter is needed.
+        el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      };
+      const attempt = () => {
+        if (cancelled || !settled()) return;
+        const row = document.querySelector(
+          `[data-invoice-row][data-rowid="${last.id}"]`
+        );
+        const uom = row?.querySelector('[data-cell="uom"]') as HTMLElement | null;
+        if (uom) {
+          console.log('[GRID] new-row focus:', last.id, 'UOM');
+          uom.focus();
+          if (document.activeElement !== uom) {
+            // Focus didn't take (blurred window or a render race) — retry
+            // once next frame, then open regardless: opening never needs
+            // focus, and the ring follows wherever focus actually lands.
+            requestAnimationFrame(() => {
+              if (cancelled) return;
+              uom.focus();
+              console.log('[GRID] uom refocus landed on:', document.activeElement?.tagName);
+              openUomPicker(uom);
+            });
+            return;
+          }
+          openUomPicker(uom);
+          return;
+        }
+        if (++tries < 8) {
+          timer = setTimeout(attempt, 120);
+          return;
+        }
+        const el = (row?.querySelector('[data-cell="qty"]') as HTMLElement | null)
+          ?? (document.querySelector(`[data-cell="name"][data-row="${last.id}"]`) as HTMLElement | null);
         console.log('[GRID] new-row focus:', last.id, el ? 'FOUND' : 'MISSING');
         el?.focus();
-      });
+      };
+      attempt();
+      return () => {
+        cancelled = true;
+        if (timer) clearTimeout(timer);
+      };
     }
     prevCountRef.current = items.length;
   }, [items]);
@@ -504,9 +566,17 @@ export default function CartItems({
     if (ae && ae !== document.body) return;
     const lf = lastFocusRef.current;
     if (!lf) return;
-    const nameEl = document.querySelector(
+    let nameEl = document.querySelector(
       `[data-cell="name"][data-row="${lf.rowId}"]`
     );
+    if (!nameEl && lf.productUuid) {
+      // The row id is gone (e.g. a UOM switch merged this row into a
+      // sibling): fall back to the same product's surviving row so the
+      // keyboard flow continues instead of dying on <body>.
+      nameEl = document.querySelector(
+        `[data-invoice-row][data-product="${lf.productUuid}"] [data-cell="name"]`
+      );
+    }
     const row = nameEl?.closest('[data-invoice-row]');
     const target =
       (row?.querySelector(`[data-cell="${lf.cell}"]`) as HTMLElement | null) ??
@@ -669,7 +739,7 @@ export default function CartItems({
             // drops focus, we put it back on the same row + cell.
             // Also pin the highlight so it survives focus leaving the grid.
             const t = e.target as HTMLElement;
-            const row = t.closest?.('tr');
+            const row = t.closest?.('[data-invoice-row]');
             const rowKey = row?.getAttribute('data-rowid');
             const cell = t.closest?.('[data-cell]');
             const cellName = cell?.getAttribute('data-cell');
@@ -682,6 +752,7 @@ export default function CartItems({
               lastFocusRef.current = {
                 rowId,
                 cell: cellName || '',
+                productUuid: row?.getAttribute('data-product') || undefined,
               };
             }
           }}
@@ -703,6 +774,7 @@ export default function CartItems({
               <div data-invoice-row
                 key={`${item.product_uuid}_${item.unit_uuid || index}`}
                 data-rowid={item.id}
+                data-product={item.product_uuid}
                 tabIndex={0}
                 onClick={() => { setActiveRow(item.id); onSelectRow?.(item); }}
                 onKeyDown={(ev) => {
@@ -824,7 +896,7 @@ export default function CartItems({
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-full min-w-0 px-1 py-1 text-center text-sm font-semibold text-[#1E293B] bg-white border border-[#D5DBE5] rounded-l-lg rounded-r-none focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-full min-w-0 px-1 py-1 text-center text-sm font-semibold text-[#1E293B] bg-white border border-[#D5DBE5] rounded-l-lg rounded-r-none focus:outline-none pos-cell [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <span className="flex flex-col shrink-0 border border-l-0 border-[#D5DBE5] rounded-r-lg overflow-hidden bg-white">
                       <button
@@ -871,7 +943,7 @@ export default function CartItems({
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-full min-w-0 px-1 py-1 text-center text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-l-lg rounded-r-none focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-full min-w-0 px-1 py-1 text-center text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-l-lg rounded-r-none focus:outline-none pos-cell [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <span className="flex flex-col shrink-0 border border-l-0 border-[#D5DBE5] rounded-r-lg overflow-hidden bg-white">
                       <button
@@ -930,7 +1002,7 @@ export default function CartItems({
                             setBatchOpenFor(null);
                           }
                         }}
-                        className="max-w-full w-full overflow-hidden flex items-center gap-1.5 bg-white border border-[#D5DBE5] rounded-lg px-2 py-1 text-sm text-[#1E293B] hover:border-[#16A34A] focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
+                        className={`max-w-full w-full overflow-hidden flex items-center gap-1.5 bg-white border border-[#D5DBE5] rounded-lg px-2 py-1 text-sm text-[#1E293B] hover:border-[#16A34A] focus:outline-none pos-cell ${batchOpenFor === item.id ? 'border-[#16A34A] shadow-[0_0_0_3px_rgba(22,163,74,0.18)]' : ''}`}
                         title="Switch batch"
                       >
                         <Package className="w-4 h-4 text-[#64748B] shrink-0" />
@@ -982,7 +1054,7 @@ export default function CartItems({
                                       el?.focus();
                                     });
                                   }}
-                                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-left text-sm border-b border-[#E5E9F0] last:border-b-0 focus:outline-none focus:bg-[#16A34A]/10 focus:text-[#1E293B] ${selected ? 'bg-[#16A34A]/10 text-[#1E293B]' : 'text-[#64748B] hover:bg-gray-50'}`}
+                                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-left text-sm border-b border-[#E5E9F0] last:border-b-0 focus:outline-none focus:bg-[#16A34A]/20 focus:text-[#1E293B] focus:shadow-[inset_3px_0_0_0_#16A34A] ${selected ? 'bg-[#16A34A]/15 text-[#1E293B] font-semibold' : 'text-[#64748B] hover:bg-gray-50'}`}
                                 >
                                   <span className="font-semibold truncate">{b.batch_number}</span>
                                   <span className="text-[#64748B] whitespace-nowrap">{fmtExp(b.expiry_date)} • {b.quantity}</span>
@@ -1027,7 +1099,7 @@ export default function CartItems({
                       }
                     }}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-full min-w-0 px-1 py-1 text-right text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    className="w-full min-w-0 px-1 py-1 text-right text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg focus:outline-none pos-cell [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </div>
                 <div data-invoice-cell className={`${td}`}>
@@ -1041,7 +1113,7 @@ export default function CartItems({
                       }
                     }}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-full min-w-0 px-1 py-1 text-center text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
+                    className="w-full min-w-0 px-1 py-1 text-center text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg focus:outline-none pos-cell"
                   >
                     {[0, 5, 12, 18, 28].map((g) => (
                       <option key={g} value={String(g)}>{g}%</option>
@@ -1168,7 +1240,7 @@ export default function CartItems({
                     value={ed(e, 'gst', '0')}
                     onChange={(ev) => setEd(e, 'gst', ev.target.value)}
                     onClick={(ev) => ev.stopPropagation()}
-                    className="w-full min-w-0 h-10 px-1 text-center text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg focus:outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-[#16A34A]/30"
+                    className="w-full min-w-0 h-10 px-1 text-center text-sm text-[#1E293B] bg-white border border-[#D5DBE5] rounded-lg focus:outline-none pos-cell"
                   >
                     {[0, 5, 12, 18, 28].map((g) => (
                       <option key={g} value={String(g)}>{g}%</option>

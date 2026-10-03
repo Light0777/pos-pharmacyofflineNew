@@ -10,7 +10,7 @@ import type { ReactNode, ButtonHTMLAttributes } from "react";
 // # | Product Name | UOM | Qty | Free | Batch | Expiry | Price | Rate |
 // GST% | GST Amt | Value | Action.
 export const INVOICE_GRID_COLUMNS =
-  "48px minmax(240px,2.4fr) 80px 80px 80px 1.1fr 1.1fr 100px 100px 90px 110px 120px 64px";
+  "48px minmax(240px,2.4fr) 120px 80px 80px 1.1fr 1.1fr 100px 100px 90px 110px 120px 64px";
 
 export const POS_GREEN = "#16A34A";
 export const POS_GREEN_HOVER = "#15803D";
