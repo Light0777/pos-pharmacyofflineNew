@@ -4,7 +4,7 @@ import type { Product } from "../../../renderer/types/product";
 import { getProductBatches, getProductUnits, getAvailableBatches, getProductByBarcode } from "../../../renderer/services/productApi";
 import { getTopProducts } from "../../../renderer/services/reportApi";
 import { Search, X, Barcode, Keyboard, Package } from "lucide-react";
-import { ShortcutBadge } from "./posUi";
+import { ShortcutBadge, displayUnitName } from "./posUi";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   AlertCircleIcon,
@@ -152,7 +152,7 @@ function UnitSelectionModal({
               <SelectContent className="bg-white border-gray-300 text-gray-900">
                 {availableUnits.map((unit) => (
                   <SelectItem key={unit.unit_uuid} value={unit.unit_uuid}>
-                    {unit.unit_name} {unit.is_base_unit && "(Base)"}
+                    {displayUnitName(unit.unit_name, product)} {unit.is_base_unit && "(Base)"}
                     {unit.price && ` - ₹${unit.price}`}
                   </SelectItem>
                 ))}
@@ -231,7 +231,7 @@ function UnitSelectionModal({
               </label>
               {selectedUnit && (
                 <span className="text-sm text-gray-500">
-                  Available: <span className="font-semibold text-gray-800">{availableForUnit}</span> {selectedUnit.unit_name.toLowerCase()}
+                  Available: <span className="font-semibold text-gray-800">{availableForUnit}</span> {displayUnitName(selectedUnit.unit_name, product).toLowerCase()}
                 </span>
               )}
             </div>

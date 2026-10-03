@@ -2,7 +2,7 @@ import { ChevronUp, ChevronDown, Search, Package, Calendar, Trash2 } from "lucid
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState, useRef } from 'react';
 import { getProductUnits, getProductBatches, searchProducts } from "../../../renderer/services/productApi";
-import { INVOICE_GRID_COLUMNS } from "./posUi";
+import { INVOICE_GRID_COLUMNS, displayUnitName } from "./posUi";
 
 interface CartItem {
   id: number;
@@ -445,7 +445,7 @@ export default function CartItems({
         setRowInfo((prev) => ({
           ...prev,
           [key]: {
-            unit: (item as any).unit_name || unit?.unit_name,
+            unit: displayUnitName((item as any).unit_name || unit?.unit_name, item.product),
             units: unitList.map((x: any) => ({
               unit_uuid: x.unit_uuid,
               unit_name: x.unit_name,
@@ -924,7 +924,7 @@ export default function CartItems({
                   {info.units && info.units.length > 1 && onChangeUnit ? (
                     <GridPicker
                       value={item.unit_uuid || ''}
-                      options={info.units.map((u) => ({ value: u.unit_uuid, label: u.unit_name }))}
+                      options={info.units.map((u) => ({ value: u.unit_uuid, label: displayUnitName(u.unit_name, item.product) }))}
                       onPick={(v) => onChangeUnit(item, v)}
                     />
                   ) : (info.unit || '—')}

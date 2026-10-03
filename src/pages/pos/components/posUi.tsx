@@ -12,6 +12,20 @@ import type { ReactNode, ButtonHTMLAttributes } from "react";
 export const INVOICE_GRID_COLUMNS =
   "48px minmax(240px,2.4fr) 120px 80px 80px 1.1fr 1.1fr 100px 100px 90px 110px 120px 64px";
 
+// Display name for a product unit. Supplier-invoice import creates an
+// internal base unit literally named "supplier_unit" (backend stock math
+// keys off that exact string — never rename it). Show the product's own
+// selling unit instead so the internal name never leaks into pickers.
+export function displayUnitName(
+  unitName?: string | null,
+  product?: { unit?: string | null } | null
+): string {
+  if (!unitName || unitName === "supplier_unit") {
+    return (product as any)?.unit || "Pc";
+  }
+  return unitName;
+}
+
 export const POS_GREEN = "#16A34A";
 export const POS_GREEN_HOVER = "#15803D";
 export const POS_GREEN_DISABLED = "#86D6A4";
